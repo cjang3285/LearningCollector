@@ -5,11 +5,31 @@ Claude Export 파서
 conversations.zip을 파싱하여 대화 데이터를 추출합니다.
 """
 
+import os
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 import json
 import zipfile
+import logging
 from datetime import datetime
 from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
+
+from config.settings import get_log_file
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(get_log_file('claude_parse')),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

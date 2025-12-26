@@ -79,18 +79,30 @@ class ClaudeSaver(BaseSaver):
         self, conversation_data: Dict, artifact_date: date
     ) -> int:
         """Claude 대화 전체 저장 (파일 + DB)"""
-        # 1. 파일로 저장
+        # 1. 코드 언어 추출
+        code_languages = []
+        code_blocks = conversation_data.get("code_blocks", [])
+        if code_blocks:
+            code_languages = list(set(
+                block.get("language", "unknown")
+                for block in code_blocks
+                if block.get("language")
+            ))
+        conversation_data["code_languages"] = code_languages
+        conversation_data["code_blocks_count"] = len(code_blocks)
+
+        # 2. 파일로 저장
         filename = f"conversation_{conversation_data['uuid']}.json"
         storage_path = self.save_to_file(
             conversation_data, artifact_date, "claude", filename
         )
 
-        # 2. learning_artifacts에 저장
+        # 3. learning_artifacts에 저장
         artifact_id = self.save_artifact(
             artifact_date=artifact_date,
             source_type="claude",
             title=conversation_data.get("name", "Untitled")[:500],
-            tags=["claude"] + conversation_data.get("code_languages", []),
+            tags=["claude"] + code_languages,
             storage_path=storage_path,
             summary=conversation_data.get("summary"),
             metadata={
@@ -100,7 +112,8 @@ class ClaudeSaver(BaseSaver):
             },
         )
 
-        # 3. claude_conversations에 저장
+        # 4. claude_conversations에 저장
+        conversation_data["conversation_path"] = storage_path
         self.save_conversation(artifact_id, conversation_data)
 
         return artifact_id

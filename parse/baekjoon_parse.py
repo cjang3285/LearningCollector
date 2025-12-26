@@ -6,9 +6,29 @@
 코드에서 주석을 추출하고 분석합니다.
 """
 
+import os
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 import re
+import logging
 from typing import List, Dict, Tuple
 from dataclasses import dataclass, asdict, field
+
+from config.settings import get_log_file
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(get_log_file('baekjoon_parse')),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

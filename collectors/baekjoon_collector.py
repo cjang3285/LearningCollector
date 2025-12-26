@@ -50,19 +50,49 @@ class BaekjoonCollector:
         logger.info(f"백준 데이터 수집 시작: {target_date}")
 
         try:
-            # 백준도 현재는 스킵 (추후 구현)
-            logger.info("백준 수집은 현재 구현되지 않았습니다 (추후 구현 예정)")
+            # 1. Export - solved.ac API + Selenium으로 문제 풀이 수집
+            from export.baekjoon_export import BaekjoonExporter
+            exporter = BaekjoonExporter()
+
+            logger.info("[1/3] 백준에서 오늘 푼 문제 수집...")
+            problems = exporter.export_today()
+
+            if not problems:
+                logger.info("수집된 문제가 없습니다.")
+                return {
+                    'success': True,
+                    'date': target_date,
+                    'solutions_count': 0,
+                    'artifact_ids': []
+                }
+
+            # 2. Parse - 문제 데이터 파싱
+            from parse.baekjoon_parse import BaekjoonParser
+            parser = BaekjoonParser()
+
+            logger.info(f"[2/3] {len(problems)}개 문제 파싱...")
+            parsed_problems = parser.parse_problems(problems)
+
+            # 3. Save - DB 저장
+            logger.info(f"[3/3] DB에 저장... ({len(parsed_problems)}개)")
+            artifact_ids = self.saver.save_all(
+                [prob.to_dict() for prob in parsed_problems],
+                target_date
+            )
+
+            logger.info(f"백준 수집 완료: {len(artifact_ids)}개 저장")
 
             return {
                 'success': True,
                 'date': target_date,
-                'solutions_count': 0,
-                'artifact_ids': [],
-                'message': 'Baekjoon collector not implemented yet'
+                'solutions_count': len(parsed_problems),
+                'artifact_ids': artifact_ids
             }
 
         except Exception as e:
             logger.error(f"백준 수집 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'date': target_date,

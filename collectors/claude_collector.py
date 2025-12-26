@@ -50,19 +50,76 @@ class ClaudeCollector:
         logger.info(f"Claude 데이터 수집 시작: {target_date}")
 
         try:
-            # Claude는 수동 Export가 필요하므로 현재는 스킵
-            logger.info("Claude 수집은 현재 구현되지 않았습니다 (수동 Export 필요)")
+            # 1. Export - Claude.ai에서 대화 내보내기
+            from export.claude_export import ClaudeExporter
+            exporter = ClaudeExporter()
+
+            logger.info("[1/3] Claude.ai에서 대화 내보내기...")
+            zip_path = exporter.export()
+
+            if not zip_path:
+                logger.info("수집된 대화가 없습니다.")
+                return {
+                    'success': True,
+                    'date': target_date,
+                    'conversations_count': 0,
+                    'artifact_ids': []
+                }
+
+            # 2. Parse - ZIP 파일 파싱
+            from parse.claude_parse import ClaudeParser
+            parser = ClaudeParser()
+
+            logger.info(f"[2/3] ZIP 파일 파싱: {zip_path}")
+            all_conversations = parser.parse_zip(zip_path)
+
+            # 날짜 필터링
+            from datetime import datetime, timezone
+            today_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+            today_end = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+
+            filtered_conversations = parser.filter_by_date(
+                all_conversations,
+                after=today_start,
+                before=today_end,
+                min_messages=2
+            )
+
+            if not filtered_conversations:
+                logger.info(f"{target_date}에 해당하는 대화가 없습니다.")
+                return {
+                    'success': True,
+                    'date': target_date,
+                    'conversations_count': 0,
+                    'artifact_ids': []
+                }
+
+            # 파싱된 대화 데이터 생성
+            parsed_conversations = [
+                parser.parse_conversation(conv)
+                for conv in filtered_conversations
+            ]
+
+            # 3. Save - DB 저장
+            logger.info(f"[3/3] DB에 저장... ({len(parsed_conversations)}개)")
+            artifact_ids = self.saver.save_all(
+                [conv.to_dict() for conv in parsed_conversations],
+                target_date
+            )
+
+            logger.info(f"Claude 수집 완료: {len(artifact_ids)}개 저장")
 
             return {
                 'success': True,
                 'date': target_date,
-                'conversations_count': 0,
-                'artifact_ids': [],
-                'message': 'Claude export requires manual operation'
+                'conversations_count': len(parsed_conversations),
+                'artifact_ids': artifact_ids
             }
 
         except Exception as e:
             logger.error(f"Claude 수집 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'date': target_date,
