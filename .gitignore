@@ -1,0 +1,164 @@
+# ========================================
+# 민감 정보 (Sensitive Data)
+# ========================================
+
+# 환경변수 및 설정
+.env
+.env.local
+.env.*.local
+config/secrets.py
+config/local_settings.py
+
+# 쿠키 및 인증 정보
+*.pkl
+*.cookie
+*cookies*.json
+*cookies*.pkl
+temp/claude_cookies.json
+temp/baekjoon_cookies.json
+
+# API 키 및 토큰
+*token*.txt
+*secret*.txt
+*key*.json
+credentials.json
+auth.json
+
+# ========================================
+# 임시 파일 및 다운로드
+# ========================================
+
+# temp 디렉토리
+temp/
+!temp/.gitkeep
+
+# 다운로드 파일
+*.zip
+*.tar.gz
+downloads/
+
+# ========================================
+# 로그 파일
+# ========================================
+
+logs/
+*.log
+!logs/.gitkeep
+
+# ========================================
+# 출력 데이터
+# ========================================
+
+# 수집된 학습 데이터 (learning artifacts)
+output/
+learning_artifacts/
+artifacts/
+!output/.gitkeep
+!learning_artifacts/.gitkeep
+
+# JSON 데이터 파일 (민감할 수 있음)
+*learning*.json
+*artifact*.json
+*conversation*.json
+
+# PDF, 이미지 등 바이너리 데이터
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# ========================================
+# Python
+# ========================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# ========================================
+# 데이터베이스
+# ========================================
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL 백업
+*.sql
+*.dump
+
+# 데이터베이스 마이그레이션 (민감한 경우)
+# migrations/versions/*.py
+
+# ========================================
+# OS
+# ========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ========================================
+# 기타
+# ========================================
+
+# 캐시 파일
+*.cache
+.cache/
+
+# 백업 파일
+*.bak
+*.backup
+*.old
+
+# 테스트 출력
+test_output/
+.pytest_cache/
+.coverage
+htmlcov/
