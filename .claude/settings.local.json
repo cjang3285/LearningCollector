@@ -13,7 +13,10 @@
       "Bash(scp Z:LearningConvertedToLogdeploy_learning_schema.sql jcw@183.101.163.146:~/)",
       "Bash(python:*)",
       "Bash(tar:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git ls-tree:*)"
     ]
   }
 }
