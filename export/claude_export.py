@@ -57,11 +57,13 @@ class ClaudeExporter:
         options = Options()
 
         if self.headless:
-            options.add_argument("--headless=new")
+            options.add_argument("--headless")
+            options.add_argument("--disable-software-rasterizer")
 
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
 
         prefs = {
             "download.default_directory": str(self.download_dir),
@@ -98,7 +100,6 @@ class ClaudeExporter:
                     raise Exception(f"chromedriver를 찾을 수 없습니다: {e}")
                 continue
 
-        self.driver.set_window_size(1920, 1080)
         logger.info("WebDriver 설정 완료")
 
     def save_cookies(self):

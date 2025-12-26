@@ -157,11 +157,13 @@ class BaekjoonExporter:
         options.binary_location = "/usr/bin/chromium-browser"
 
         if self.headless:
-            options.add_argument("--headless=new")
+            options.add_argument("--headless")
+            options.add_argument("--disable-software-rasterizer")
 
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
 
         # chromedriver 경로 시도
         driver_paths = [
@@ -183,7 +185,6 @@ class BaekjoonExporter:
                     raise Exception(f"chromedriver를 찾을 수 없습니다: {e}")
                 continue
 
-        self.driver.set_window_size(1920, 1080)
         logger.info("Selenium WebDriver 초기화 완료")
     
     def save_cookies(self):
