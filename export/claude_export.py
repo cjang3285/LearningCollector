@@ -69,12 +69,18 @@ class ClaudeExporter:
             )
 
             # Context 생성 (Cloudflare 우회 설정)
+            # 영구 사용자 프로필 사용 (Cloudflare trust 유지)
+            import os
+            user_data_dir = os.path.expanduser('~/.playwright-browsers/claude-profile')
+            os.makedirs(user_data_dir, exist_ok=True)
+
             self.context = self.browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                 accept_downloads=True,
                 locale='en-US',
                 timezone_id='America/New_York',
+                storage_state=user_data_dir + '/state.json' if os.path.exists(user_data_dir + '/state.json') else None,
                 # Cloudflare 우회를 위한 추가 헤더
                 extra_http_headers={
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -127,10 +133,34 @@ class ClaudeExporter:
         self.setup_browser()
 
         logger.info("브라우저에서 수동 로그인을 진행하세요...")
-        self.page.goto("https://claude.ai/login")
+        self.page.goto("https://claude.ai/login", wait_until='networkidle')
+
+        # Cloudflare Turnstile 자동 대기 (최대 30초)
+        try:
+            logger.info("Cloudflare 체크 대기 중...")
+            self.page.wait_for_selector("body", timeout=30000, state='visible')
+            # Turnstile iframe이 사라질 때까지 대기
+            self.page.wait_for_function(
+                "() => !document.querySelector('iframe[src*=\"challenges.cloudflare.com\"]')",
+                timeout=30000
+            )
+            logger.info("Cloudflare 체크 통과")
+        except Exception as e:
+            logger.warning(f"Cloudflare 대기 실패: {e}")
+
+        time.sleep(2)
         input("로그인 완료 후 Enter를 눌러주세요...")
 
+        # 쿠키 + 브라우저 상태 저장 (Cloudflare trust 포함)
         self.save_cookies()
+
+        # 브라우저 상태 저장 (localStorage, sessionStorage 등)
+        import os
+        user_data_dir = os.path.expanduser('~/.playwright-browsers/claude-profile')
+        os.makedirs(user_data_dir, exist_ok=True)
+        self.context.storage_state(path=user_data_dir + '/state.json')
+        logger.info(f"브라우저 상태 저장: {user_data_dir}/state.json")
+
         self.close()
         logger.info("설정 완료")
 
