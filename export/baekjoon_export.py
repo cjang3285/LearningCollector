@@ -167,7 +167,9 @@ class BaekjoonExporter:
         # Raspberry Pi의 경우 환경에 따라 Chromium 경로 자동 감지
         import platform
         import os
-        if platform.machine() == 'aarch64' or platform.machine() == 'armv7l':
+        is_raspberry_pi = platform.machine() in ('aarch64', 'armv7l')
+
+        if is_raspberry_pi:
             # Raspberry Pi에서 chromium 경로 확인
             chromium_paths = [
                 '/snap/bin/chromium',
@@ -181,8 +183,21 @@ class BaekjoonExporter:
                     break
 
         try:
-            # Selenium Manager가 자동으로 chromedriver 관리
-            self.driver = webdriver.Chrome(options=options)
+            if is_raspberry_pi:
+                # Raspberry Pi에서는 수동으로 chromedriver 지정 (Selenium Manager 미지원)
+                driver_paths = ['/usr/bin/chromedriver', '/usr/lib/chromium-browser/chromedriver']
+                for driver_path in driver_paths:
+                    if os.path.exists(driver_path):
+                        service = Service(driver_path)
+                        self.driver = webdriver.Chrome(service=service, options=options)
+                        logger.info(f"chromedriver 사용: {driver_path}")
+                        break
+                else:
+                    raise Exception("chromedriver를 찾을 수 없습니다. sudo apt install chromium-chromedriver 실행")
+            else:
+                # 다른 플랫폼에서는 Selenium Manager 사용
+                self.driver = webdriver.Chrome(options=options)
+
             logger.info("Selenium WebDriver 초기화 완료")
         except Exception as e:
             raise Exception(f"WebDriver 초기화 실패: {e}")
