@@ -154,7 +154,8 @@ class BaekjoonExporter:
     def setup_driver(self):
         """Selenium WebDriver 설정"""
         options = Options()
-        options.binary_location = "/usr/bin/chromium-browser"
+        # Chromium 브라우저 경로 설정 (라즈베리파이 snap 버전)
+        options.binary_location = "/snap/bin/chromium"
 
         if self.headless:
             options.add_argument("--headless")

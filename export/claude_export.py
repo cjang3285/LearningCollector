@@ -77,8 +77,8 @@ class ClaudeExporter:
             "Chrome/120.0.0.0 Safari/537.36"
         )
 
-        # Chromium 브라우저 경로 설정 (라즈베리파이)
-        options.binary_location = "/usr/bin/chromium-browser"
+        # Chromium 브라우저 경로 설정 (라즈베리파이 snap 버전)
+        options.binary_location = "/snap/bin/chromium"
 
         # chromedriver 경로 시도
         driver_paths = [
