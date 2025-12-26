@@ -1,0 +1,43 @@
+===========================================
+Claude.ai 쿠키 수동 추출 (간단 가이드)
+===========================================
+
+Cloudflare 우회 방법: 일반 브라우저에서 로그인 후 쿠키만 복사
+
+1. Chrome/Edge에서 claude.ai 로그인
+
+2. F12 → Console 탭
+
+3. 아래 코드 복사 후 실행:
+
+---복사 시작---
+copy(JSON.stringify(
+  document.cookie.split(';').map(c => {
+    const [name, ...value] = c.trim().split('=');
+    return {
+      name: name,
+      value: value.join('='),
+      domain: '.claude.ai',
+      path: '/',
+      secure: true,
+      httpOnly: false,
+      sameSite: 'Lax'
+    };
+  }), null, 2
+));
+console.log('쿠키가 클립보드에 복사되었습니다!');
+---복사 끝---
+
+4. Raspberry Pi에서:
+   cd ~/learning-etl
+   nano temp/claude_cookies.json
+
+   붙여넣기 후 저장 (Ctrl+X, Y, Enter)
+
+5. 테스트:
+   source venv/bin/activate
+   python -m export.claude_export
+
+끝! Cloudflare 우회 없이 바로 작동합니다.
+
+쿠키 만료 시 (보통 7일): 1~4 반복
