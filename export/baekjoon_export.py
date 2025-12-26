@@ -154,6 +154,7 @@ class BaekjoonExporter:
     def setup_driver(self):
         """Selenium WebDriver 설정"""
         options = Options()
+        options.binary_location = "/usr/bin/chromium-browser"
 
         if self.headless:
             options.add_argument("--headless=new")
@@ -162,13 +163,25 @@ class BaekjoonExporter:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
 
-        # chromedriver 자동 감지
-        try:
-            self.driver = webdriver.Chrome(options=options)
-        except Exception:
-            # 수동 경로 지정
-            service = Service('/usr/bin/chromedriver')
-            self.driver = webdriver.Chrome(service=service, options=options)
+        # chromedriver 경로 시도
+        driver_paths = [
+            None,  # 자동 감지
+            '/usr/bin/chromedriver',
+            '/usr/lib/chromium-browser/chromedriver'
+        ]
+
+        for path in driver_paths:
+            try:
+                if path:
+                    service = Service(path)
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                else:
+                    self.driver = webdriver.Chrome(options=options)
+                break
+            except Exception as e:
+                if path == driver_paths[-1]:
+                    raise Exception(f"chromedriver를 찾을 수 없습니다: {e}")
+                continue
 
         self.driver.set_window_size(1920, 1080)
         logger.info("Selenium WebDriver 초기화 완료")

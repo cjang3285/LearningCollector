@@ -75,12 +75,28 @@ class ClaudeExporter:
             "Chrome/120.0.0.0 Safari/537.36"
         )
 
-        # chromedriver 경로 (자동 탐지 시도)
-        try:
-            self.driver = webdriver.Chrome(options=options)
-        except:
-            service = Service('/usr/bin/chromedriver')  # 라즈베리파이
-            self.driver = webdriver.Chrome(service=service, options=options)
+        # Chromium 브라우저 경로 설정 (라즈베리파이)
+        options.binary_location = "/usr/bin/chromium-browser"
+
+        # chromedriver 경로 시도
+        driver_paths = [
+            None,  # 자동 감지
+            '/usr/bin/chromedriver',
+            '/usr/lib/chromium-browser/chromedriver'
+        ]
+
+        for path in driver_paths:
+            try:
+                if path:
+                    service = Service(path)
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                else:
+                    self.driver = webdriver.Chrome(options=options)
+                break
+            except Exception as e:
+                if path == driver_paths[-1]:
+                    raise Exception(f"chromedriver를 찾을 수 없습니다: {e}")
+                continue
 
         self.driver.set_window_size(1920, 1080)
         logger.info("WebDriver 설정 완료")
