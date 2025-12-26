@@ -108,6 +108,10 @@ ENV/
 # VSCode
 .vscode/
 
+# Claude Code (CLI tool)
+.claude/
+!.claude/settings.json
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
