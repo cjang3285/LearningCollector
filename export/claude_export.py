@@ -2,7 +2,7 @@
 """
 Claude Export 자동화
 
-Selenium을 사용하여 claude.ai에서 대화 Export를 자동으로 다운로드합니다.
+Playwright를 사용하여 claude.ai에서 대화 Export를 자동으로 다운로드합니다.
 """
 
 import os
@@ -13,14 +13,9 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import time
-import pickle
+import json
 import logging
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
 
 from config.settings import (
     CLAUDE_COOKIES_PATH,
@@ -42,94 +37,52 @@ logger = logging.getLogger(__name__)
 
 
 class ClaudeExporter:
-    """Claude.ai Export 자동화"""
+    """Claude.ai Export 자동화 (Playwright 사용)"""
 
     def __init__(self, headless=None, download_dir=None):
         self.headless = headless if headless is not None else SELENIUM_HEADLESS
         self.cookies_file = CLAUDE_COOKIES_PATH
         self.download_dir = Path(download_dir) if download_dir else CLAUDE_DOWNLOAD_DIR
         self.download_dir.mkdir(parents=True, exist_ok=True)
-        self.driver = None
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
         logger.info(f"ClaudeExporter 초기화: download_dir={self.download_dir}")
 
-    def setup_driver(self):
-        """Selenium WebDriver 설정"""
-        options = Options()
-
-        if self.headless:
-            options.add_argument("--headless")
-            options.add_argument("--disable-software-rasterizer")
-
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
-
-        prefs = {
-            "download.default_directory": str(self.download_dir),
-            "download.prompt_for_download": False,
-        }
-        options.add_experimental_option("prefs", prefs)
-
-        options.add_argument(
-            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
-
-        # Raspberry Pi ARM64 감지 및 snap chromium 사용
-        import platform
-        import os
-        import tempfile
-        is_raspberry_pi = platform.machine() in ('aarch64', 'armv7l')
-
-        if is_raspberry_pi:
-            # ARM64에서는 snap chromium 사용 (공식 ARM64 Chrome 없음)
-            options.binary_location = '/snap/bin/chromium'
-
-            # snap chromium의 샌드박스 문제 우회
-            # user-data-dir을 홈 디렉토리 내로 설정 (snap은 홈만 쓰기 가능)
-            user_data_dir = os.path.expanduser('~/.config/chromium-selenium')
-            os.makedirs(user_data_dir, exist_ok=True)
-            options.add_argument(f'--user-data-dir={user_data_dir}')
-
-            logger.info("Chromium 경로: /snap/bin/chromium (snap)")
-
+    def setup_browser(self):
+        """Playwright 브라우저 설정"""
         try:
-            if is_raspberry_pi:
-                # snap chromium의 내장 chromedriver 사용
-                driver_path = '/snap/bin/chromium.chromedriver'
-                if not os.path.exists(driver_path):
-                    raise Exception(
-                        "chromedriver를 찾을 수 없습니다.\n"
-                        "다음 명령어를 실행하세요:\n"
-                        "  sudo snap install chromium"
-                    )
+            self.playwright = sync_playwright().start()
 
-                # Service에 환경변수 추가 - snap 경로 접근 허용
-                service = Service(
-                    driver_path,
-                    env={
-                        'SNAP': '/snap/chromium/current',
-                        'SNAP_USER_COMMON': os.path.expanduser('~/snap/chromium/common'),
-                        'SNAP_USER_DATA': os.path.expanduser('~/snap/chromium/current')
-                    }
-                )
-                self.driver = webdriver.Chrome(service=service, options=options)
-                logger.info(f"chromedriver 사용: {driver_path}")
-            else:
-                # 다른 플랫폼에서는 Selenium Manager 사용
-                self.driver = webdriver.Chrome(options=options)
+            # Chromium 사용 (ARM64에서도 자동 설치됨)
+            self.browser = self.playwright.chromium.launch(
+                headless=self.headless,
+                args=[
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu'
+                ]
+            )
 
-            logger.info("WebDriver 설정 완료")
+            # Context 생성 (다운로드 경로 설정)
+            self.context = self.browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                accept_downloads=True
+            )
+
+            self.page = self.context.new_page()
+            logger.info("Playwright 브라우저 설정 완료")
+
         except Exception as e:
-            raise Exception(f"WebDriver 초기화 실패: {e}")
+            raise Exception(f"Playwright 초기화 실패: {e}")
 
     def save_cookies(self):
         """쿠키 저장"""
-        cookies = self.driver.get_cookies()
-        with open(self.cookies_file, 'wb') as f:
-            pickle.dump(cookies, f)
+        cookies = self.context.cookies()
+        with open(self.cookies_file, 'w') as f:
+            json.dump(cookies, f)
         logger.info(f"쿠키 저장: {self.cookies_file}")
 
     def load_cookies(self):
@@ -140,92 +93,71 @@ class ClaudeExporter:
                 "먼저 setup()을 실행하세요 (python -m export.claude_export --setup)"
             )
 
-        with open(self.cookies_file, 'rb') as f:
-            cookies = pickle.load(f)
+        with open(self.cookies_file, 'r') as f:
+            cookies = json.load(f)
 
-        self.driver.get("https://claude.ai")
-        time.sleep(2)
-
-        for cookie in cookies:
-            try:
-                self.driver.add_cookie(cookie)
-            except Exception as e:
-                logger.debug(f"쿠키 추가 실패 (무시): {e}")
-
+        self.context.add_cookies(cookies)
         logger.info("쿠키 로드 완료")
 
     def setup(self):
         """최초 1회 설정: 수동 로그인 후 쿠키 저장"""
         self.headless = False
-        self.setup_driver()
+        self.setup_browser()
 
         logger.info("브라우저에서 수동 로그인을 진행하세요...")
-        self.driver.get("https://claude.ai/login")
+        self.page.goto("https://claude.ai/login")
         input("로그인 완료 후 Enter를 눌러주세요...")
 
         self.save_cookies()
-        self.driver.quit()
+        self.close()
         logger.info("설정 완료")
 
     def export(self):
         """Export 실행 후 ZIP 파일 경로 반환"""
         logger.info("Claude Export 시작...")
-        self.setup_driver()
+        self.setup_browser()
         self.load_cookies()
 
-        self.driver.get("https://claude.ai")
-        time.sleep(3)
+        self.page.goto("https://claude.ai")
+        self.page.wait_for_load_state('networkidle')
 
         try:
             # 로그인 확인
-            WebDriverWait(self.driver, SELENIUM_TIMEOUT).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
+            self.page.wait_for_selector("body", timeout=SELENIUM_TIMEOUT * 1000)
             logger.info("로그인 확인 완료")
         except:
             logger.error("로그인 실패")
-            self.driver.quit()
+            self.close()
             return None
 
         # Settings 페이지로 이동
-        self.driver.get("https://claude.ai/settings/account")
-        time.sleep(3)
+        self.page.goto("https://claude.ai/settings/account")
+        self.page.wait_for_load_state('networkidle')
 
         try:
             # Privacy 탭 클릭
-            privacy_link = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, "//a[contains(text(), 'Privacy') or contains(@href, 'privacy')]")
-                )
-            )
+            privacy_link = self.page.locator("a:has-text('Privacy'), a[href*='privacy']").first
             privacy_link.click()
-            time.sleep(2)
+            self.page.wait_for_timeout(2000)
             logger.info("Privacy 탭 이동")
         except Exception as e:
             logger.warning(f"Privacy 탭 찾기 실패: {e}")
 
         try:
-            # Export 버튼 클릭
-            export_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH,
-                     "//button[contains(., 'Export') or contains(., 'export') or contains(., 'Download')]")
-                )
-            )
-            export_button.click()
-            logger.info("Export 버튼 클릭")
+            # Export 버튼 클릭 및 다운로드 대기
+            with self.page.expect_download(timeout=60000) as download_info:
+                export_button = self.page.locator("button:has-text('Export'), button:has-text('export'), button:has-text('Download')").first
+                export_button.click()
+                logger.info("Export 버튼 클릭")
 
-            # ZIP 파일 다운로드 대기
-            time.sleep(30)
+            download = download_info.value
 
-            zip_files = list(self.download_dir.glob("conversations*.zip"))
-            if zip_files:
-                latest = max(zip_files, key=lambda p: p.stat().st_mtime)
-                logger.info(f"Export 완료: {latest}")
-                return str(latest)
-            else:
-                logger.warning("ZIP 파일을 찾을 수 없습니다")
-                return None
+            # 다운로드 파일 저장
+            save_path = self.download_dir / download.suggested_filename
+            download.save_as(save_path)
+            logger.info(f"Export 완료: {save_path}")
+
+            return str(save_path)
 
         except Exception as e:
             logger.error(f"Export 실패: {e}")
@@ -234,7 +166,16 @@ class ClaudeExporter:
             return None
 
         finally:
-            self.driver.quit()
+            self.close()
+
+    def close(self):
+        """브라우저 종료"""
+        if self.context:
+            self.context.close()
+        if self.browser:
+            self.browser.close()
+        if self.playwright:
+            self.playwright.stop()
 
 
 if __name__ == '__main__':
