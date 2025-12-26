@@ -77,36 +77,46 @@ class ClaudeExporter:
             "Chrome/120.0.0.0 Safari/537.36"
         )
 
-        # Raspberry Pi의 경우 환경에 따라 Chromium 경로 자동 감지
+        # Raspberry Pi ARM64 감지 및 snap chromium 사용
         import platform
         import os
+        import tempfile
         is_raspberry_pi = platform.machine() in ('aarch64', 'armv7l')
 
         if is_raspberry_pi:
-            # Raspberry Pi에서 chromium 경로 확인
-            chromium_paths = [
-                '/snap/bin/chromium',
-                '/usr/bin/chromium-browser',
-                '/usr/bin/chromium'
-            ]
-            for chromium_path in chromium_paths:
-                if os.path.exists(chromium_path):
-                    options.binary_location = chromium_path
-                    logger.info(f"Chromium 경로 설정: {chromium_path}")
-                    break
+            # ARM64에서는 snap chromium 사용 (공식 ARM64 Chrome 없음)
+            options.binary_location = '/snap/bin/chromium'
+
+            # snap chromium의 샌드박스 문제 우회
+            # user-data-dir을 홈 디렉토리 내로 설정 (snap은 홈만 쓰기 가능)
+            user_data_dir = os.path.expanduser('~/.config/chromium-selenium')
+            os.makedirs(user_data_dir, exist_ok=True)
+            options.add_argument(f'--user-data-dir={user_data_dir}')
+
+            logger.info("Chromium 경로: /snap/bin/chromium (snap)")
 
         try:
             if is_raspberry_pi:
-                # Raspberry Pi에서는 수동으로 chromedriver 지정 (Selenium Manager 미지원)
-                driver_paths = ['/usr/bin/chromedriver', '/usr/lib/chromium-browser/chromedriver']
-                for driver_path in driver_paths:
-                    if os.path.exists(driver_path):
-                        service = Service(driver_path)
-                        self.driver = webdriver.Chrome(service=service, options=options)
-                        logger.info(f"chromedriver 사용: {driver_path}")
-                        break
-                else:
-                    raise Exception("chromedriver를 찾을 수 없습니다. sudo apt install chromium-chromedriver 실행")
+                # snap chromium의 내장 chromedriver 사용
+                driver_path = '/snap/bin/chromium.chromedriver'
+                if not os.path.exists(driver_path):
+                    raise Exception(
+                        "chromedriver를 찾을 수 없습니다.\n"
+                        "다음 명령어를 실행하세요:\n"
+                        "  sudo snap install chromium"
+                    )
+
+                # Service에 환경변수 추가 - snap 경로 접근 허용
+                service = Service(
+                    driver_path,
+                    env={
+                        'SNAP': '/snap/chromium/current',
+                        'SNAP_USER_COMMON': os.path.expanduser('~/snap/chromium/common'),
+                        'SNAP_USER_DATA': os.path.expanduser('~/snap/chromium/current')
+                    }
+                )
+                self.driver = webdriver.Chrome(service=service, options=options)
+                logger.info(f"chromedriver 사용: {driver_path}")
             else:
                 # 다른 플랫폼에서는 Selenium Manager 사용
                 self.driver = webdriver.Chrome(options=options)
