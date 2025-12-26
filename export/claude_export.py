@@ -16,6 +16,7 @@ import time
 import json
 import logging
 from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
+from playwright_stealth import stealth_sync
 
 from config.settings import (
     CLAUDE_COOKIES_PATH,
@@ -91,14 +92,10 @@ class ClaudeExporter:
 
             self.page = self.context.new_page()
 
-            # navigator.webdriver 제거 (자동화 감지 우회)
-            self.page.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-            """)
+            # playwright-stealth 적용 (Cloudflare Turnstile 우회)
+            stealth_sync(self.page)
 
-            logger.info("Playwright 브라우저 설정 완료")
+            logger.info("Playwright 브라우저 설정 완료 (Stealth mode)")
 
         except Exception as e:
             raise Exception(f"Playwright 초기화 실패: {e}")
