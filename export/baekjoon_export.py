@@ -154,8 +154,6 @@ class BaekjoonExporter:
     def setup_driver(self):
         """Selenium WebDriver 설정"""
         options = Options()
-        # Chromium 브라우저 경로 설정 (라즈베리파이 snap 버전)
-        options.binary_location = "/snap/bin/chromium"
 
         if self.headless:
             options.add_argument("--headless")
@@ -166,27 +164,28 @@ class BaekjoonExporter:
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
 
-        # chromedriver 경로 시도
-        driver_paths = [
-            None,  # 자동 감지
-            '/usr/bin/chromedriver',
-            '/usr/lib/chromium-browser/chromedriver'
-        ]
+        # Raspberry Pi의 경우 환경에 따라 Chromium 경로 자동 감지
+        import platform
+        import os
+        if platform.machine() == 'aarch64' or platform.machine() == 'armv7l':
+            # Raspberry Pi에서 chromium 경로 확인
+            chromium_paths = [
+                '/snap/bin/chromium',
+                '/usr/bin/chromium-browser',
+                '/usr/bin/chromium'
+            ]
+            for chromium_path in chromium_paths:
+                if os.path.exists(chromium_path):
+                    options.binary_location = chromium_path
+                    logger.info(f"Chromium 경로 설정: {chromium_path}")
+                    break
 
-        for path in driver_paths:
-            try:
-                if path:
-                    service = Service(path)
-                    self.driver = webdriver.Chrome(service=service, options=options)
-                else:
-                    self.driver = webdriver.Chrome(options=options)
-                break
-            except Exception as e:
-                if path == driver_paths[-1]:
-                    raise Exception(f"chromedriver를 찾을 수 없습니다: {e}")
-                continue
-
-        logger.info("Selenium WebDriver 초기화 완료")
+        try:
+            # Selenium Manager가 자동으로 chromedriver 관리
+            self.driver = webdriver.Chrome(options=options)
+            logger.info("Selenium WebDriver 초기화 완료")
+        except Exception as e:
+            raise Exception(f"WebDriver 초기화 실패: {e}")
     
     def save_cookies(self):
         """쿠키 저장"""
