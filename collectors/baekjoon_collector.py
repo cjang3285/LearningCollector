@@ -14,7 +14,7 @@ from datetime import date
 from typing import List, Dict
 import logging
 
-from db_savers.baekjoon_saver import BaekjoonSaver
+from storage.baekjoon_saver import BaekjoonSaver
 from config.settings import get_log_file
 
 logging.basicConfig(

@@ -12,8 +12,7 @@ from typing import Dict, Any
 from pathlib import Path
 
 # 각 소스 import
-from sources.claude_export import ClaudeExporter
-from sources.claude_parse import ClaudeParser
+from parse.claude_parse import ClaudeParser
 from sources.github_export import GitHubExporter
 from sources.github_parse import GitHubParser
 from sources.baekjoon_export import BaekjoonExporter
@@ -27,20 +26,15 @@ class LearningCollector:
         self.output_dir = Path.home() / "learning-data"
         self.output_dir.mkdir(exist_ok=True)
     
-    def collect_claude(self, zip_path: str = None) -> Dict:
-        """Claude 대화 수집"""
+    def collect_claude(self, zip_path: str) -> Dict:
+        """Claude 대화 수집 (수동 다운로드한 ZIP 파일 파싱)"""
         print("\n=== Claude 대화 수집 ===")
-        
+
         try:
-            # Export
             if not zip_path:
-                exporter = ClaudeExporter(headless=True)
-                zip_path = exporter.export()
-                
-                if not zip_path:
-                    print("❌ Claude Export 실패")
-                    return {'success': False, 'data': []}
-            
+                print("❌ Claude ZIP 파일 경로가 제공되지 않았습니다.")
+                return {'success': False, 'data': [], 'error': 'ZIP 파일 경로 필요'}
+
             # Parse
             parser = ClaudeParser()
             conversations = parser.parse_zip(zip_path)

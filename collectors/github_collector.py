@@ -16,7 +16,7 @@ import logging
 
 from export.github_export import GitHubExporter
 from parse.github_parse import GitHubParser
-from db_savers.github_saver import GitHubSaver
+from storage.github_saver import GitHubSaver
 from config.settings import get_log_file
 
 logging.basicConfig(

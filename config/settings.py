@@ -28,8 +28,7 @@ TEMP_DIR.mkdir(exist_ok=True)
 LOGS_DIR.mkdir(exist_ok=True)
 ARTIFACTS_DIR.mkdir(exist_ok=True)
 
-# Claude 설정
-CLAUDE_COOKIES_PATH = TEMP_DIR / 'claude_cookies.json'
+# Claude 설정 (수동 다운로드 방식)
 CLAUDE_DOWNLOAD_DIR = TEMP_DIR / 'claude_downloads'
 CLAUDE_DOWNLOAD_DIR.mkdir(exist_ok=True)
 

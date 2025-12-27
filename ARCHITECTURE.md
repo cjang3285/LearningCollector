@@ -1,266 +1,410 @@
-# Learning Artifacts 아키텍처 설계
+# Learning Artifacts ETL Pipeline - 아키텍처
 
-## 📊 개념: Learning Artifact (학습 아티팩트)
+## 📋 프로젝트 개요
 
-**Learning Artifact**는 모든 학습 활동의 산출물과 흔적을 의미합니다.
-
-### 왜 "Artifact"인가?
-
-- **소프트웨어 개발**: 빌드 산출물, 컴파일 결과물
-- **학습**: 코드, 대화, 문제풀이, 필기 등 **학습의 증거**
-- **확장성**: 다양한 소스를 하나의 개념으로 통합
-
-### 수집 소스 (현재 + 계획)
-
-| 소스 | 상태 | 설명 |
-|------|------|------|
-| GitHub | ✅ 구현 | 커밋, 코드 변경사항 |
-| Claude | ✅ 구현 | AI 대화 내용 |
-| 백준 | ✅ 구현 | 알고리즘 문제 풀이 |
-| GoodNotes | 📋 계획 | iPad 필기 (PDF → OCR) |
-| Notion | 📋 계획 | 학습 노트 |
-| Browser History | 📋 계획 | 학습 관련 웹페이지 |
-| YouTube | 📋 계획 | 시청 기록 |
-
----
+모든 학습 활동(GitHub 커밋, Claude 대화, 백준 문제풀이)을 자동으로 수집하여 PostgreSQL DB에 저장하고, 향후 블로그 포스팅으로 변환하는 ETL 파이프라인입니다.
 
 ## 🏗️ 시스템 아키텍처
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    데이터 수집 레이어                          │
-├─────────────────────────────────────────────────────────────┤
-│  Export 모듈                                                 │
-│  ├── GitHub API        (REST API)                           │
-│  ├── Claude Export     (Selenium 자동화)                     │
-│  ├── 백준 크롤링        (Selenium + solved.ac API)           │
-│  └── [미래] GoodNotes  (PDF 파싱 + OCR)                     │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    데이터 파싱 레이어                          │
-├─────────────────────────────────────────────────────────────┤
-│  Parse 모듈                                                  │
-│  ├── 구조화 (Dataclass)                                      │
-│  ├── 코드 분석 (언어 감지, 주석 추출)                         │
-│  └── 메타데이터 생성                                          │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                  저장 레이어 (하이브리드)                      │
-├─────────────────────────────────────────────────────────────┤
-│  PostgreSQL (메타데이터)      │  파일 시스템 (원본 데이터)    │
-│  ├── learning_artifacts       │  learning_artifacts/         │
-│  ├── github_commits           │  ├── 2025/12/26/            │
-│  ├── claude_conversations     │  │   ├── github/            │
-│  ├── baekjoon_solutions       │  │   ├── claude/            │
-│  └── blog_posts               │  │   └── baekjoon/          │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    AI 분석 레이어                             │
-├─────────────────────────────────────────────────────────────┤
-│  Claude API                                                  │
-│  ├── 학습 주제 추출                                           │
-│  ├── 핵심 포인트 요약                                         │
-│  └── 블로그 포스트 초안 생성                                  │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                  블로그 포스팅 레이어                          │
-├─────────────────────────────────────────────────────────────┤
-│  ├── 리뷰 대시보드 (웹 UI)                                    │
-│  ├── 수정/승인                                                │
-│  └── 자동 발행 (블로그 API)                                   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                           데이터 수집 (Export)                         │
+├─────────────────────────────────────────────────────────────────────┤
+│  export/                                                             │
+│  ├── github_export.py       → GitHub API로 커밋 수집                  │
+│  ├── claude_export.py       → [삭제됨] 수동 다운로드 방식으로 변경      │
+│  └── baekjoon_export.py     → solved.ac API + Selenium 크롤링        │
+└─────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                           데이터 파싱 (Parse)                          │
+├─────────────────────────────────────────────────────────────────────┤
+│  parse/                                                              │
+│  ├── github_parse.py        → 커밋 구조화, 언어 감지, 주석 추출        │
+│  ├── claude_parse.py        → 대화 파싱, 코드 블록 추출               │
+│  └── baekjoon_parse.py      → 문제 데이터 구조화, 코드 분석           │
+└─────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                          통합 수집 (Collectors)                        │
+├─────────────────────────────────────────────────────────────────────┤
+│  collectors/                                                         │
+│  ├── github_collector.py    → Export + Parse + Storage 통합          │
+│  ├── claude_collector.py    → Parse + Storage (수동 ZIP 입력)        │
+│  └── baekjoon_collector.py  → Export + Parse + Storage 통합          │
+└─────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                           데이터 저장 (Storage)                        │
+├─────────────────────────────────────────────────────────────────────┤
+│  storage/                                                            │
+│  ├── base_saver.py          → PostgreSQL 연결 베이스                  │
+│  ├── github_saver.py        → GitHub 커밋 → DB                       │
+│  ├── claude_saver.py        → Claude 대화 → DB                       │
+│  ├── baekjoon_saver.py      → 백준 문제풀이 → DB                      │
+│  └── artifact_saver.py      → 파일 시스템 저장 (미래)                 │
+└─────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                           PostgreSQL 데이터베이스                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  learning_artifacts/                                                 │
+│  ├── learning_artifacts     → 모든 학습 활동 메타데이터                │
+│  ├── github_commits         → GitHub 커밋                            │
+│  ├── claude_conversations   → Claude 대화                            │
+│  └── baekjoon_solutions     → 백준 문제풀이                           │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## 💾 저장 전략: 하이브리드 접근
-
-### 원칙
+## 📁 프로젝트 구조
 
 ```
-작고 자주 쿼리하는 데이터 → PostgreSQL
-크고 가끔 읽는 데이터 → 파일 시스템
+LearningConvertedToPost/
+├── main.py                     # 메인 진입점 (ETL 파이프라인 실행)
+│
+├── config/                     # 설정 관리
+│   ├── __init__.py
+│   └── settings.py            # 환경변수, DB 설정, 디렉토리 경로
+│
+├── export/                     # 데이터 수집 모듈
+│   ├── github_export.py       # GitHub REST API
+│   └── baekjoon_export.py     # solved.ac API + Selenium
+│
+├── parse/                      # 데이터 파싱 모듈
+│   ├── github_parse.py        # 커밋 데이터 구조화
+│   ├── claude_parse.py        # 대화 ZIP 파싱
+│   └── baekjoon_parse.py      # 문제 데이터 구조화
+│
+├── collectors/                 # 통합 수집기 (Export + Parse + Storage)
+│   ├── __init__.py
+│   ├── github_collector.py
+│   ├── claude_collector.py
+│   └── baekjoon_collector.py
+│
+├── storage/                    # 데이터 저장 모듈
+│   ├── __init__.py
+│   ├── base_saver.py          # PostgreSQL 베이스 클래스
+│   ├── github_saver.py        # GitHub DB 저장
+│   ├── claude_saver.py        # Claude DB 저장
+│   ├── baekjoon_saver.py      # 백준 DB 저장
+│   └── artifact_saver.py      # 파일 시스템 저장 (미래)
+│
+├── tests/                      # 테스트 코드
+│   ├── test_github.py
+│   └── test_db_save.py
+│
+├── docs/                       # 문서
+│   └── ARCHITECTURE.md        # 구 아키텍처 문서 (참고용)
+│
+└── temp/                       # 임시 파일 (gitignore)
+    └── claude_downloads/      # Claude 수동 다운로드 ZIP 저장 위치
 ```
 
-### 저장 규칙
+## 🔄 데이터 흐름
 
-| 데이터 | 크기 | 저장 위치 | 예시 |
-|--------|------|-----------|------|
-| 메타데이터 | < 10KB | PostgreSQL | 날짜, 제목, 요약, 통계 |
-| 짧은 텍스트 | < 100KB | PostgreSQL TEXT/JSONB | 코드 스니펫, 짧은 대화 |
-| 긴 텍스트 | > 100KB | 파일 (.json, .txt) | 전체 대화 로그, diff |
-| 바이너리 | > 1MB | 파일 (.pdf, .png) | PDF, 이미지 |
-
-### 파일 구조
-
-```
-learning_artifacts/
-├── 2025/
-│   └── 12/
-│       └── 26/
-│           ├── github/
-│           │   ├── commit_abc123.json          # 전체 커밋 데이터
-│           │   └── files/
-│           │       └── main.py                 # 변경된 파일 원본
-│           ├── claude/
-│           │   └── conversation_uuid.json      # 전체 대화 내용
-│           ├── baekjoon/
-│           │   ├── problem_1234.py             # 제출 코드
-│           │   └── problem_1234_analysis.json  # 분석 결과
-│           └── goodnotes/
-│               ├── notebook_1.pdf              # 원본 PDF
-│               ├── notebook_1_ocr.txt          # OCR 텍스트
-│               └── images/
-│                   ├── page_001.png
-│                   └── page_002.png
-```
-
-### PostgreSQL 테이블 설계
-
-핵심 테이블:
-1. **`learning_artifacts`** - 모든 학습 활동의 메타데이터
-2. **`github_commits`** - GitHub 커밋 (artifact에 연결)
-3. **`claude_conversations`** - Claude 대화 (artifact에 연결)
-4. **`baekjoon_solutions`** - 백준 풀이 (artifact에 연결)
-5. **`goodnotes_notes`** - GoodNotes 필기 (미래)
-6. **`blog_posts`** - 생성된 블로그 포스트
-
----
-
-## 🔍 데이터 흐름
-
-### 1. 수집 단계
+### 1. GitHub 수집 흐름
 
 ```python
-# export/github_export.py
-exporter = GitHubExporter()
-commits = exporter.export_today()  # GitHub API 호출
+# main.py
+etl = LearningETL()
+results = etl.run(target_date='2025-12-27')
+
+# collectors/github_collector.py
+collector = GitHubCollector()
+result = collector.collect(target_date)
+
+    # 1) Export
+    exporter = GitHubExporter()
+    commits = exporter.export_today(target_date)
+
+    # 2) Parse
+    parser = GitHubParser()
+    parsed_commits = parser.parse_commits(commits)
+
+    # 3) Storage
+    saver = GitHubSaver()
+    artifact_ids = saver.save_all(parsed_commits, target_date)
 ```
 
-### 2. 파싱 단계
+### 2. Claude 수집 흐름 (수동 다운로드 방식)
 
 ```python
-# parse/github_parse.py
-parser = GitHubParser()
-parsed = parser.parse_commits(commits)  # 구조화
+# main.py
+etl = LearningETL()
+results = etl.run(
+    target_date='2025-12-27',
+    claude_zip_path='/path/to/conversations.zip'  # 수동 다운로드한 ZIP
+)
+
+# collectors/claude_collector.py
+collector = ClaudeCollector()
+result = collector.collect(zip_path, target_date)
+
+    # 1) Parse (Export는 수동)
+    parser = ClaudeParser()
+    conversations = parser.parse_zip(zip_path)
+    filtered = parser.filter_by_date(conversations, target_date)
+
+    # 2) Storage
+    saver = ClaudeSaver()
+    artifact_ids = saver.save_all(filtered, target_date)
 ```
 
-### 3. 저장 단계
+### 3. 백준 수집 흐름
 
 ```python
-# storage/artifact_saver.py (미래 구현)
-saver = ArtifactSaver()
+# collectors/baekjoon_collector.py
+collector = BaekjoonCollector()
+result = collector.collect(target_date)
 
-# 1) 파일 시스템에 원본 저장
-file_path = saver.save_to_file(parsed, 'github')
-# → learning_artifacts/2025/12/26/github/commit_abc123.json
+    # 1) Export
+    exporter = BaekjoonExporter()
+    problems = exporter.export_today(target_date)
 
-# 2) PostgreSQL에 메타데이터 저장
-artifact_id = saver.save_to_db({
-    'artifact_date': '2025-12-26',
-    'source_type': 'github',
-    'title': commit.message,
-    'storage_path': file_path,
-    'metadata': {...}
-})
+    # 2) Parse
+    parser = BaekjoonParser()
+    parsed_problems = parser.parse_problems(problems)
+
+    # 3) Storage
+    saver = BaekjoonSaver()
+    artifact_ids = saver.save_all(parsed_problems, target_date)
 ```
 
-### 4. 조회/분석 단계
+## 💾 데이터베이스 스키마
+
+### learning_artifacts (통합 메타데이터)
 
 ```sql
--- 최근 7일 활동 조회
-SELECT * FROM learning_artifacts
-WHERE artifact_date >= CURRENT_DATE - INTERVAL '7 days'
-ORDER BY artifact_date DESC;
-
--- Python 관련 커밋만
-SELECT a.*, g.repo, g.message
-FROM learning_artifacts a
-JOIN github_commits g ON a.id = g.artifact_id
-WHERE 'python' = ANY(a.tags);
+CREATE TABLE learning_artifacts (
+    id SERIAL PRIMARY KEY,
+    artifact_date DATE NOT NULL,
+    source_type VARCHAR(50) NOT NULL,  -- 'github', 'claude', 'baekjoon'
+    title TEXT,
+    summary TEXT,
+    tags TEXT[],
+    storage_path TEXT,                 -- 파일 경로 (미래)
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
----
+### github_commits
 
-## 🎯 확장성 고려사항
+```sql
+CREATE TABLE github_commits (
+    id SERIAL PRIMARY KEY,
+    artifact_id INTEGER REFERENCES learning_artifacts(id),
+    repo VARCHAR(255) NOT NULL,
+    sha VARCHAR(40) NOT NULL,
+    message TEXT,
+    commit_date TIMESTAMP,
+    files_changed INTEGER,
+    additions INTEGER,
+    deletions INTEGER,
+    commit_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
 
-### 새로운 소스 추가 방법
+### claude_conversations
 
-1. **Export 모듈 작성** (`export/goodnotes_export.py`)
-2. **Parse 모듈 작성** (`parse/goodnotes_parse.py`)
-3. **DB 테이블 추가** (선택, 필요시)
-4. **config 업데이트** (환경변수 추가)
+```sql
+CREATE TABLE claude_conversations (
+    id SERIAL PRIMARY KEY,
+    artifact_id INTEGER REFERENCES learning_artifacts(id),
+    uuid VARCHAR(255) UNIQUE NOT NULL,
+    name TEXT,
+    summary TEXT,
+    user_messages INTEGER,
+    assistant_messages INTEGER,
+    has_code BOOLEAN,
+    conversation_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
 
-### 예시: GoodNotes 추가
+### baekjoon_solutions
+
+```sql
+CREATE TABLE baekjoon_solutions (
+    id SERIAL PRIMARY KEY,
+    artifact_id INTEGER REFERENCES learning_artifacts(id),
+    problem_id INTEGER NOT NULL,
+    title TEXT,
+    tier VARCHAR(50),
+    tags TEXT[],
+    language VARCHAR(50),
+    code TEXT,
+    memory VARCHAR(50),
+    time VARCHAR(50),
+    solution_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+## 🔧 주요 설계 결정사항
+
+### 1. Claude Export 자동화 제거 (2025-12-27)
+
+**변경 전:**
+- `export/claude_export.py`: Selenium으로 자동 로그인 + Export 클릭
+- 쿠키 저장 방식 (`CLAUDE_COOKIES_PATH`)
+
+**변경 후:**
+- Export 자동화 삭제
+- 사용자가 수동으로 ZIP 다운로드
+- `collectors/claude_collector.py`가 ZIP 경로를 매개변수로 받음
+
+**이유:**
+- 쿠키 기반 자동화는 유지보수 어려움
+- Claude UI 변경 시 코드 수정 필요
+- 수동 다운로드가 더 안정적
+
+### 2. db_savers → storage 통합
+
+**변경사항:**
+- `db_savers/` 폴더 → `storage/`로 이동
+- 모든 import 경로 업데이트
+
+**이유:**
+- `storage`가 더 포괄적인 이름 (DB + 파일 저장)
+- 향후 `artifact_saver.py`와 통합 용이
+
+### 3. 테스트 파일 분리
+
+**변경사항:**
+- `test_*.py` → `tests/` 폴더로 이동
+
+**이유:**
+- 루트 디렉토리 정리
+- 테스트 코드와 프로덕션 코드 분리
+
+## 🚀 향후 확장 계획
+
+### 1. 파일 시스템 저장 (`artifact_saver.py`)
 
 ```python
-# export/goodnotes_export.py
-class GoodNotesExporter:
-    def export_pdfs(self, source_dir):
-        # iPad에서 PDF 가져오기
-        pass
+# storage/artifact_saver.py
+class ArtifactSaver:
+    def save_to_file(self, data, source_type, date):
+        # learning_artifacts/2025/12/27/github/commit_abc123.json
+        path = self.get_file_path(source_type, date)
+        with open(path, 'w') as f:
+            json.dump(data, f)
+        return path
+```
 
-# parse/goodnotes_parse.py
-class GoodNotesParser:
-    def parse_pdf(self, pdf_path):
-        # OCR 수행
-        # 이미지 추출
+### 2. AI 분석 모듈
+
+```python
+# analysis/claude_analyzer.py
+class ClaudeAnalyzer:
+    def analyze_activity(self, artifact_id):
+        # Claude API로 학습 주제 추출
+        # 핵심 포인트 요약
+        # 블로그 포스트 초안 생성
         pass
 ```
 
----
+### 3. 블로그 포스팅 자동화
 
-## 🔐 보안 고려사항
+```python
+# blog/post_generator.py
+class PostGenerator:
+    def generate_dev_log(self, commits):
+        # GitHub 커밋 → Dev Log 포스트
+        pass
 
-### 민감 정보 관리
+    def generate_algorithm_post(self, problems):
+        # 백준 문제 → Algorithm 포스트
+        pass
+```
 
-1. **Git에 절대 올리지 말 것**:
-   - API 토큰 (`.env`, `config/secrets.py`)
-   - 쿠키 파일 (`.pkl`, `.json`)
-   - 개인 학습 데이터 (`learning_artifacts/`)
-
-2. **쿠키란?**
-   - 웹사이트 로그인 상태를 유지하는 데이터
-   - Claude, 백준은 API가 없어 Selenium으로 자동화
-   - 쿠키 저장으로 매번 로그인 불필요
-
-3. **환경변수 사용**:
-   ```bash
-   export GITHUB_TOKEN="ghp_..."
-   export BAEKJOON_HANDLE="andy1692"
-   ```
-
-4. **`.gitignore` 필수**:
-   - 모든 민감 정보 제외
-   - temp, logs, learning_artifacts 제외
-
----
-
-## 📈 성능 최적화
+## 📊 성능 최적화
 
 ### PostgreSQL 인덱스
 
-- `artifact_date` - 날짜별 조회 (가장 많이 사용)
-- `source_type` - 소스별 필터링
-- `tags` - GIN 인덱스 (배열 검색)
-- `metadata` - GIN 인덱스 (JSONB 검색)
+```sql
+-- 날짜별 조회 (가장 빈번)
+CREATE INDEX idx_artifacts_date ON learning_artifacts(artifact_date);
 
-### 파일 압축 (미래)
+-- 소스별 필터링
+CREATE INDEX idx_artifacts_source ON learning_artifacts(source_type);
 
-- 오래된 데이터 자동 압축 (gzip)
-- S3 Glacier로 아카이빙
+-- 태그 검색 (GIN 인덱스)
+CREATE INDEX idx_artifacts_tags ON learning_artifacts USING GIN(tags);
 
----
+-- JSONB 메타데이터 검색
+CREATE INDEX idx_artifacts_metadata ON learning_artifacts USING GIN(metadata);
+```
 
-## 🚀 다음 단계
+## 🔐 보안 고려사항
 
-1. **나머지 모듈 완성** (Claude, 백준)
-2. **DB 저장 모듈** 구현
-3. **AI 분석 모듈** (Claude API)
-4. **블로그 포스트 생성기**
-5. **리뷰 대시보드** (웹 UI)
-6. **GoodNotes OCR** 통합
+### 환경변수 관리
+
+```bash
+# .env 파일 (gitignore)
+GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+GITHUB_USERNAME=cjang3285
+BAEKJOON_HANDLE=andy1692
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=my_blog
+DB_USER=postgres
+DB_PASSWORD=xxxxx
+```
+
+### Gitignore 필수 항목
+
+```gitignore
+# 민감 정보
+.env
+*.pkl
+temp/
+logs/
+learning_artifacts/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+```
+
+## 📝 사용법
+
+### 1. GitHub + 백준 자동 수집
+
+```bash
+python main.py
+```
+
+### 2. Claude 포함 전체 수집
+
+```bash
+# 1. claude.ai에서 수동으로 Export → ZIP 다운로드
+# 2. ZIP 경로와 함께 실행
+python main.py --claude-zip ~/Downloads/conversations.zip
+```
+
+### 3. 특정 날짜 수집
+
+```bash
+python main.py --date 2025-12-26 --claude-zip conversations.zip
+```
+
+## 🛠️ 개발 가이드
+
+### 새로운 소스 추가 예시 (Notion)
+
+1. **Export 모듈**: `export/notion_export.py`
+2. **Parse 모듈**: `parse/notion_parse.py`
+3. **Collector**: `collectors/notion_collector.py`
+4. **Storage**: `storage/notion_saver.py`
+5. **DB 테이블**: `notion_notes` 추가
+6. **Config**: `settings.py`에 Notion API 키 추가
+
+## 📚 참고 문서
+
+- [이전 아키텍처 문서](docs/ARCHITECTURE.md)
+- [README](README.md)

@@ -14,7 +14,7 @@ from datetime import date
 from typing import List, Dict
 import logging
 
-from db_savers.claude_saver import ClaudeSaver
+from storage.claude_saver import ClaudeSaver
 from config.settings import get_log_file
 
 logging.basicConfig(
@@ -34,9 +34,13 @@ class ClaudeCollector:
     def __init__(self):
         self.saver = ClaudeSaver()
 
-    def collect(self, target_date: date = None) -> Dict:
+    def collect(self, zip_path: str, target_date: date = None) -> Dict:
         """
         Claude 데이터 수집 + 파싱 + 저장
+
+        Args:
+            zip_path: Claude.ai에서 수동으로 다운로드한 ZIP 파일 경로
+            target_date: 수집할 날짜 (기본값: 오늘)
 
         Returns:
             {
@@ -50,27 +54,21 @@ class ClaudeCollector:
         logger.info(f"Claude 데이터 수집 시작: {target_date}")
 
         try:
-            # 1. Export - Claude.ai에서 대화 내보내기
-            from export.claude_export import ClaudeExporter
-            exporter = ClaudeExporter()
-
-            logger.info("[1/3] Claude.ai에서 대화 내보내기...")
-            zip_path = exporter.export()
-
             if not zip_path:
-                logger.info("수집된 대화가 없습니다.")
+                logger.error("ZIP 파일 경로가 제공되지 않았습니다.")
                 return {
-                    'success': True,
+                    'success': False,
                     'date': target_date,
                     'conversations_count': 0,
-                    'artifact_ids': []
+                    'artifact_ids': [],
+                    'error': 'ZIP 파일 경로 필요'
                 }
 
-            # 2. Parse - ZIP 파일 파싱
+            # 1. Parse - ZIP 파일 파싱
             from parse.claude_parse import ClaudeParser
             parser = ClaudeParser()
 
-            logger.info(f"[2/3] ZIP 파일 파싱: {zip_path}")
+            logger.info(f"[1/2] ZIP 파일 파싱: {zip_path}")
             all_conversations = parser.parse_zip(zip_path)
 
             # 날짜 필터링
@@ -100,8 +98,8 @@ class ClaudeCollector:
                 for conv in filtered_conversations
             ]
 
-            # 3. Save - DB 저장
-            logger.info(f"[3/3] DB에 저장... ({len(parsed_conversations)}개)")
+            # 2. Save - DB 저장
+            logger.info(f"[2/2] DB에 저장... ({len(parsed_conversations)}개)")
             artifact_ids = self.saver.save_all(
                 [conv.to_dict() for conv in parsed_conversations],
                 target_date
