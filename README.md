@@ -1,316 +1,305 @@
-# Learning Loop ETL Pipeline
+# Learning Artifacts ETL Pipeline
 
-찬욱님의 모든 학습 활동을 자동으로 수집하고 블로그 포스팅으로 변환하는 ETL 파이프라인
+모든 학습 활동(GitHub, Claude, 백준)을 자동으로 수집하여 PostgreSQL DB에 저장하고, 향후 블로그 포스팅으로 변환하는 자동화 파이프라인
 
-## 프로젝트 구조
+## ✨ 주요 기능
 
-```
-learning-etl/
-├── sources/              # 데이터 소스별 모듈 (export + parse)
-│   ├── claude_export.py    # Claude Export 자동화
-│   ├── claude_parse.py     # Claude 대화 파서
-│   ├── github_export.py    # GitHub 커밋 수집
-│   ├── github_parse.py     # GitHub 데이터 파서
-│   ├── baekjoon_export.py  # 백준 문제 풀이 수집
-│   └── baekjoon_parse.py   # 백준 데이터 파서
-│
-├── collectors/           # 통합 수집기
-│   └── collect_all.py     # 전체 데이터 수집 & 통합
-│
-└── README.md
-```
+- **GitHub 커밋 수집**: GitHub API로 모든 저장소의 커밋 자동 수집
+- **Claude 대화 수집**: 수동 다운로드한 ZIP 파일 파싱
+- **백준 문제풀이 수집**: solved.ac API + Selenium으로 제출 코드 크롤링
+- **PostgreSQL 자동 저장**: 구조화된 데이터를 DB에 저장
+- **날짜별 필터링**: 특정 날짜의 학습 활동만 수집
 
-## 설치
+## 📋 시스템 요구사항
 
-### 1. 필수 패키지
+### 필수 소프트웨어
+
+- Python 3.8+
+- PostgreSQL 12+
+- Chromium/Chrome (백준 크롤링용)
+
+### Python 패키지
 
 ```bash
-# Ubuntu/라즈베리파이
-sudo apt update
-sudo apt install chromium-browser chromium-chromedriver python3-pip
-
-# Python 패키지
-pip3 install selenium requests
+pip install -r requirements.txt
 ```
 
-### 2. 환경변수 설정
+주요 패키지:
+- `psycopg2-binary`: PostgreSQL 연결
+- `requests`: GitHub/solved.ac API
+- `selenium`: 웹 크롤링 (백준)
+
+## 🚀 빠른 시작
+
+### 1. 환경 설정
 
 ```bash
-# GitHub
+# 환경변수 설정
 export GITHUB_TOKEN="ghp_your_token_here"
 export GITHUB_USERNAME="your_username"
-
-# 백준
 export BAEKJOON_HANDLE="your_handle"
+
+# PostgreSQL 설정
+export DB_HOST="localhost"
+export DB_PORT="5432"
+export DB_NAME="my_blog"
+export DB_USER="postgres"
+export DB_PASSWORD="your_password"
 ```
 
-`.bashrc` 또는 `.zshrc`에 추가하여 영구 설정
-
-## 사용 방법
-
-### A. 개별 소스 수집
-
-#### 1. Claude
+또는 `.env` 파일 생성:
 
 ```bash
-# 최초 1회 설정 (쿠키 저장)
-python3 sources/claude_export.py --setup
-
-# Export 실행
-python3 sources/claude_export.py
-
-# 파싱만 (이미 ZIP이 있는 경우)
-python3 sources/claude_parse.py ~/Downloads/conversations.zip
+cp .env.example .env
+# .env 파일 편집
 ```
 
-#### 2. GitHub
+### 2. 데이터베이스 스키마 생성
 
 ```bash
-# 오늘 커밋 수집
-python3 sources/github_export.py
-
-# 파싱만
-python3 sources/github_parse.py
+# PostgreSQL에 접속하여 스키마 생성
+psql -U postgres -d my_blog -f schema.sql
 ```
 
-#### 3. 백준
+### 3. 실행
+
+#### GitHub + 백준 자동 수집
 
 ```bash
-# 최초 1회 설정 (쿠키 저장)
-python3 sources/baekjoon_export.py --setup
-
-# 오늘 푼 문제 + 제출 코드 수집
-python3 sources/baekjoon_export.py
-
-# 파싱만
-python3 sources/baekjoon_parse.py
+python main.py
 ```
 
-### B. 통합 수집 (권장)
+#### Claude 포함 전체 수집
 
 ```bash
-# 모든 소스에서 데이터 수집 + 통합
-python3 collectors/collect_all.py
-
-# 출력: ~/learning-data/learning-YYYYMMDD.json
+# 1. claude.ai에서 수동으로 Export → ZIP 다운로드
+# 2. ZIP 경로와 함께 실행
+python main.py --claude-zip ~/Downloads/conversations.zip
 ```
 
-### C. 자동화 (cron)
+#### 특정 날짜 수집
+
+```bash
+python main.py --date 2025-12-26 --claude-zip conversations.zip
+```
+
+## 📁 프로젝트 구조
+
+```
+LearningConvertedToPost/
+├── main.py                     # 메인 진입점
+├── config/                     # 설정
+│   └── settings.py
+├── export/                     # 데이터 수집
+│   ├── github_export.py
+│   └── baekjoon_export.py
+├── parse/                      # 데이터 파싱
+│   ├── github_parse.py
+│   ├── claude_parse.py
+│   └── baekjoon_parse.py
+├── collectors/                 # 통합 수집기
+│   ├── github_collector.py
+│   ├── claude_collector.py
+│   └── baekjoon_collector.py
+├── storage/                    # 데이터 저장
+│   ├── base_saver.py
+│   ├── github_saver.py
+│   ├── claude_saver.py
+│   └── baekjoon_saver.py
+├── tests/                      # 테스트
+└── docs/                       # 문서
+    └── ARCHITECTURE.md         # 상세 아키텍처
+```
+
+## 🔧 설정
+
+### GitHub Token 발급
+
+1. GitHub Settings → Developer settings → Personal access tokens
+2. Generate new token (classic)
+3. 권한 선택: `repo`, `read:user`
+4. 환경변수에 설정: `export GITHUB_TOKEN="ghp_..."`
+
+### 백준 설정 (선택사항)
+
+백준 크롤링은 로그인이 필요합니다. 최초 1회 설정:
+
+```bash
+python -m export.baekjoon_export --setup
+# 브라우저가 열리면 수동 로그인
+# 로그인 후 Enter 키 입력 → 쿠키 저장
+```
+
+## 📊 데이터베이스 구조
+
+### 주요 테이블
+
+- **learning_artifacts**: 모든 학습 활동의 메타데이터
+- **github_commits**: GitHub 커밋 상세 정보
+- **claude_conversations**: Claude 대화 내용
+- **baekjoon_solutions**: 백준 문제풀이 코드
+
+상세 스키마는 [ARCHITECTURE.md](ARCHITECTURE.md) 참고
+
+## 🎯 사용 예시
+
+### 1. 오늘 학습 활동 수집
+
+```bash
+python main.py
+```
+
+결과:
+```
+============================================================
+Learning Artifacts ETL - 2025-12-27
+============================================================
+
+[GitHub] 데이터 수집 시작...
+  ✅ 8개 커밋 수집
+
+[Claude] ZIP 파일이 제공되지 않아 건너뜀
+
+[Baekjoon] 데이터 수집 시작...
+  ✅ 2개 문제 풀이 수집
+
+============================================================
+수집 완료
+============================================================
+총 아티팩트: 10개
+  - GitHub: 8개
+  - Claude: 0개
+  - 백준: 2개
+============================================================
+```
+
+### 2. 특정 기간 분석
+
+```python
+# Python 스크립트에서 사용
+from collectors.github_collector import GitHubCollector
+from datetime import date
+
+collector = GitHubCollector()
+result = collector.collect(target_date=date(2025, 12, 26))
+
+print(f"커밋 수: {result['commits_count']}")
+print(f"저장된 ID: {result['artifact_ids']}")
+```
+
+### 3. DB에서 조회
+
+```sql
+-- 최근 7일 활동
+SELECT * FROM learning_artifacts
+WHERE artifact_date >= CURRENT_DATE - INTERVAL '7 days'
+ORDER BY artifact_date DESC;
+
+-- Python 관련 커밋만
+SELECT a.*, g.repo, g.message
+FROM learning_artifacts a
+JOIN github_commits g ON a.id = g.artifact_id
+WHERE 'python' = ANY(a.tags);
+
+-- 오늘 푼 백준 문제
+SELECT * FROM baekjoon_solutions
+WHERE DATE(created_at) = CURRENT_DATE;
+```
+
+## 🤖 자동화 (Cron)
+
+매일 밤 11시 50분에 자동 실행:
 
 ```bash
 crontab -e
 ```
 
 ```cron
-# 매일 밤 23:50 실행
-50 23 * * * cd /home/pi/learning-etl && python3 collectors/collect_all.py >> /var/log/learning-etl.log 2>&1
+# Learning Artifacts ETL
+50 23 * * * cd /home/user/LearningConvertedToPost && /usr/bin/python3 main.py >> /var/log/learning-etl.log 2>&1
 ```
 
-## 출력 데이터 구조
+## 🐛 문제 해결
 
-### 통합 JSON (learning-YYYYMMDD.json)
+### 1. PostgreSQL 연결 오류
 
-```json
-{
-  "metadata": {
-    "collected_at": "2025-12-26T23:50:00Z",
-    "date": "2025-12-26"
-  },
-  "claude": {
-    "success": true,
-    "count": 3,
-    "data": [
-      {
-        "uuid": "...",
-        "name": "대화 제목",
-        "summary": "요약",
-        "user_messages": 5,
-        "assistant_messages": 5,
-        "has_code": true,
-        "code_blocks": [...],
-        "duration_minutes": 45.2
-      }
-    ]
-  },
-  "github": {
-    "success": true,
-    "count": 8,
-    "summary": {
-      "total_commits": 8,
-      "total_repos": 3,
-      "total_additions": 245,
-      "total_deletions": 67,
-      "total_files": 15,
-      "languages": {"Python": 8, "JavaScript": 5, "Go": 2},
-      "total_comments": 32
-    },
-    "data": [
-      {
-        "repo": "learning-etl",
-        "sha": "abc123...",
-        "message": "Add GitHub collector",
-        "date": "2025-12-26T14:30:00Z",
-        "url": "https://github.com/...",
-        "files": [
-          {
-            "filename": "github_export.py",
-            "status": "modified",
-            "additions": 50,
-            "deletions": 10,
-            "changes": 60,
-            "patch": "diff --git...",
-            "content": "#!/usr/bin/env python3...",
-            "language": "Python",
-            "comments": [
-              {
-                "line_number": 5,
-                "comment_type": "docstring",
-                "content": "GitHub 커밋 수집"
-              }
-            ]
-          }
-        ],
-        "stats": {"additions": 50, "deletions": 10}
-      }
-    ]
-  },
-  "baekjoon": {
-    "success": true,
-    "count": 2,
-    "summary": {
-      "total_problems": 2,
-      "tiers": {"Gold IV": 1, "Silver II": 1},
-      "tags": {"DP": 1, "그래프": 1},
-      "languages": {"Python 3": 2},
-      "total_code_lines": 45,
-      "total_comments": 8
-    },
-    "data": [
-      {
-        "problem_id": 1234,
-        "title": "문제 제목",
-        "tier": "Gold IV",
-        "tags": ["DP", "그래프"],
-        "url": "https://www.acmicpc.net/problem/1234",
-        "submission": {
-          "submission_id": "12345678",
-          "language": "Python 3",
-          "code": "# DP 풀이\ndef solve():\n    ...",
-          "memory": "31256 KB",
-          "time": "72 ms"
-        },
-        "code_analysis": {
-          "language": "Python 3",
-          "total_lines": 25,
-          "code_lines": 18,
-          "comment_lines": 4,
-          "blank_lines": 3,
-          "comments": [
-            {
-              "line_number": 1,
-              "comment_type": "single",
-              "content": "DP 풀이"
-            }
-          ]
-        }
-      }
-    ]
-  },
-  "summary": {
-    "total_activities": 13,
-    "conversations": 3,
-    "commits": 8,
-    "problems": 2
-  }
-}
+```bash
+# PostgreSQL 실행 여부 확인
+sudo systemctl status postgresql
+
+# DB 생성 여부 확인
+psql -U postgres -l | grep my_blog
 ```
-
-## 각 모듈 상세
-
-### Claude
-
-**Export (claude_export.py)**
-- Selenium headless로 claude.ai 자동 로그인
-- Settings → Privacy → Export 클릭
-- conversations.zip 다운로드
-
-**Parse (claude_parse.py)**
-- ZIP 파싱 → conversations.json 추출
-- 날짜 필터링 (오늘만)
-- 코드 블록 추출
-- 대화 통계 생성
-
-### GitHub
-
-**Export (github_export.py)**
-- GitHub REST API 사용
-- Personal Access Token 필요
-- 모든 저장소의 오늘 커밋 수집
-- **커밋별 파일 변경사항 (diff) 수집**
-- **변경된 파일의 전체 코드 가져오기**
-- `since`/`until` 파라미터로 날짜 필터
-
-**Parse (github_parse.py)**
-- 커밋 데이터 구조화
-- **파일별 언어 감지 (확장자 기반)**
-- **코드에서 주석 추출 (Python, C++, Java 등)**
-- 저장소별/언어별 그룹화
-- 통계 생성 (커밋 수, 추가/삭제 라인, 주석 수)
-
-### 백준
-
-**Export (baekjoon_export.py)**
-- solved.ac API로 당일 푼 문제 찾기 (diff 방식)
-- **Selenium으로 백준 로그인 후 제출 코드 크롤링**
-- 문제 상세 정보 + 제출 코드 수집
-
-**Parse (baekjoon_parse.py)**
-- 문제 데이터 구조화
-- **코드 분석 (라인 수, 주석 추출)**
-- **주석 파싱 (Python, C++, Java 지원)**
-- 티어/태그별 그룹화
-
-## 주의사항
-
-### 1. Claude 쿠키 만료
-- Google 로그인 쿠키는 30~60일 유효
-- 만료 시 `--setup` 재실행 필요
 
 ### 2. GitHub Rate Limit
-- Personal Token: 5000 req/hr
-- 충분하지만, 너무 많은 저장소가 있으면 주의
 
-### 3. solved.ac Rate Limit
-- 15분당 ~256회
-- 문제 수집 시 페이지네이션 주의
+```python
+# rate limit 확인
+import requests
+headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+r = requests.get('https://api.github.com/rate_limit', headers=headers)
+print(r.json())
+```
 
-### 4. 백준 Diff 방식
-- solved.ac는 타임스탬프 미제공
-- 이전 캐시 (`~/.baekjoon_solved.json`)와 비교
-- **최초 실행 시 모든 문제가 "오늘 푼 문제"로 나옴**
-- 다음날부터 정상 작동
+### 3. 백준 쿠키 만료
 
-## 다음 단계
+```bash
+# 쿠키 재설정
+python -m export.baekjoon_export --setup
+```
 
-### 🚧 구현 예정
+### 4. Chromium/ChromeDriver 오류 (Raspberry Pi)
 
-1. **AI 분석 모듈**
-   - Claude API로 대화/커밋 분석
-   - 학습 주제 추출
-   - 핵심 포인트 요약
+```bash
+# snap chromium 설치
+sudo snap install chromium
 
-2. **포스트 생성기**
-   - Dev Log (커밋) 템플릿
-   - Algorithm (백준) 템플릿
-   - Deep Dive (학습) 템플릿
+# 경로 확인
+which chromium
+# /snap/bin/chromium
 
-3. **리뷰 대시보드**
-   - 웹 UI로 포스트 미리보기
-   - 수정/승인 기능
+which chromium.chromedriver
+# /snap/bin/chromium.chromedriver
+```
 
-4. **블로그 API 연동**
-   - 승인된 포스트 자동 업로드
+## 📝 변경 이력
 
-## 라이선스
+### 2025-12-27
+- **[BREAKING]** Claude 자동 Export 제거, 수동 다운로드 방식으로 변경
+- `db_savers/` → `storage/`로 리팩토링
+- 테스트 파일 `tests/` 폴더로 분리
+- 문서 `docs/` 폴더로 분리
+
+### 2025-12-26
+- Raspberry Pi 지원 (snap chromium)
+- GitHub, Claude, 백준 통합 수집 완성
+- PostgreSQL DB 저장 기능 구현
+
+## 🔜 향후 계획
+
+- [ ] AI 분석 모듈 (Claude API)
+- [ ] 블로그 포스트 자동 생성
+- [ ] 웹 대시보드 (Flask/FastAPI)
+- [ ] GoodNotes PDF OCR 연동
+- [ ] Notion API 연동
+
+## 📚 문서
+
+- [아키텍처 상세](ARCHITECTURE.md)
+- [데이터베이스 스키마](docs/schema.sql) (예정)
+- [API 문서](docs/api.md) (예정)
+
+## 🤝 기여
+
+이 프로젝트는 개인 학습 목적으로 제작되었습니다.
+
+## 📄 라이선스
 
 MIT License
+
+## 👤 Author
+
+**찬욱** (cjang3285)
+
+- GitHub: [@cjang3285](https://github.com/cjang3285)
+- 백준: [andy1692](https://www.acmicpc.net/user/andy1692)

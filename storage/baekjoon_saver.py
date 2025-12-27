@@ -15,7 +15,7 @@ from datetime import date
 from typing import Dict, List
 import logging
 
-from db_savers.base_saver import BaseSaver
+from storage.base_saver import BaseSaver
 from config.settings import get_log_file
 
 logging.basicConfig(
