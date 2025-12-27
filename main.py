@@ -41,13 +41,14 @@ class LearningETL:
         self.claude_collector = ClaudeCollector() if COLLECT_CLAUDE else None
         self.baekjoon_collector = BaekjoonCollector() if COLLECT_BAEKJOON else None
 
-    def run(self, target_date: date = None, claude_zip_path: str = None) -> Dict:
+    def run(self, target_date: date = None, claude_zip_path: str = None, all_dates: bool = False) -> Dict:
         """
         전체 ETL 프로세스 실행
 
         Args:
             target_date: 수집 대상 날짜 (기본값: 오늘)
             claude_zip_path: Claude 수동 다운로드 ZIP 파일 경로
+            all_dates: 모든 날짜의 Claude 대화 수집 여부 (기본값: False)
 
         Returns:
             {
@@ -83,7 +84,7 @@ class LearningETL:
         # 2. Claude 수집 (수동 다운로드 방식)
         if self.claude_collector and claude_zip_path:
             logger.info("\n[Claude] 데이터 수집 시작...")
-            results['claude'] = self.claude_collector.collect(claude_zip_path, target_date)
+            results['claude'] = self.claude_collector.collect(claude_zip_path, target_date, all_dates=all_dates)
         elif self.claude_collector:
             logger.info("\n[Claude] ZIP 파일이 제공되지 않아 건너뜀")
         else:
@@ -111,9 +112,9 @@ class LearningETL:
             'claude_conversations': results['claude'].get('conversations_count', 0) if results['claude'] else 0,
             'baekjoon_solutions': results['baekjoon'].get('solutions_count', 0) if results['baekjoon'] else 0,
             'success': all([
-                results.get('github', {}).get('success', True),
-                results.get('claude', {}).get('success', True),
-                results.get('baekjoon', {}).get('success', True)
+                results.get('github', {}).get('success', True) if results.get('github') else True,
+                results.get('claude', {}).get('success', True) if results.get('claude') else True,
+                results.get('baekjoon', {}).get('success', True) if results.get('baekjoon') else True
             ])
         }
 
@@ -137,6 +138,7 @@ def main():
     parser = argparse.ArgumentParser(description='Learning Artifacts ETL Pipeline')
     parser.add_argument('--claude-zip', type=str, help='Claude 수동 다운로드 ZIP 파일 경로')
     parser.add_argument('--date', type=str, help='수집 대상 날짜 (YYYY-MM-DD)')
+    parser.add_argument('--all', action='store_true', help='모든 날짜의 Claude 대화 수집 (날짜 필터링 없음)')
     args = parser.parse_args()
 
     target_date = None
@@ -144,7 +146,7 @@ def main():
         target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
 
     etl = LearningETL()
-    results = etl.run(target_date=target_date, claude_zip_path=args.claude_zip)
+    results = etl.run(target_date=target_date, claude_zip_path=args.claude_zip, all_dates=args.all)
 
     # 결과를 JSON 파일로도 저장
     import json

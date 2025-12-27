@@ -34,13 +34,14 @@ class ClaudeCollector:
     def __init__(self):
         self.saver = ClaudeSaver()
 
-    def collect(self, zip_path: str, target_date: date = None) -> Dict:
+    def collect(self, zip_path: str, target_date: date = None, all_dates: bool = False) -> Dict:
         """
         Claude 데이터 수집 + 파싱 + 저장
 
         Args:
             zip_path: Claude.ai에서 수동으로 다운로드한 ZIP 파일 경로
             target_date: 수집할 날짜 (기본값: 오늘)
+            all_dates: 모든 날짜의 대화 수집 여부 (기본값: False)
 
         Returns:
             {
@@ -71,17 +72,26 @@ class ClaudeCollector:
             logger.info(f"[1/2] ZIP 파일 파싱: {zip_path}")
             all_conversations = parser.parse_zip(zip_path)
 
-            # 날짜 필터링
+            # 날짜 필터링 (all_dates=True면 스킵)
             from datetime import datetime, timezone
-            today_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-            today_end = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+            if all_dates:
+                # 전체 대화 수집 - 최소 메시지 수만 체크
+                filtered_conversations = [
+                    c for c in all_conversations
+                    if len(c.get('chat_messages', [])) >= 2
+                ]
+                logger.info(f"전체 대화 수집 모드: {len(filtered_conversations)}개 대화")
+            else:
+                # 날짜 기반 필터링
+                today_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+                today_end = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
 
-            filtered_conversations = parser.filter_by_date(
-                all_conversations,
-                after=today_start,
-                before=today_end,
-                min_messages=2
-            )
+                filtered_conversations = parser.filter_by_date(
+                    all_conversations,
+                    after=today_start,
+                    before=today_end,
+                    min_messages=2
+                )
 
             if not filtered_conversations:
                 logger.info(f"{target_date}에 해당하는 대화가 없습니다.")
