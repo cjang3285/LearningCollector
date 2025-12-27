@@ -71,16 +71,10 @@ class ClaudeExportHandler(FileSystemEventHandler):
         if not file_path.suffix == '.zip':
             return
 
-        filename = file_path.name.lower()
+        filename = file_path.name
 
-        # Claude export 패턴 확인
-        is_claude_export = (
-            'conversations_' in filename or
-            'claude_' in filename or
-            'data-' in filename  # data-2025-12-26-01-09-16-batch-0000.zip
-        )
-
-        if not is_claude_export:
+        # Claude export 패턴 확인 (data-YYYY-MM-DD-HH-MM-SS-batch-XXXX.zip만)
+        if not filename.startswith('data-'):
             return
 
         # 이미 처리 중인지 확인
@@ -154,16 +148,8 @@ class ClaudeExportHandler(FileSystemEventHandler):
         stem = file_path.stem
         suffix = file_path.suffix
 
-        # 새 파일명 (타임스탬프 추가)
-        if 'conversations_' in stem:
-            # conversations_2024-12-27.zip → claude_export_20241227_123456.zip
-            final_name = f"claude_export_{timestamp}{suffix}"
-        elif 'data-' in stem:
-            # data-2025-12-26-01-09-16-batch-0000.zip → claude_export_20241227_123456.zip
-            final_name = f"claude_export_{timestamp}{suffix}"
-        else:
-            # 기타 패턴은 원본명 유지 + 타임스탬프
-            final_name = f"{stem}_{timestamp}{suffix}"
+        # 새 파일명 (data-*.zip → claude_export_YYYYMMDD_HHMMSS.zip)
+        final_name = f"claude_export_{timestamp}{suffix}"
 
         destination = destination_dir / final_name
 
@@ -211,9 +197,7 @@ def main():
     logger.info("=" * 60)
     logger.info("")
     logger.info("다음 파일을 감지합니다:")
-    logger.info("  - conversations_*.zip")
-    logger.info("  - claude_*.zip")
-    logger.info("  - data-YYYY-MM-DD-*.zip")
+    logger.info("  - data-YYYY-MM-DD-HH-MM-SS-batch-XXXX.zip")
     logger.info("")
     logger.info("종료: Ctrl+C")
     logger.info("")
