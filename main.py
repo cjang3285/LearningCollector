@@ -41,12 +41,13 @@ class LearningETL:
         self.claude_collector = ClaudeCollector() if COLLECT_CLAUDE else None
         self.baekjoon_collector = BaekjoonCollector() if COLLECT_BAEKJOON else None
 
-    def run(self, target_date: date = None) -> Dict:
+    def run(self, target_date: date = None, claude_zip_path: str = None) -> Dict:
         """
         전체 ETL 프로세스 실행
 
         Args:
             target_date: 수집 대상 날짜 (기본값: 오늘)
+            claude_zip_path: Claude 수동 다운로드 ZIP 파일 경로
 
         Returns:
             {
@@ -79,10 +80,12 @@ class LearningETL:
         else:
             logger.info("\n[GitHub] 수집 비활성화됨")
 
-        # 2. Claude 수집
-        if self.claude_collector:
+        # 2. Claude 수집 (수동 다운로드 방식)
+        if self.claude_collector and claude_zip_path:
             logger.info("\n[Claude] 데이터 수집 시작...")
-            results['claude'] = self.claude_collector.collect(target_date)
+            results['claude'] = self.claude_collector.collect(claude_zip_path, target_date)
+        elif self.claude_collector:
+            logger.info("\n[Claude] ZIP 파일이 제공되지 않아 건너뜀")
         else:
             logger.info("\n[Claude] 수집 비활성화됨")
 
@@ -129,8 +132,19 @@ class LearningETL:
 
 def main():
     """메인 함수"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Learning Artifacts ETL Pipeline')
+    parser.add_argument('--claude-zip', type=str, help='Claude 수동 다운로드 ZIP 파일 경로')
+    parser.add_argument('--date', type=str, help='수집 대상 날짜 (YYYY-MM-DD)')
+    args = parser.parse_args()
+
+    target_date = None
+    if args.date:
+        target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+
     etl = LearningETL()
-    results = etl.run()
+    results = etl.run(target_date=target_date, claude_zip_path=args.claude_zip)
 
     # 결과를 JSON 파일로도 저장
     import json
