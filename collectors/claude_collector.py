@@ -34,7 +34,7 @@ class ClaudeCollector:
     def __init__(self):
         self.saver = ClaudeSaver()
 
-    def collect(self, zip_path: str, target_date: date = None) -> Dict:
+    def collect(self, zip_path: str, target_date: date = None, all_dates: bool = False) -> Dict:
         """
         Claude 데이터 수집 + 파싱 + 저장
 
@@ -52,6 +52,7 @@ class ClaudeCollector:
         """
         target_date = target_date or date.today()
         logger.info(f"Claude 데이터 수집 시작: {target_date}")
+        logger.info(f"전체 수집 모드: {all_dates}")
 
         try:
             if not zip_path:
@@ -76,12 +77,17 @@ class ClaudeCollector:
             today_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
             today_end = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
 
-            filtered_conversations = parser.filter_by_date(
-                all_conversations,
-                after=today_start,
-                before=today_end,
-                min_messages=2
-            )
+            # 날짜 필터링 (all_dates=True면 스킵)
+            if all_dates:
+                filtered_conversations = [c for c in all_conversations if len(c.get('chat_messages', [])) >= 2]
+                logger.info(f"전체 대화 수집 모드: {len(filtered_conversations)}개 대화")
+            else:
+                filtered_conversations = parser.filter_by_date(
+                    all_conversations,
+                    after=today_start,
+                    before=today_end,
+                    min_messages=2
+                )
 
             if not filtered_conversations:
                 logger.info(f"{target_date}에 해당하는 대화가 없습니다.")
