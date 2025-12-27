@@ -170,21 +170,41 @@ class ClaudeExporter:
         self.setup_browser()
         self.load_cookies()
 
-        self.page.goto("https://claude.ai")
-        self.page.wait_for_load_state('networkidle')
+        self.page.goto("https://claude.ai", wait_until='domcontentloaded', timeout=60000)
+
+        # 스크린샷 저장 (디버깅용)
+        screenshot_path = PROJECT_ROOT / 'temp' / 'claude_export_screenshot.png'
+        screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+        self.page.screenshot(path=str(screenshot_path))
+        logger.info(f"스크린샷 저장: {screenshot_path}")
 
         try:
-            # 로그인 확인
-            self.page.wait_for_selector("body", timeout=SELENIUM_TIMEOUT * 1000)
-            logger.info("로그인 확인 완료")
+            # 로그인 확인 (Cloudflare 또는 로그인 페이지 체크)
+            self.page.wait_for_selector("body", timeout=10000)
+
+            # Cloudflare 체크 대기
+            try:
+                self.page.wait_for_function(
+                    "() => !document.querySelector('iframe[src*=\"challenges.cloudflare.com\"]')",
+                    timeout=60000
+                )
+                logger.info("Cloudflare 체크 통과")
+            except:
+                logger.warning("Cloudflare 대기 타임아웃 (계속 진행)")
+
+            logger.info("페이지 로드 완료")
         except:
-            logger.error("로그인 실패")
+            logger.error("페이지 로드 실패")
             self.close()
             return None
 
         # Settings 페이지로 이동
-        self.page.goto("https://claude.ai/settings/account")
-        self.page.wait_for_load_state('networkidle')
+        self.page.goto("https://claude.ai/settings/account", wait_until='domcontentloaded', timeout=60000)
+
+        # 스크린샷 저장
+        screenshot_path2 = PROJECT_ROOT / 'temp' / 'claude_settings_screenshot.png'
+        self.page.screenshot(path=str(screenshot_path2))
+        logger.info(f"Settings 페이지 스크린샷: {screenshot_path2}")
 
         try:
             # Privacy 탭 클릭
@@ -233,7 +253,7 @@ class ClaudeExporter:
 if __name__ == '__main__':
     import sys
 
-    exporter = ClaudeExporter(headless=False)  # 테스트 시 headless=False
+    exporter = ClaudeExporter()  # headless는 settings.py에서 설정
 
     if "--setup" in sys.argv:
         exporter.setup()
