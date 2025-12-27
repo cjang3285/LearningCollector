@@ -198,8 +198,10 @@ class ClaudeExporter:
             self.close()
             return None
 
-        # Settings 페이지로 이동
-        self.page.goto("https://claude.ai/settings/account", wait_until='domcontentloaded', timeout=60000)
+        # Settings 페이지로 직접 이동
+        logger.info("Settings 페이지로 이동...")
+        self.page.goto("https://claude.ai/settings", wait_until='domcontentloaded', timeout=60000)
+        self.page.wait_for_timeout(3000)
 
         # 스크린샷 저장
         screenshot_path2 = PROJECT_ROOT / 'temp' / 'claude_settings_screenshot.png'
@@ -207,20 +209,65 @@ class ClaudeExporter:
         logger.info(f"Settings 페이지 스크린샷: {screenshot_path2}")
 
         try:
-            # Privacy 탭 클릭
-            privacy_link = self.page.locator("a:has-text('Privacy'), a[href*='privacy']").first
-            privacy_link.click()
-            self.page.wait_for_timeout(2000)
-            logger.info("Privacy 탭 이동")
+            # 개인정보보호 탭 클릭
+            logger.info("개인정보보호 탭 찾기...")
+            privacy_selectors = [
+                "a:has-text('개인정보보호')",
+                "a:has-text('Privacy')",
+                "a[href*='privacy']",
+                "button:has-text('개인정보보호')",
+                "button:has-text('Privacy')"
+            ]
+
+            privacy_clicked = False
+            for selector in privacy_selectors:
+                try:
+                    privacy_link = self.page.locator(selector).first
+                    privacy_link.click(timeout=5000)
+                    self.page.wait_for_timeout(2000)
+                    logger.info(f"개인정보보호 탭 클릭 성공: {selector}")
+                    privacy_clicked = True
+                    break
+                except:
+                    continue
+
+            if not privacy_clicked:
+                logger.warning("개인정보보호 탭을 찾을 수 없습니다")
+                # 스크린샷으로 디버깅
+                debug_screenshot = PROJECT_ROOT / 'temp' / 'claude_settings_debug.png'
+                self.page.screenshot(path=str(debug_screenshot))
+                logger.info(f"디버그 스크린샷: {debug_screenshot}")
+
         except Exception as e:
-            logger.warning(f"Privacy 탭 찾기 실패: {e}")
+            logger.warning(f"개인정보보호 탭 이동 실패: {e}")
 
         try:
-            # Export 버튼 클릭 및 다운로드 대기
+            # 데이터 내보내기 버튼 클릭 및 다운로드 대기
+            logger.info("데이터 내보내기 버튼 찾기...")
+            export_selectors = [
+                "button:has-text('데이터 내보내기')",
+                "button:has-text('내보내기')",
+                "button:has-text('Export')",
+                "button:has-text('export')",
+                "button:has-text('Download')",
+                "a:has-text('데이터 내보내기')",
+                "a:has-text('Export')"
+            ]
+
             with self.page.expect_download(timeout=60000) as download_info:
-                export_button = self.page.locator("button:has-text('Export'), button:has-text('export'), button:has-text('Download')").first
-                export_button.click()
-                logger.info("Export 버튼 클릭")
+                export_clicked = False
+                for selector in export_selectors:
+                    try:
+                        export_button = self.page.locator(selector).first
+                        export_button.click(timeout=5000)
+                        logger.info(f"데이터 내보내기 버튼 클릭: {selector}")
+                        export_clicked = True
+                        break
+                    except:
+                        continue
+
+                if not export_clicked:
+                    raise Exception("데이터 내보내기 버튼을 찾을 수 없습니다")
 
             download = download_info.value
 
