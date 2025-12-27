@@ -59,7 +59,7 @@
 ## 📁 프로젝트 구조
 
 ```
-LearningConvertedToPost/
+LearningETL/
 ├── main.py                     # 메인 진입점 (ETL 파이프라인 실행)
 │
 ├── config/                     # 설정 관리

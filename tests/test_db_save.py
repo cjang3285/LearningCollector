@@ -48,11 +48,11 @@ def test_remote_db():
         if not commits:
             print("\n오늘 커밋이 없습니다. 테스트 데이터 사용...")
             test_commit = {
-                'repo': 'LearningConvertedToPost',
+                'repo': 'LearningETL',
                 'sha': 'test123abc456',
                 'message': 'Test commit for DB save\n\nThis is a test commit',
                 'date': '2025-12-26T12:00:00Z',
-                'url': 'https://github.com/cjang3285/LearningConvertedToPost/commit/test123',
+                'url': 'https://github.com/cjang3285/LearningETL/commit/test123',
                 'files': [
                     {
                         'filename': 'test.py',

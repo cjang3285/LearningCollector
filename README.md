@@ -86,7 +86,7 @@ python main.py --date 2025-12-26 --claude-zip conversations.zip
 ## 📁 프로젝트 구조
 
 ```
-LearningConvertedToPost/
+LearningETL/
 ├── main.py                     # 메인 진입점
 ├── config/                     # 설정
 │   └── settings.py
@@ -216,7 +216,7 @@ crontab -e
 
 ```cron
 # Learning Artifacts ETL
-50 23 * * * cd /home/user/LearningConvertedToPost && /usr/bin/python3 main.py >> /var/log/learning-etl.log 2>&1
+50 23 * * * cd /home/user/LearningETL && /usr/bin/python3 main.py >> /var/log/learning-etl.log 2>&1
 ```
 
 ## 🐛 문제 해결
