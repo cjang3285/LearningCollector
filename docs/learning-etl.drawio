@@ -1,0 +1,41 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="29.2.9">
+  <diagram name="íŽ˜ì´ì§€-1" id="lfH9rergSVRb6dfcSbjg">
+    <mxGraphModel dx="1042" dy="527" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="1Tx_uoOHz8QWLr-p89K_-1" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="í ¾í·© Baekjoon&#xa;Solution System" vertex="1">
+          <mxGeometry height="78" width="173" x="20" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="1Tx_uoOHz8QWLr-p89K_-2" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="í ¾í´– AI Chat" vertex="1">
+          <mxGeometry height="54" width="138" x="38" y="328" as="geometry" />
+        </mxCell>
+        <mxCell id="1Tx_uoOHz8QWLr-p89K_-3" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="í ½í³¦ GitHub&#xa;Repository" vertex="1">
+          <mxGeometry height="78" width="137" x="371" y="258" as="geometry" />
+        </mxCell>
+        <mxCell id="1Tx_uoOHz8QWLr-p89K_-4" parent="1" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=10;strokeWidth=2;whiteSpace=wrap;" value="í ½í·„ï¸ My DB&#xa;Solution Archive" vertex="1">
+          <mxGeometry height="101" width="130" x="662" y="246" as="geometry" />
+        </mxCell>
+        <mxCell id="1Tx_uoOHz8QWLr-p89K_-5" edge="1" parent="1" source="1Tx_uoOHz8QWLr-p89K_-1" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.18;rounded=0;" target="1Tx_uoOHz8QWLr-p89K_-3" value="í’€ì´ ì½”ë“œ Push">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="282" y="239" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="1Tx_uoOHz8QWLr-p89K_-6" edge="1" parent="1" source="1Tx_uoOHz8QWLr-p89K_-2" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.82;rounded=0;" target="1Tx_uoOHz8QWLr-p89K_-3" value="ì½”ë“œ/ë¦¬ë·° Commit">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="282" y="355" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="1Tx_uoOHz8QWLr-p89K_-7" edge="1" parent="1" source="1Tx_uoOHz8QWLr-p89K_-3" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="1Tx_uoOHz8QWLr-p89K_-4" value="Webhook / API">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
