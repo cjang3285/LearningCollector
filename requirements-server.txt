@@ -1,0 +1,10 @@
+# 서버 전용 의존성 (라즈베리파이)
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# 기존 의존성 (main.py용)
+requests==2.31.0
+psycopg2-binary==2.9.11
+python-dotenv==1.0.0
+watchdog==6.0.0

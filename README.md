@@ -18,15 +18,70 @@
 - **백준허브 연동 레포** (필수) - BaekjoonHub 확장 프로그램으로 자동 푸시
 - **AI 채팅 브라우저 확장 프로그램** (필수) - Claude/ChatGPT/Gemini Exporter
 
+## 🏗️ 시스템 아키텍처
+
+### 단일 시스템 모드 (기본)
+```
+┌─────────────────────────┐
+│  라즈베리파이/서버       │
+│  - main.py (cron)       │
+│  - GitHub/Baekjoon 수집 │
+│  - AI Chat 수집 (수동)  │
+│  - PostgreSQL           │
+└─────────────────────────┘
+```
+
+### 분산 시스템 모드 (권장)
+```
+┌──────────────────┐          ┌──────────────────┐
+│  노트북/데스크탑  │          │  라즈베리파이     │
+│  - Client Agent  │  ──────▶ │  - FastAPI 서버  │
+│  - Downloads 감시│  HTTP    │  - 파싱 + DB     │
+│  - 파일 전송     │          │  - PostgreSQL    │
+└──────────────────┘          └──────────────────┘
+```
+
+**장점:**
+- ✅ 노트북에서 AI 채팅 다운로드 시 자동 전송
+- ✅ 파일 큐잉 (오프라인 대응)
+- ✅ 원본 파일 보존 (재파싱 가능)
+
+---
+
 ## 🚀 빠른 시작
 
-### 1. 설치
+### 모드 선택
 
+#### A. 단일 시스템 모드
 ```bash
 git clone https://github.com/cjang3285/LearningETL.git
 cd LearningETL
 pip install -r requirements.txt
 ```
+
+#### B. 분산 시스템 모드 (권장)
+
+**라즈베리파이 (서버):**
+```bash
+git clone https://github.com/cjang3285/LearningETL.git
+cd LearningETL
+pip install -r requirements-server.txt
+
+# FastAPI 서버 실행
+python server/api.py
+```
+
+**노트북/데스크탑 (클라이언트):**
+```bash
+git clone https://github.com/cjang3285/LearningETL.git
+cd LearningETL
+pip install -r requirements-client.txt
+
+# Client Agent 실행
+python client/agent.py --server http://raspberrypi.local:8000
+```
+
+> 상세 가이드: [docs/deployment-guide.md](docs/deployment-guide.md)
 
 ### 2. 환경 변수 설정
 
