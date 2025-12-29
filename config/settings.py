@@ -11,14 +11,21 @@ from pathlib import Path
 # 프로젝트 루트 디렉토리
 PROJECT_ROOT = Path(__file__).parent.parent
 
+# ============================================
 # GitHub 설정
+# ============================================
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')  # 환경변수에서만 가져오기
 GITHUB_USERNAME = os.getenv('GITHUB_USERNAME', 'cjang3285')
 
-# 백준 설정
+# ============================================
+# 백준 TIL 레포 설정
+# ============================================
 BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE', 'andy1692')
+BAEKJOON_TIL_REPO = os.getenv('BAEKJOON_TIL_REPO', 'Baekjoon_solutions')
 
+# ============================================
 # 디렉토리 설정
+# ============================================
 TEMP_DIR = PROJECT_ROOT / 'temp'
 LOGS_DIR = PROJECT_ROOT / 'logs'
 ARTIFACTS_DIR = PROJECT_ROOT / 'learning_artifacts'
@@ -28,33 +35,34 @@ TEMP_DIR.mkdir(exist_ok=True)
 LOGS_DIR.mkdir(exist_ok=True)
 ARTIFACTS_DIR.mkdir(exist_ok=True)
 
-# Claude 설정 (수동 다운로드 방식)
-CLAUDE_DOWNLOAD_DIR = TEMP_DIR / 'claude_downloads'
-CLAUDE_DOWNLOAD_DIR.mkdir(exist_ok=True)
+# Claude Migration (첫 마이그레이션용 ZIP 다운로드)
+CLAUDE_MIGRATION_DIR = TEMP_DIR / 'claude_migration'
+CLAUDE_MIGRATION_DIR.mkdir(exist_ok=True)
 
-# 백준 설정
-BAEKJOON_COOKIES_PATH = TEMP_DIR / 'baekjoon_cookies.json'
-BAEKJOON_CACHE_PATH = TEMP_DIR / 'baekjoon_solved.json'
+# AI Chat (마크다운 자동 수집)
+AI_CHAT_DOWNLOAD_DIR = os.getenv('AI_CHAT_DOWNLOAD_DIR', str(Path.home() / 'Downloads'))
 
+# ============================================
 # 로깅 설정
+# ============================================
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
+# ============================================
 # API 설정
+# ============================================
 GITHUB_API_BASE = 'https://api.github.com'
-SOLVED_AC_API_BASE = 'https://solved.ac/api/v3'
-BAEKJOON_BASE_URL = 'https://www.acmicpc.net'
 
-# Selenium 설정
-SELENIUM_HEADLESS = True
-SELENIUM_TIMEOUT = 30
-
+# ============================================
 # 데이터 수집 설정
-COLLECT_CLAUDE = True
-COLLECT_GITHUB = True
-COLLECT_BAEKJOON = True
+# ============================================
+COLLECT_GITHUB = os.getenv('COLLECT_GITHUB', 'true').lower() == 'true'
+COLLECT_BAEKJOON = os.getenv('COLLECT_BAEKJOON', 'true').lower() == 'true'
+COLLECT_AI_CHAT = os.getenv('COLLECT_AI_CHAT', 'true').lower() == 'true'
 
+# ============================================
 # PostgreSQL 설정 (블로그 DB)
+# ============================================
 DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_PORT = int(os.getenv('DB_PORT', '5432'))
 DB_NAME = os.getenv('DB_NAME', 'my_blog')
@@ -96,12 +104,22 @@ def get_log_file(module_name):
 if __name__ == '__main__':
     print("=== Configuration Settings ===")
     print(f"PROJECT_ROOT: {PROJECT_ROOT}")
-    print(f"GITHUB_USERNAME: {GITHUB_USERNAME}")
-    print(f"GITHUB_TOKEN: {'*' * 20}...{GITHUB_TOKEN[-4:]}")
-    print(f"BAEKJOON_HANDLE: {BAEKJOON_HANDLE}")
-    print(f"TEMP_DIR: {TEMP_DIR}")
-    print(f"LOGS_DIR: {LOGS_DIR}")
-    print(f"ARTIFACTS_DIR: {ARTIFACTS_DIR}")
+    print(f"\n[GitHub]")
+    print(f"  USERNAME: {GITHUB_USERNAME}")
+    print(f"  TOKEN: {'*' * 20 if GITHUB_TOKEN else 'NOT SET'}")
+    print(f"\n[백준]")
+    print(f"  HANDLE: {BAEKJOON_HANDLE}")
+    print(f"  TIL_REPO: {BAEKJOON_TIL_REPO}")
+    print(f"\n[디렉토리]")
+    print(f"  TEMP: {TEMP_DIR}")
+    print(f"  LOGS: {LOGS_DIR}")
+    print(f"  ARTIFACTS: {ARTIFACTS_DIR}")
+    print(f"  CLAUDE_MIGRATION: {CLAUDE_MIGRATION_DIR}")
+    print(f"  AI_CHAT_DOWNLOAD: {AI_CHAT_DOWNLOAD_DIR}")
+    print(f"\n[데이터 수집]")
+    print(f"  GITHUB: {COLLECT_GITHUB}")
+    print(f"  BAEKJOON: {COLLECT_BAEKJOON}")
+    print(f"  AI_CHAT: {COLLECT_AI_CHAT}")
 
     try:
         validate_config()
