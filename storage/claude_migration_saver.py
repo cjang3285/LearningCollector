@@ -22,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(get_log_file('claude_saver')),
+        logging.FileHandler(get_log_file("claude_migration_saver"')),
         logging.StreamHandler()
     ]
 )

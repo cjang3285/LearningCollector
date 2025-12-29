@@ -14,25 +14,25 @@ from datetime import date
 from typing import List, Dict
 import logging
 
-from storage.claude_saver import ClaudeSaver
+from storage.claude_migration_saver import ClaudeMigrationSaver
 from config.settings import get_log_file
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(get_log_file('claude_collector')),
+        logging.FileHandler(get_log_file('claude_migration_collector')),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
 
-class ClaudeCollector:
-    """Claude 데이터 수집 통합"""
+class ClaudeMigrationCollector:
+    """Claude ZIP 마이그레이션 수집기 (첫 이용 시 전체 대화 마이그레이션용)"""
 
     def __init__(self):
-        self.saver = ClaudeSaver()
+        self.saver = ClaudeMigrationSaver()
 
     def collect(self, zip_path: str, target_date: date = None, all_dates: bool = False) -> Dict:
         """
@@ -66,8 +66,8 @@ class ClaudeCollector:
                 }
 
             # 1. Parse - ZIP 파일 파싱
-            from parse.claude_parse import ClaudeParser
-            parser = ClaudeParser()
+            from parse.claude_migration_parse import ClaudeMigrationParser
+            parser = ClaudeMigrationParser()
 
             logger.info(f"[1/2] ZIP 파일 파싱: {zip_path}")
             all_conversations = parser.parse_zip(zip_path)
@@ -134,6 +134,6 @@ class ClaudeCollector:
 
 
 if __name__ == '__main__':
-    collector = ClaudeCollector()
+    collector = ClaudeMigrationCollector()
     result = collector.collect()
     print(f"\n결과: {result}")

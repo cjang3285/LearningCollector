@@ -25,7 +25,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(get_log_file('claude_parse')),
+        logging.FileHandler(get_log_file('claude_migration_parse')),
         logging.StreamHandler()
     ]
 )
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ConversationData:
+class ClaudeMigrationConversationData:
     """파싱된 대화 데이터"""
     uuid: str
     name: str
@@ -51,7 +51,7 @@ class ConversationData:
         return asdict(self)
 
 
-class ClaudeParser:
+class ClaudeMigrationParser:
     """Claude Export 파서"""
     
     def parse_zip(self, zip_path: str) -> List[Dict]:
@@ -151,7 +151,7 @@ class ClaudeParser:
         
         duration = (updated - created).total_seconds() / 60
         
-        return ConversationData(
+        return ClaudeMigrationConversationData(
             uuid=conv['uuid'],
             name=conv['name'],
             summary=conv.get('summary', ''),

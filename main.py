@@ -17,10 +17,10 @@ from typing import Dict
 import logging
 
 from collectors.github_collector import GitHubCollector
-from collectors.claude_collector import ClaudeCollector
+from collectors.claude_migration_collector import ClaudeMigrationCollector
 from collectors.baekjoon_collector import BaekjoonCollector
 from collectors.ai_chat_collector import AIChatCollector
-from config.settings import get_log_file, COLLECT_GITHUB, COLLECT_CLAUDE, COLLECT_BAEKJOON
+from config.settings import get_log_file, COLLECT_GITHUB, COLLECT_BAEKJOON
 
 # 로깅 설정
 logging.basicConfig(
@@ -39,9 +39,9 @@ class LearningETL:
 
     def __init__(self):
         self.github_collector = GitHubCollector() if COLLECT_GITHUB else None
-        self.claude_collector = ClaudeCollector() if COLLECT_CLAUDE else None
+        self.claude_migration_collector = ClaudeMigrationCollector()  # 첫 마이그레이션용
         self.baekjoon_collector = BaekjoonCollector() if COLLECT_BAEKJOON else None
-        self.ai_chat_collector = AIChatCollector()  # Always available
+        self.ai_chat_collector = AIChatCollector()  # 일상 사용 (마크다운)
 
     def run(
         self,
@@ -93,14 +93,12 @@ class LearningETL:
         else:
             logger.info("\n[GitHub] 수집 비활성화됨")
 
-        # 2. Claude 수집 (수동 다운로드 방식)
-        if self.claude_collector and claude_zip_path:
-            logger.info("\n[Claude] 데이터 수집 시작...")
-            results['claude'] = self.claude_collector.collect(claude_zip_path, target_date, all_dates=all_dates)
-        elif self.claude_collector:
-            logger.info("\n[Claude] ZIP 파일이 제공되지 않아 건너뜀")
+        # 2. Claude Migration (첫 이용 시 ZIP 마이그레이션)
+        if claude_zip_path:
+            logger.info("\n[Claude Migration] ZIP 파일에서 대화 마이그레이션 중...")
+            results['claude'] = self.claude_migration_collector.collect(claude_zip_path, target_date, all_dates=all_dates)
         else:
-            logger.info("\n[Claude] 수집 비활성화됨")
+            logger.info("\n[Claude Migration] ZIP 파일 미제공 (일상 사용은 --ai-chat-scan 사용)")
 
         # 3. AI Chat 수집 (Claude, ChatGPT, Gemini 마크다운)
         if ai_chat_files:
@@ -163,11 +161,11 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Learning Artifacts ETL Pipeline')
-    parser.add_argument('--claude-zip', type=str, help='Claude 수동 다운로드 ZIP 파일 경로')
+    parser.add_argument('--claude-zip', type=str, help='[첫 마이그레이션용] Claude ZIP 파일 경로')
     parser.add_argument('--ai-chat', nargs='*', help='AI 채팅 마크다운 파일 (Claude, ChatGPT, Gemini)')
-    parser.add_argument('--ai-chat-scan', action='store_true', help='다운로드 폴더에서 AI 채팅 파일 자동 스캔')
+    parser.add_argument('--ai-chat-scan', action='store_true', help='[일상 사용] 다운로드 폴더 AI 채팅 자동 스캔')
     parser.add_argument('--date', type=str, help='수집 대상 날짜 (YYYY-MM-DD)')
-    parser.add_argument('--all', action='store_true', help='날짜 제한 없이 모든 대화 수집')
+    parser.add_argument('--all', action='store_true', help='[Claude ZIP 전용] 전체 대화 수집')
     args = parser.parse_args()
 
     target_date = None
