@@ -66,36 +66,46 @@ class TestGitHubExporter(unittest.TestCase):
 class TestBaekjoonExporter(unittest.TestCase):
     """Baekjoon Exporter 테스트"""
 
-    def test_init_without_handle_raises_error(self):
-        """핸들 없이 초기화하면 에러 발생"""
+    def test_init_without_credentials_raises_error(self):
+        """GitHub 인증 정보 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
-            BaekjoonExporter(handle=None)
+            BaekjoonExporter(username=None, token=None)
 
-    def test_init_with_handle(self):
+    def test_init_with_credentials(self):
         """정상적인 초기화 테스트"""
-        exporter = BaekjoonExporter(handle='testuser')
+        exporter = BaekjoonExporter(
+            baekjoon_repo='Baekjoon_solutions',
+            username='testuser',
+            token='test_token'
+        )
 
-        self.assertEqual(exporter.handle, 'testuser')
+        self.assertEqual(exporter.baekjoon_repo, 'Baekjoon_solutions')
+        self.assertEqual(exporter.username, 'testuser')
+        self.assertEqual(exporter.token, 'test_token')
 
     @patch('export.baekjoon_export.requests.get')
-    def test_get_user_info_with_mock(self, mock_get):
-        """사용자 정보 조회 테스트 (모킹)"""
+    def test_get_commits_with_mock(self, mock_get):
+        """커밋 조회 테스트 (모킹)"""
         # Mock 응답 설정
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'handle': 'testuser',
-            'solvedCount': 100
-        }
+        mock_response.json.return_value = []
         mock_get.return_value = mock_response
 
-        exporter = BaekjoonExporter(handle='testuser')
-        user_info = exporter.get_user_info()
+        exporter = BaekjoonExporter(
+            username='testuser',
+            token='test_token'
+        )
+
+        from datetime import datetime, timezone
+        since = datetime.now(timezone.utc)
+        until = datetime.now(timezone.utc)
+        commits = exporter.get_commits(since, until)
 
         # API 호출 확인
         self.assertTrue(mock_get.called)
-        # 결과 확인
-        self.assertIsNotNone(user_info)
+        # 결과는 리스트여야 함
+        self.assertIsInstance(commits, list)
 
 
 if __name__ == '__main__':

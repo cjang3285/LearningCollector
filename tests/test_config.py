@@ -30,7 +30,7 @@ class TestConfigSettings(unittest.TestCase):
         self.assertTrue(settings.TEMP_DIR.exists())
         self.assertTrue(settings.LOGS_DIR.exists())
         self.assertTrue(settings.ARTIFACTS_DIR.exists())
-        self.assertTrue(settings.CLAUDE_DOWNLOAD_DIR.exists())
+        self.assertTrue(settings.CLAUDE_MIGRATION_DIR.exists())
 
     def test_github_settings(self):
         """GitHub 설정값 확인"""
@@ -40,8 +40,7 @@ class TestConfigSettings(unittest.TestCase):
     def test_baekjoon_settings(self):
         """백준 설정값 확인"""
         self.assertIsNotNone(settings.BAEKJOON_HANDLE)
-        self.assertEqual(settings.SOLVED_AC_API_BASE, 'https://solved.ac/api/v3')
-        self.assertEqual(settings.BAEKJOON_BASE_URL, 'https://www.acmicpc.net')
+        self.assertIsNotNone(settings.BAEKJOON_REPO)
 
     def test_db_config(self):
         """DB 설정 반환 테스트"""
@@ -62,11 +61,12 @@ class TestConfigSettings(unittest.TestCase):
         self.assertEqual(log_path.parent, settings.LOGS_DIR)
         self.assertEqual(log_path.name, 'test_module.log')
 
-    def test_selenium_settings(self):
-        """Selenium 설정값 확인"""
-        self.assertIsInstance(settings.SELENIUM_HEADLESS, bool)
-        self.assertIsInstance(settings.SELENIUM_TIMEOUT, int)
-        self.assertGreater(settings.SELENIUM_TIMEOUT, 0)
+    def test_collection_settings(self):
+        """데이터 수집 설정 확인"""
+        self.assertIsInstance(settings.COLLECT_GITHUB, bool)
+        self.assertIsInstance(settings.COLLECT_BAEKJOON, bool)
+        self.assertIsInstance(settings.COLLECT_AI_CHAT, bool)
+        self.assertIsInstance(settings.ENABLE_CLAUDE_MIGRATION, bool)
 
 
 class TestConfigValidation(unittest.TestCase):
