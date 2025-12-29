@@ -27,6 +27,7 @@ class TestGitHubExporter(unittest.TestCase):
         # 토큰 없이 초기화하면 에러 발생 예상
         pass
 
+    @patch('export.github_export.GITHUB_TOKEN', None)
     def test_init_without_token_raises_error(self):
         """토큰 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
@@ -67,6 +68,8 @@ class TestGitHubExporter(unittest.TestCase):
 class TestBaekjoonExporter(unittest.TestCase):
     """Baekjoon Exporter 테스트"""
 
+    @patch('export.baekjoon_export.GITHUB_TOKEN', None)
+    @patch('export.baekjoon_export.GITHUB_USERNAME', None)
     def test_init_without_credentials_raises_error(self):
         """GitHub 인증 정보 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
