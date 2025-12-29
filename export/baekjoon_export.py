@@ -15,7 +15,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import logging
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import List, Dict, Optional
 
 from config.settings import GITHUB_TOKEN, GITHUB_USERNAME, get_log_file
