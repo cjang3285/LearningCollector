@@ -32,6 +32,7 @@ class TestGitHubExporter(unittest.TestCase):
         with self.assertRaises(ValueError):
             GitHubExporter(token=None, username='testuser')
 
+    @patch('export.github_export.GITHUB_USERNAME', None)
     def test_init_without_username_raises_error(self):
         """유저네임 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):

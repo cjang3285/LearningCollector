@@ -44,7 +44,11 @@ class TestGitHubParser(unittest.TestCase):
         """샘플 커밋 데이터 파싱"""
         sample_commits = [
             {
+                'repo': 'test-repo',
                 'sha': 'abc123',
+                'message': 'Test commit',
+                'date': '2025-12-26T12:00:00Z',
+                'url': 'https://github.com/test/test-repo/commit/abc123',
                 'commit': {
                     'message': 'Test commit',
                     'author': {
@@ -60,7 +64,8 @@ class TestGitHubParser(unittest.TestCase):
                         'filename': 'test.py',
                         'status': 'modified',
                         'additions': 10,
-                        'deletions': 5
+                        'deletions': 5,
+                        'changes': 15
                     }
                 ]
             }

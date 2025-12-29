@@ -22,8 +22,8 @@ import logging
 
 from config.settings import get_log_file
 
-# 백준 파서의 주석 추출기 재사용
-from parse.baekjoon_parse import CommentExtractor, CodeComment
+# 주석 추출 기능 (향후 구현 예정)
+# TODO: CommentExtractor와 CodeComment 클래스 구현 필요
 
 # 로깅 설정
 logging.basicConfig(
@@ -48,7 +48,7 @@ class FileChange:
     patch: str  # diff
     content: str = ""  # 전체 파일 내용 (있는 경우)
     language: str = ""  # 파일 확장자 기반 언어
-    comments: List[CodeComment] = field(default_factory=list)
+    comments: List[Dict] = field(default_factory=list)  # TODO: CodeComment 타입으로 변경
     
     def to_dict(self):
         return {
@@ -60,7 +60,7 @@ class FileChange:
             'patch': self.patch,
             'content': self.content,
             'language': self.language,
-            'comments': [c.to_dict() for c in self.comments]
+            'comments': self.comments  # TODO: CodeComment 객체가 되면 [c.to_dict() for c in self.comments]로 변경
         }
 
 
@@ -128,15 +128,16 @@ class GitHubParser:
         language = self.detect_language(file_data['filename'])
         
         # 주석 추출 (content가 있는 경우)
+        # TODO: CommentExtractor 구현 후 활성화
         comments = []
-        if file_data.get('content'):
-            try:
-                comments = CommentExtractor.extract(
-                    file_data['content'],
-                    language
-                )
-            except Exception as e:
-                print(f"      ⚠️ 주석 추출 실패: {e}")
+        # if file_data.get('content'):
+        #     try:
+        #         comments = CommentExtractor.extract(
+        #             file_data['content'],
+        #             language
+        #         )
+        #     except Exception as e:
+        #         print(f"      ⚠️ 주석 추출 실패: {e}")
         
         return FileChange(
             filename=file_data['filename'],

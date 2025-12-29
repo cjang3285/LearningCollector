@@ -18,6 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from collectors.github_collector import GitHubCollector
 from migration.claude_collector import ClaudeMigrationCollector
 from collectors.baekjoon_collector import BaekjoonCollector
+from collectors.ai_chat_collector import AIChatCollector
 
 
 class TestGitHubCollector(unittest.TestCase):
@@ -157,6 +158,70 @@ class TestBaekjoonCollector(unittest.TestCase):
             self.assertIsInstance(result, dict)
         except:
             self.skipTest("Collector implementation varies")
+
+
+class TestAIChatCollector(unittest.TestCase):
+    """AI Chat Collector 통합 테스트"""
+
+    def setUp(self):
+        """테스트 전 환경 설정"""
+        self.collector = AIChatCollector()
+
+    def test_collector_initialization(self):
+        """Collector 초기화 테스트"""
+        self.assertIsNotNone(self.collector)
+        self.assertIsNotNone(self.collector.parser)
+        self.assertIsNotNone(self.collector.saver)
+
+    def test_collect_from_files_with_empty_list(self):
+        """빈 파일 리스트로 수집 테스트"""
+        result = self.collector.collect_from_files([])
+
+        self.assertIsInstance(result, dict)
+        self.assertIn('success', result)
+        self.assertIn('conversations_count', result)
+        self.assertEqual(result['conversations_count'], 0)
+
+    @patch('collectors.ai_chat_collector.AIMarkdownParser')
+    @patch('collectors.ai_chat_collector.AIChatSaver')
+    def test_collect_from_files_workflow(self, mock_saver, mock_parser):
+        """파일에서 수집 워크플로우 테스트 (모킹)"""
+        # Mock Parser
+        mock_parser_instance = Mock()
+        mock_conversation = Mock()
+        mock_conversation.provider = 'claude'
+        mock_conversation.to_dict.return_value = {'provider': 'claude', 'title': 'Test'}
+        mock_parser_instance.parse_multiple.return_value = [mock_conversation]
+        mock_parser.return_value = mock_parser_instance
+
+        # Mock Saver
+        mock_saver_instance = Mock()
+        mock_saver_instance.save_all.return_value = [1]
+        mock_saver.return_value = mock_saver_instance
+
+        collector = AIChatCollector()
+        result = collector.collect_from_files(['/tmp/test.md'])
+
+        # 결과 확인
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['conversations_count'], 1)
+        self.assertIn('claude', result['providers'])
+
+    @patch('collectors.ai_chat_collector.AIExportWatcher')
+    def test_collect_from_downloads_no_files(self, mock_watcher):
+        """다운로드 폴더 스캔 - 파일 없음"""
+        # Mock Watcher
+        mock_watcher_instance = Mock()
+        mock_watcher_instance.scan_existing.return_value = []
+        mock_watcher.return_value = mock_watcher_instance
+
+        collector = AIChatCollector()
+        result = collector.collect_from_downloads()
+
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['conversations_count'], 0)
 
 
 if __name__ == '__main__':
