@@ -3,7 +3,6 @@
 GitHub 파서
 
 수집된 GitHub 커밋 데이터를 파싱하여 구조화합니다.
-변경된 코드에서 주석을 추출하고 분석합니다.
 """
 
 import os
@@ -21,9 +20,6 @@ from dataclasses import dataclass, asdict, field
 import logging
 
 from config.settings import get_log_file
-
-# 주석 추출 기능 (향후 구현 예정)
-# TODO: CommentExtractor와 CodeComment 클래스 구현 필요
 
 # 로깅 설정
 logging.basicConfig(
@@ -48,7 +44,6 @@ class FileChange:
     patch: str  # diff
     content: str = ""  # 전체 파일 내용 (있는 경우)
     language: str = ""  # 파일 확장자 기반 언어
-    comments: List[Dict] = field(default_factory=list)  # TODO: CodeComment 타입으로 변경
     
     def to_dict(self):
         return {
@@ -59,8 +54,7 @@ class FileChange:
             'changes': self.changes,
             'patch': self.patch,
             'content': self.content,
-            'language': self.language,
-            'comments': self.comments  # TODO: CodeComment 객체가 되면 [c.to_dict() for c in self.comments]로 변경
+            'language': self.language
         }
 
 
@@ -126,19 +120,7 @@ class GitHubParser:
     def parse_file_change(self, file_data: Dict) -> FileChange:
         """파일 변경사항 파싱"""
         language = self.detect_language(file_data['filename'])
-        
-        # 주석 추출 (content가 있는 경우)
-        # TODO: CommentExtractor 구현 후 활성화
-        comments = []
-        # if file_data.get('content'):
-        #     try:
-        #         comments = CommentExtractor.extract(
-        #             file_data['content'],
-        #             language
-        #         )
-        #     except Exception as e:
-        #         print(f"      ⚠️ 주석 추출 실패: {e}")
-        
+
         return FileChange(
             filename=file_data['filename'],
             status=file_data['status'],
@@ -147,8 +129,7 @@ class GitHubParser:
             changes=file_data['changes'],
             patch=file_data.get('patch', ''),
             content=file_data.get('content', ''),
-            language=language,
-            comments=comments
+            language=language
         )
     
     def parse_commits(self, commits: List[Dict]) -> List[CommitData]:

@@ -24,17 +24,18 @@ from collectors.ai_chat_collector import AIChatCollector
 class TestGitHubCollector(unittest.TestCase):
     """GitHub Collector 통합 테스트"""
 
-    def setUp(self):
-        """테스트 전 환경 설정"""
-        try:
-            self.collector = GitHubCollector()
-        except ValueError:
-            # 토큰이 없으면 테스트 스킵
-            self.skipTest("GITHUB_TOKEN not set")
-
-    def test_collector_initialization(self):
+    @patch('collectors.github_collector.GitHubSaver')
+    @patch('collectors.github_collector.GitHubParser')
+    @patch('collectors.github_collector.GitHubExporter')
+    def test_collector_initialization(self, mock_exporter, mock_parser, mock_saver):
         """Collector 초기화 테스트"""
-        self.assertIsNotNone(self.collector)
+        # Mock 설정
+        mock_exporter.return_value = Mock()
+        mock_parser.return_value = Mock()
+        mock_saver.return_value = Mock()
+
+        collector = GitHubCollector()
+        self.assertIsNotNone(collector)
 
     @patch('collectors.github_collector.GitHubExporter')
     @patch('collectors.github_collector.GitHubParser')
@@ -120,17 +121,18 @@ class TestClaudeMigrationCollector(unittest.TestCase):
 class TestBaekjoonCollector(unittest.TestCase):
     """Baekjoon Collector 통합 테스트"""
 
-    def setUp(self):
-        """테스트 전 환경 설정"""
-        try:
-            self.collector = BaekjoonCollector()
-        except ValueError:
-            # 핸들이 없으면 테스트 스킵
-            self.skipTest("BAEKJOON_HANDLE not set")
-
-    def test_collector_initialization(self):
+    @patch('collectors.baekjoon_collector.BaekjoonSaver')
+    @patch('collectors.baekjoon_collector.BaekjoonParser')
+    @patch('collectors.baekjoon_collector.BaekjoonExporter')
+    def test_collector_initialization(self, mock_exporter, mock_parser, mock_saver):
         """Collector 초기화 테스트"""
-        self.assertIsNotNone(self.collector)
+        # Mock 설정
+        mock_exporter.return_value = Mock()
+        mock_parser.return_value = Mock()
+        mock_saver.return_value = Mock()
+
+        collector = BaekjoonCollector()
+        self.assertIsNotNone(collector)
 
     @patch('collectors.baekjoon_collector.BaekjoonExporter')
     @patch('collectors.baekjoon_collector.BaekjoonParser')

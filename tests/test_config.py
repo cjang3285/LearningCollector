@@ -9,6 +9,7 @@ import unittest
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 # 프로젝트 루트를 path에 추가
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -72,32 +73,31 @@ class TestConfigSettings(unittest.TestCase):
 class TestConfigValidation(unittest.TestCase):
     """설정 검증 테스트"""
 
-    def setUp(self):
-        """테스트 전 환경변수 백업"""
-        self.env_backup = {
-            'GITHUB_TOKEN': os.getenv('GITHUB_TOKEN'),
-            'GITHUB_USERNAME': os.getenv('GITHUB_USERNAME'),
-            'BAEKJOON_HANDLE': os.getenv('BAEKJOON_HANDLE'),
-        }
-
-    def tearDown(self):
-        """테스트 후 환경변수 복구"""
-        for key, value in self.env_backup.items():
-            if value is not None:
-                os.environ[key] = value
-            elif key in os.environ:
-                del os.environ[key]
-
+    @patch.dict(os.environ, {
+        'GITHUB_TOKEN': 'test_token',
+        'GITHUB_USERNAME': 'test_user',
+        'BAEKJOON_HANDLE': 'test_handle',
+        'COLLECT_GITHUB': 'true',
+        'COLLECT_BAEKJOON': 'true'
+    })
+    @patch('config.settings.GITHUB_TOKEN', 'test_token')
+    @patch('config.settings.GITHUB_USERNAME', 'test_user')
+    @patch('config.settings.BAEKJOON_HANDLE', 'test_handle')
+    @patch('config.settings.COLLECT_GITHUB', True)
+    @patch('config.settings.COLLECT_BAEKJOON', True)
     def test_validate_config_success(self):
-        """설정 검증 성공 케이스 (환경변수가 설정된 경우)"""
-        # GitHub 토큰이 있으면 검증 성공
-        if os.getenv('GITHUB_TOKEN'):
-            try:
-                result = settings.validate_config()
-                self.assertTrue(result)
-            except ValueError:
-                # 토큰이 없으면 건너뛰기
-                self.skipTest("GITHUB_TOKEN not set")
+        """설정 검증 성공 케이스"""
+        # 환경변수가 설정되어 있으므로 검증 성공
+        result = settings.validate_config()
+        self.assertTrue(result)
+
+    @patch('config.settings.GITHUB_TOKEN', None)
+    @patch('config.settings.COLLECT_GITHUB', True)
+    def test_validate_config_missing_github_token(self):
+        """GITHUB_TOKEN 누락 시 에러"""
+        with self.assertRaises(ValueError) as context:
+            settings.validate_config()
+        self.assertIn('GITHUB_TOKEN', str(context.exception))
 
 
 if __name__ == '__main__':
