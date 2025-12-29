@@ -1,9 +1,12 @@
-# 서버 전용 의존성 (라즈베리파이)
+# Client-Server Mode - Server 의존성 (라즈베리파이)
+# 용도: FastAPI 서버 + Standalone 기능
+
+# FastAPI 서버 (AI 채팅 파일 수신 API)
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 
-# 기존 의존성 (main.py용)
+# Standalone Mode 의존성 포함 (main.py, cron 작업)
 requests==2.31.0
 psycopg2-binary==2.9.11
 python-dotenv==1.0.0
