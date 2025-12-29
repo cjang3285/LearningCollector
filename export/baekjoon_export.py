@@ -219,6 +219,10 @@ class BaekjoonExporter:
         if target_date is None:
             target_date = datetime.now(timezone.utc)
         else:
+            # date 객체를 datetime으로 변환
+            if isinstance(target_date, date) and not isinstance(target_date, datetime):
+                target_date = datetime.combine(target_date, datetime.min.time())
+
             # naive datetime을 UTC로 변환
             if target_date.tzinfo is None:
                 target_date = target_date.replace(tzinfo=timezone.utc)
