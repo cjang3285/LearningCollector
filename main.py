@@ -17,7 +17,7 @@ from typing import Dict
 import logging
 
 from collectors.github_collector import GitHubCollector
-from collectors.claude_migration_collector import ClaudeMigrationCollector
+from migration.claude_collector import ClaudeMigrationCollector
 from collectors.baekjoon_collector import BaekjoonCollector
 from collectors.ai_chat_collector import AIChatCollector
 from config.settings import get_log_file, COLLECT_GITHUB, COLLECT_BAEKJOON

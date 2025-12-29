@@ -8,15 +8,15 @@
 - **AI 채팅 수집**: Claude, ChatGPT, Gemini 마크다운 자동 파싱
 - **백준 풀이 수집**: TIL 레포에서 크롬 확장 프로그램이 푸시한 문제 풀이 수집
 - **PostgreSQL 저장**: 모든 데이터를 구조화하여 DB 저장
-- **자동화**: cron job 또는 스케줄러로 일일 자동 수집
+- **반자동화**: 사용자가 마크다운을 내보내면 다운로드 폴더 감지부터 DB 저장까지 자동화
 
 ## 📋 전제조건
 
 - Python 3.8+
 - PostgreSQL 12+
 - GitHub Personal Access Token
-- 백준 TIL 레포 (선택)
-- AI 채팅 브라우저 확장 프로그램 (선택)
+- **백준 TIL 레포** (필수) - BaekjoonHub 확장 프로그램으로 자동 푸시
+- **AI 채팅 브라우저 확장 프로그램** (필수) - Claude/ChatGPT/Gemini Exporter
 
 ## 🚀 빠른 시작
 
@@ -85,7 +85,7 @@ python main.py --claude-zip ~/Downloads/conversations.zip --all
 
 ### 2️⃣ AI 채팅 (Claude, ChatGPT, Gemini)
 
-**방식**: 브라우저 확장 프로그램 → 마크다운 내보내기
+**방식**: 브라우저 확장 프로그램 → 마크다운 내보내기 (사용자가 수동 내보내기 후, 다운로드 폴더 감지부터 자동화)
 **수집 내용**:
 - 대화 제목 및 메타데이터
 - 사용자/AI 메시지 쌍
@@ -93,9 +93,9 @@ python main.py --claude-zip ~/Downloads/conversations.zip --all
 - 생성/수정 날짜
 
 **지원 확장 프로그램**:
-- [Claude Exporter](https://chromewebstore.google.com/)
-- [ChatGPT Exporter](https://chromewebstore.google.com/)
-- [Gemini Chat Exporter](https://chromewebstore.google.com/)
+- [Claude Exporter](https://chromewebstore.google.com/detail/claude-exporter/elhmfakncmnghlnabnolalcjkdpfjnin)
+- [ChatGPT Exporter](https://chromewebstore.google.com/detail/chatgpt-exporter/pldlpacbeonbjfhlongcdflcgfcnglkl)
+- [Gemini Chat Exporter](https://chromewebstore.google.com/detail/gemini-chat-exporter/bhmoomcflhcfhingnjjieheeadmdefkc)
 
 ### 3️⃣ 백준 문제풀이
 
@@ -107,7 +107,7 @@ python main.py --claude-zip ~/Downloads/conversations.zip --all
 - 문제 태그 및 설명
 
 **전제조건**:
-백준 자동 커밋 크롬 확장 프로그램 설치 필요
+[BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub) 크롬 확장 프로그램 설치 필요
 
 ## 📁 프로젝트 구조
 
@@ -256,5 +256,7 @@ MIT License
 
 ## 🔗 관련 프로젝트
 
-- [Claude Exporter](https://github.com/)
-- [백준 자동 커밋](https://github.com/)
+- [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub) - 백준 문제 자동 커밋 크롬 확장
+- [Claude Exporter](https://github.com/jasonkneen/claude-exporter) - Claude 대화를 PDF, MD 등으로 저장
+- [ChatGPT Exporter](https://github.com/pionxzh/chatgpt-exporter) - ChatGPT 대화를 PDF, MD 등으로 저장
+- [Gemini Chat Exporter](https://github.com/jiajunhang/gemini-chat-exporter) - Gemini 대화를 PDF, MD 등으로 저장

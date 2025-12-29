@@ -13,7 +13,7 @@
 │  1. GitHub REST API          → 커밋 메타데이터 + Diff                │
 │  2. TIL 레포 (GitHub API)    → 백준 README.md + 코드                │
 │  3. AI Chat 마크다운         → Claude/ChatGPT/Gemini 내보내기        │
-│  4. Claude ZIP (선택)        → 첫 마이그레이션용                     │
+│  4. Claude ZIP (선택)        → 첫 마이그레이션용 (ZIP → MD 변환)      │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -31,8 +31,7 @@
 │  parse/                                                              │
 │  ├── github_parse.py              → 커밋 구조화, 주석 추출           │
 │  ├── baekjoon_parse.py            → README.md 파싱, 코드 추출       │
-│  ├── ai_chat_parse.py             → 마크다운 파싱                   │
-│  └── claude_migration_parse.py    → ZIP 파싱 (첫 마이그레이션)      │
+│  └── ai_chat_parse.py             → 마크다운 파싱                   │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -41,8 +40,11 @@
 │  collectors/                                                         │
 │  ├── github_collector.py          → Export + Parse + Storage        │
 │  ├── baekjoon_collector.py        → Export + Parse + Storage        │
-│  ├── ai_chat_collector.py         → Parse + Storage (마크다운)       │
-│  └── claude_migration_collector.py → Parse + Storage (ZIP)          │
+│  └── ai_chat_collector.py         → Parse + Storage (마크다운)       │
+├─────────────────────────────────────────────────────────────────────┤
+│  migration/ (첫 마이그레이션용)                                       │
+│  ├── claude_collector.py          → ZIP → MD 변환 + Storage         │
+│  └── claude_parse.py              → ZIP → MD 어댑터                 │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -52,8 +54,7 @@
 │  ├── base_saver.py                → PostgreSQL 연결 베이스           │
 │  ├── github_saver.py              → GitHub 커밋 → DB                │
 │  ├── baekjoon_saver.py            → 백준 문제풀이 → DB              │
-│  ├── ai_chat_saver.py             → AI 채팅 → DB                   │
-│  └── claude_migration_saver.py    → Claude ZIP → DB                │
+│  └── ai_chat_saver.py             → AI 채팅 → DB (마크다운 + ZIP)   │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -148,16 +149,20 @@ results = etl.run(
     all_dates=True
 )
 
-# collectors/claude_migration_collector.py
+# migration/claude_collector.py
 collector = ClaudeMigrationCollector()
 result = collector.collect(zip_path, all_dates=True)
 
-    # 1) Parse - ZIP 파일 파싱
-    parser = ClaudeMigrationParser()
-    conversations = parser.parse_zip(zip_path)
+    # 1) ZIP → 마크다운 변환
+    migration_parser = ClaudeMigrationParser()
+    markdowns = migration_parser.parse_zip(zip_path)
 
-    # 2) Storage - DB 저장
-    saver = ClaudeMigrationSaver()
+    # 2) 마크다운 파싱 (ai_chat_parse.py 사용)
+    markdown_parser = AIMarkdownParser()
+    conversations = [markdown_parser.parse_file(md) for md in markdowns]
+
+    # 3) DB 저장 (ai_chat_saver.py 사용)
+    saver = AIChatSaver()
     artifact_ids = saver.save_all(conversations, target_date)
 ```
 
@@ -300,12 +305,13 @@ CREATE INDEX idx_claude_uuid ON learning.claude_conversations(uuid);
 ### 2. AI Chat: ZIP → 마크다운
 
 **일상 사용**:
-- 브라우저 확장 프로그램으로 마크다운 내보내기
-- 다운로드 폴더 자동 감시
-- 실시간 수집
+- 브라우저 확장 프로그램으로 마크다운 내보내기 (사용자가 수동으로 내보내기)
+- 다운로드 폴더 자동 감시 (내보내기 이후 자동화 시작)
+- 다운로드 폴더 감지부터 DB 저장까지 자동화
 
 **첫 마이그레이션**:
 - claude.ai에서 전체 대화 ZIP 다운로드
+- `migration/` 폴더의 어댑터가 ZIP → 마크다운 형식으로 변환
 - `--claude-zip` + `--all` 옵션
 - 한 번만 실행
 
@@ -313,6 +319,7 @@ CREATE INDEX idx_claude_uuid ON learning.claude_conversations(uuid);
 - ZIP은 Claude 전용, 다른 AI는 지원 안 함
 - 마크다운은 3개 AI 모두 지원
 - 일상적으로는 마크다운이 더 편리
+- 마이그레이션 어댑터는 ZIP을 마크다운 형식으로 변환하여 통일된 처리 가능
 
 ### 3. 모듈화 아키텍처
 
