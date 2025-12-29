@@ -2,7 +2,7 @@
 """
 백준 Collector - 백준 데이터 수집 + 파싱 + DB 저장
 
-TIL 레포에서 크롬 확장 프로그램이 자동 푸시한 백준 풀이를 수집합니다.
+백준허브와 연동된 레포지터리에서 자동 푸시된 백준 풀이를 수집합니다.
 """
 
 import os
@@ -56,8 +56,8 @@ class BaekjoonCollector:
         logger.info(f"백준 데이터 수집 시작: {target_date}")
 
         try:
-            # 1. Export - TIL 레포에서 당일 제출 문제 수집
-            logger.info("[1/3] TIL 레포에서 백준 제출 수집...")
+            # 1. Export - 백준허브 연동 레포에서 당일 제출 문제 수집
+            logger.info("[1/3] 백준허브 연동 레포에서 백준 제출 수집...")
             problems = self.exporter.export_today(target_date)
 
             if not problems:

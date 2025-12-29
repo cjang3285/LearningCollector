@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-백준 Export - TIL 레포에서 백준 제출 수집
+백준 Export - 백준허브 연동 레포에서 백준 제출 수집
 
-TIL 레포의 백준 폴더에서 당일 제출된 문제를 수집합니다.
-크롬 확장 프로그램이 자동으로 푸시한 커밋을 읽어옵니다.
+백준허브와 연동된 레포지터리의 백준 폴더에서 당일 제출된 문제를 수집합니다.
+백준허브 크롬 확장 프로그램이 자동으로 푸시한 커밋을 읽어옵니다.
 """
 
 import os
@@ -32,23 +32,23 @@ logger = logging.getLogger(__name__)
 
 
 class BaekjoonExporter:
-    """백준 TIL 레포 기반 문제 풀이 수집"""
+    """백준허브 연동 레포 기반 문제 풀이 수집"""
 
     def __init__(
         self,
-        til_repo: str = "Baekjoon_solutions",
+        baekjoon_repo: str = "Baekjoon_solutions",
         username: Optional[str] = None,
         token: Optional[str] = None
     ):
         """
         Args:
-            til_repo: TIL 레포지토리 이름 (기본값: Baekjoon_solutions)
+            baekjoon_repo: 백준허브와 연동된 레포지터리 이름 (기본값: Baekjoon_solutions)
             username: GitHub 사용자명
             token: GitHub Personal Access Token
         """
         self.username = username or GITHUB_USERNAME
         self.token = token or GITHUB_TOKEN
-        self.til_repo = til_repo
+        self.baekjoon_repo = baekjoon_repo
 
         if not self.username or not self.token:
             raise ValueError("GITHUB_USERNAME과 GITHUB_TOKEN 환경 변수 필요")
@@ -70,7 +70,7 @@ class BaekjoonExporter:
         Returns:
             커밋 리스트
         """
-        url = f"{self.base_url}/repos/{self.username}/{self.til_repo}/commits"
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/commits"
         params = {
             'since': since.isoformat(),
             'until': until.isoformat(),
@@ -81,7 +81,7 @@ class BaekjoonExporter:
         response.raise_for_status()
 
         commits = response.json()
-        logger.info(f"TIL 레포에서 {len(commits)}개 커밋 발견")
+        logger.info(f"백준허브 연동 레포에서 {len(commits)}개 커밋 발견")
         return commits
 
     def get_commit_files(self, sha: str) -> List[Dict]:
@@ -94,7 +94,7 @@ class BaekjoonExporter:
         Returns:
             변경된 파일 리스트 [{'filename': '...', 'status': 'added', ...}]
         """
-        url = f"{self.base_url}/repos/{self.username}/{self.til_repo}/commits/{sha}"
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/commits/{sha}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
 
@@ -112,7 +112,7 @@ class BaekjoonExporter:
         Returns:
             파일 내용 (UTF-8 디코딩)
         """
-        url = f"{self.base_url}/repos/{self.username}/{self.til_repo}/contents/{file_path}"
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/contents/{file_path}"
         params = {'ref': ref}
 
         response = requests.get(url, headers=self.headers, params=params)
@@ -189,7 +189,7 @@ class BaekjoonExporter:
             코드 파일 경로 (예: '백준/Silver/24511. queuestack/queuestack.cc')
         """
         # GitHub API로 디렉토리 목록 가져오기
-        url = f"{self.base_url}/repos/{self.username}/{self.til_repo}/contents/{problem_dir}"
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/contents/{problem_dir}"
         params = {'ref': sha}
 
         response = requests.get(url, headers=self.headers, params=params)

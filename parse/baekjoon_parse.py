@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-백준 파서 - TIL 레포 README.md 파싱
+백준 파서 - 백준허브 연동 레포 README.md 파싱
 
-TIL 레포에 저장된 README.md에서 문제 정보를 추출합니다.
+백준허브가 자동 생성한 README.md에서 문제 정보를 추출합니다.
 """
 
 import os

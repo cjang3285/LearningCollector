@@ -6,5 +6,6 @@ requests>=2.31.0
 # PostgreSQL 드라이버
 psycopg2-binary>=2.9.9
 
-# 파일 시스템 감시 (AI Chat 마크다운 자동 수집)
+# 파일 시스템 감시 (AI Chat 마크다운 파일 자동 감지용)
+# 다운로드 폴더를 실시간 모니터링하여 Claude/ChatGPT/Gemini 마크다운 파일 감지
 watchdog>=3.0.0

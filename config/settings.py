@@ -18,10 +18,10 @@ GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')  # 환경변수에서만 가져오기
 GITHUB_USERNAME = os.getenv('GITHUB_USERNAME', 'cjang3285')
 
 # ============================================
-# 백준 TIL 레포 설정
+# 백준허브 연동 레포 설정
 # ============================================
 BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE', 'andy1692')
-BAEKJOON_TIL_REPO = os.getenv('BAEKJOON_TIL_REPO', 'Baekjoon_solutions')
+BAEKJOON_REPO = os.getenv('BAEKJOON_REPO', 'Baekjoon_solutions')  # 백준허브와 연동된 레포지터리
 
 # ============================================
 # 디렉토리 설정
@@ -59,6 +59,9 @@ GITHUB_API_BASE = 'https://api.github.com'
 COLLECT_GITHUB = os.getenv('COLLECT_GITHUB', 'true').lower() == 'true'
 COLLECT_BAEKJOON = os.getenv('COLLECT_BAEKJOON', 'true').lower() == 'true'
 COLLECT_AI_CHAT = os.getenv('COLLECT_AI_CHAT', 'true').lower() == 'true'
+
+# Claude 마이그레이션 (첫 이용 시에만 사용, 이후 AI_CHAT 사용)
+ENABLE_CLAUDE_MIGRATION = os.getenv('ENABLE_CLAUDE_MIGRATION', 'false').lower() == 'true'
 
 # ============================================
 # PostgreSQL 설정 (블로그 DB)
@@ -109,7 +112,7 @@ if __name__ == '__main__':
     print(f"  TOKEN: {'*' * 20 if GITHUB_TOKEN else 'NOT SET'}")
     print(f"\n[백준]")
     print(f"  HANDLE: {BAEKJOON_HANDLE}")
-    print(f"  TIL_REPO: {BAEKJOON_TIL_REPO}")
+    print(f"  REPO: {BAEKJOON_REPO}")
     print(f"\n[디렉토리]")
     print(f"  TEMP: {TEMP_DIR}")
     print(f"  LOGS: {LOGS_DIR}")
@@ -120,6 +123,7 @@ if __name__ == '__main__':
     print(f"  GITHUB: {COLLECT_GITHUB}")
     print(f"  BAEKJOON: {COLLECT_BAEKJOON}")
     print(f"  AI_CHAT: {COLLECT_AI_CHAT}")
+    print(f"  CLAUDE_MIGRATION: {ENABLE_CLAUDE_MIGRATION}")
 
     try:
         validate_config()

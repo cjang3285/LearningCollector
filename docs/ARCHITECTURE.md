@@ -11,7 +11,7 @@
 │                           데이터 소스                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │  1. GitHub REST API          → 커밋 메타데이터 + Diff                │
-│  2. TIL 레포 (GitHub API)    → 백준 README.md + 코드                │
+│  2. 백준허브 연동 레포        → 백준 README.md + 코드 (GitHub API)   │
 │  3. AI Chat 마크다운         → Claude/ChatGPT/Gemini 내보내기        │
 │  4. Claude ZIP (선택)        → 첫 마이그레이션용 (ZIP → MD 변환)      │
 └─────────────────────────────────────────────────────────────────────┘
@@ -119,14 +119,14 @@ result = collector.collect_from_downloads()
     artifact_ids = saver.save_all(conversations, target_date)
 ```
 
-### 3. 백준 수집 흐름 (TIL 레포)
+### 3. 백준 수집 흐름 (백준허브 연동 레포)
 
 ```python
 # collectors/baekjoon_collector.py
 collector = BaekjoonCollector()
 result = collector.collect(target_date)
 
-    # 1) Export - TIL 레포에서 커밋 가져오기
+    # 1) Export - 백준허브 연동 레포에서 커밋 가져오기
     exporter = BaekjoonExporter()
     problems = exporter.export_today(target_date)
 
@@ -283,15 +283,15 @@ CREATE INDEX idx_claude_uuid ON learning.claude_conversations(uuid);
 
 ## 🔧 주요 설계 결정사항
 
-### 1. 백준: Selenium → TIL 레포 기반
+### 1. 백준: Selenium → 백준허브 연동 레포 기반
 
 **변경 전 (Selenium)**:
 - solved.ac API로 문제 목록 조회
 - Selenium으로 백준 로그인 후 코드 크롤링
 - 쿠키 관리 필요, 불안정
 
-**변경 후 (TIL 레포)**:
-- 크롬 확장 프로그램이 TIL 레포에 자동 푸시
+**변경 후 (백준허브 연동 레포)**:
+- 백준허브 크롬 확장 프로그램이 GitHub 레포에 자동 푸시
 - GitHub API로 커밋 및 파일 읽기
 - README.md에 모든 메타데이터 포함
 - 안정적이고 API rate limit만 관리

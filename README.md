@@ -6,7 +6,7 @@
 
 - **GitHub 커밋 수집**: REST API로 커밋 메타데이터 및 diff 수집
 - **AI 채팅 수집**: Claude, ChatGPT, Gemini 마크다운 자동 파싱
-- **백준 풀이 수집**: TIL 레포에서 크롬 확장 프로그램이 푸시한 문제 풀이 수집
+- **백준 풀이 수집**: 백준허브 연동 레포에서 자동 푸시된 문제 풀이 수집
 - **PostgreSQL 저장**: 모든 데이터를 구조화하여 DB 저장
 - **반자동화**: 사용자가 마크다운을 내보내면 다운로드 폴더 감지부터 DB 저장까지 자동화
 
@@ -15,7 +15,7 @@
 - Python 3.8+
 - PostgreSQL 12+
 - GitHub Personal Access Token
-- **백준 TIL 레포** (필수) - BaekjoonHub 확장 프로그램으로 자동 푸시
+- **백준허브 연동 레포** (필수) - BaekjoonHub 확장 프로그램으로 자동 푸시
 - **AI 채팅 브라우저 확장 프로그램** (필수) - Claude/ChatGPT/Gemini Exporter
 
 ## 🚀 빠른 시작
@@ -37,9 +37,9 @@ pip install -r requirements.txt
 GITHUB_TOKEN=ghp_your_token_here
 GITHUB_USERNAME=your_username
 
-# 백준 TIL 설정 (선택)
+# 백준허브 연동 레포 설정
 BAEKJOON_HANDLE=your_handle
-BAEKJOON_TIL_REPO=Baekjoon_solutions
+BAEKJOON_REPO=Baekjoon_solutions
 
 # PostgreSQL 설정
 DB_HOST=localhost
@@ -99,7 +99,7 @@ python main.py --claude-zip ~/Downloads/conversations.zip --all
 
 ### 3️⃣ 백준 문제풀이
 
-**방식**: TIL 레포 (GitHub API)
+**방식**: 백준허브 연동 레포 (GitHub API)
 **수집 내용**:
 - 문제 번호, 제목, 티어
 - 제출 코드 및 언어
@@ -233,10 +233,10 @@ curl -H "Authorization: token $GITHUB_TOKEN" \
 2. 확장자 확인: `.md` 파일인지
 3. 다운로드 폴더 확인: `~/Downloads`가 맞는지
 
-### 백준 TIL 레포 연결 실패
+### 백준허브 연동 레포 연결 실패
 
 ```bash
-# TIL 레포 확인
+# 백준허브 연동 레포 확인
 curl -H "Authorization: token $GITHUB_TOKEN" \
   https://api.github.com/repos/$GITHUB_USERNAME/Baekjoon_solutions
 ```
