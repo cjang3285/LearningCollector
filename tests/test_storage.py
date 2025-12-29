@@ -18,7 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from storage.base_saver import BaseSaver
 from storage.github_saver import GitHubSaver
-from storage.claude_saver import ClaudeSaver
+from storage.ai_chat_saver import AIChatSaver
 from storage.baekjoon_saver import BaekjoonSaver
 from storage.artifact_saver import ArtifactSaver
 
@@ -100,8 +100,8 @@ class TestGitHubSaver(unittest.TestCase):
             self.skipTest("save_github_artifact method not implemented")
 
 
-class TestClaudeSaver(unittest.TestCase):
-    """ClaudeSaver 테스트"""
+class TestAIChatSaver(unittest.TestCase):
+    """AIChatSaver 테스트"""
 
     def setUp(self):
         """테스트 전 환경 설정"""
@@ -112,7 +112,7 @@ class TestClaudeSaver(unittest.TestCase):
             'user': 'test_user',
             'password': 'test_pass'
         }
-        self.saver = ClaudeSaver(db_config=self.db_config)
+        self.saver = AIChatSaver(db_config=self.db_config)
 
     def test_saver_initialization(self):
         """Saver 초기화 테스트"""

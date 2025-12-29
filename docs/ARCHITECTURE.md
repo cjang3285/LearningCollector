@@ -2,102 +2,71 @@
 
 ## 📋 프로젝트 개요
 
-모든 학습 활동(GitHub 커밋, Claude 대화, 백준 문제풀이)을 자동으로 수집하여 PostgreSQL DB에 저장하고, 향후 블로그 포스팅으로 변환하는 ETL 파이프라인입니다.
+모든 학습 활동(GitHub 커밋, AI 채팅, 백준 문제풀이)을 자동으로 수집하여 PostgreSQL DB에 저장하는 ETL 파이프라인입니다.
 
 ## 🏗️ 시스템 아키텍처
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
+│                           데이터 소스                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│  1. GitHub REST API          → 커밋 메타데이터 + Diff                │
+│  2. 백준허브 연동 레포        → 백준 README.md + 코드 (GitHub API)   │
+│  3. AI Chat 마크다운         → Claude/ChatGPT/Gemini 내보내기        │
+│  4. Claude ZIP (선택)        → 첫 마이그레이션용 (ZIP → MD 변환)      │
+└─────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────┐
 │                           데이터 수집 (Export)                         │
 ├─────────────────────────────────────────────────────────────────────┤
 │  export/                                                             │
-│  ├── github_export.py       → GitHub API로 커밋 수집                  │
-│  ├── claude_export.py       → [삭제됨] 수동 다운로드 방식으로 변경      │
-│  └── baekjoon_export.py     → solved.ac API + Selenium 크롤링        │
+│  ├── github_export.py        → GitHub API (커밋)                     │
+│  ├── baekjoon_export.py      → GitHub API (TIL 레포)                │
+│  └── ai_chat_export.py       → 파일 감시 (Downloads 폴더)           │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           데이터 파싱 (Parse)                          │
 ├─────────────────────────────────────────────────────────────────────┤
 │  parse/                                                              │
-│  ├── github_parse.py        → 커밋 구조화, 언어 감지, 주석 추출        │
-│  ├── claude_parse.py        → 대화 파싱, 코드 블록 추출               │
-│  └── baekjoon_parse.py      → 문제 데이터 구조화, 코드 분석           │
+│  ├── github_parse.py              → 커밋 구조화, 주석 추출           │
+│  ├── baekjoon_parse.py            → README.md 파싱, 코드 추출       │
+│  └── ai_chat_parse.py             → 마크다운 파싱                   │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          통합 수집 (Collectors)                        │
 ├─────────────────────────────────────────────────────────────────────┤
 │  collectors/                                                         │
-│  ├── github_collector.py    → Export + Parse + Storage 통합          │
-│  ├── claude_collector.py    → Parse + Storage (수동 ZIP 입력)        │
-│  └── baekjoon_collector.py  → Export + Parse + Storage 통합          │
+│  ├── github_collector.py          → Export + Parse + Storage        │
+│  ├── baekjoon_collector.py        → Export + Parse + Storage        │
+│  └── ai_chat_collector.py         → Parse + Storage (마크다운)       │
+├─────────────────────────────────────────────────────────────────────┤
+│  migration/ (첫 마이그레이션용)                                       │
+│  ├── claude_collector.py          → ZIP → MD 변환 + Storage         │
+│  └── claude_parse.py              → ZIP → MD 어댑터                 │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           데이터 저장 (Storage)                        │
 ├─────────────────────────────────────────────────────────────────────┤
 │  storage/                                                            │
-│  ├── base_saver.py          → PostgreSQL 연결 베이스                  │
-│  ├── github_saver.py        → GitHub 커밋 → DB                       │
-│  ├── claude_saver.py        → Claude 대화 → DB                       │
-│  ├── baekjoon_saver.py      → 백준 문제풀이 → DB                      │
-│  └── artifact_saver.py      → 파일 시스템 저장 (미래)                 │
+│  ├── base_saver.py                → PostgreSQL 연결 베이스           │
+│  ├── github_saver.py              → GitHub 커밋 → DB                │
+│  ├── baekjoon_saver.py            → 백준 문제풀이 → DB              │
+│  └── ai_chat_saver.py             → AI 채팅 → DB (마크다운 + ZIP)   │
 └─────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           PostgreSQL 데이터베이스                      │
 ├─────────────────────────────────────────────────────────────────────┤
-│  learning_artifacts/                                                 │
-│  ├── learning_artifacts     → 모든 학습 활동 메타데이터                │
-│  ├── github_commits         → GitHub 커밋                            │
-│  ├── claude_conversations   → Claude 대화                            │
-│  └── baekjoon_solutions     → 백준 문제풀이                           │
+│  learning 스키마/                                                    │
+│  ├── learning_artifacts          → 모든 학습 활동 메타데이터          │
+│  ├── github_commits              → GitHub 커밋                       │
+│  ├── baekjoon_solutions          → 백준 문제풀이                     │
+│  ├── ai_chat_conversations       → AI 채팅 (Claude/ChatGPT/Gemini) │
+│  └── claude_conversations        → Claude ZIP (레거시)              │
 └─────────────────────────────────────────────────────────────────────┘
-```
-
-## 📁 프로젝트 구조
-
-```
-LearningConvertedToPost/
-├── main.py                     # 메인 진입점 (ETL 파이프라인 실행)
-│
-├── config/                     # 설정 관리
-│   ├── __init__.py
-│   └── settings.py            # 환경변수, DB 설정, 디렉토리 경로
-│
-├── export/                     # 데이터 수집 모듈
-│   ├── github_export.py       # GitHub REST API
-│   └── baekjoon_export.py     # solved.ac API + Selenium
-│
-├── parse/                      # 데이터 파싱 모듈
-│   ├── github_parse.py        # 커밋 데이터 구조화
-│   ├── claude_parse.py        # 대화 ZIP 파싱
-│   └── baekjoon_parse.py      # 문제 데이터 구조화
-│
-├── collectors/                 # 통합 수집기 (Export + Parse + Storage)
-│   ├── __init__.py
-│   ├── github_collector.py
-│   ├── claude_collector.py
-│   └── baekjoon_collector.py
-│
-├── storage/                    # 데이터 저장 모듈
-│   ├── __init__.py
-│   ├── base_saver.py          # PostgreSQL 베이스 클래스
-│   ├── github_saver.py        # GitHub DB 저장
-│   ├── claude_saver.py        # Claude DB 저장
-│   ├── baekjoon_saver.py      # 백준 DB 저장
-│   └── artifact_saver.py      # 파일 시스템 저장 (미래)
-│
-├── tests/                      # 테스트 코드
-│   ├── test_github.py
-│   └── test_db_save.py
-│
-├── docs/                       # 문서
-│   └── ARCHITECTURE.md        # 구 아키텍처 문서 (참고용)
-│
-└── temp/                       # 임시 파일 (gitignore)
-    └── claude_downloads/      # Claude 수동 다운로드 ZIP 저장 위치
 ```
 
 ## 🔄 데이터 흐름
@@ -107,95 +76,128 @@ LearningConvertedToPost/
 ```python
 # main.py
 etl = LearningETL()
-results = etl.run(target_date='2025-12-27')
+results = etl.run(target_date='2025-12-29')
 
 # collectors/github_collector.py
 collector = GitHubCollector()
 result = collector.collect(target_date)
 
-    # 1) Export
+    # 1) Export - GitHub API로 커밋 수집
     exporter = GitHubExporter()
     commits = exporter.export_today(target_date)
 
-    # 2) Parse
+    # 2) Parse - 커밋 구조화
     parser = GitHubParser()
     parsed_commits = parser.parse_commits(commits)
 
-    # 3) Storage
+    # 3) Storage - DB 저장
     saver = GitHubSaver()
     artifact_ids = saver.save_all(parsed_commits, target_date)
 ```
 
-### 2. Claude 수집 흐름 (수동 다운로드 방식)
+### 2. AI 채팅 수집 흐름 (마크다운)
 
 ```python
-# main.py
+# main.py --ai-chat-scan
 etl = LearningETL()
-results = etl.run(
-    target_date='2025-12-27',
-    claude_zip_path='/path/to/conversations.zip'  # 수동 다운로드한 ZIP
-)
+results = etl.run(ai_chat_scan=True)
 
-# collectors/claude_collector.py
-collector = ClaudeCollector()
-result = collector.collect(zip_path, target_date)
+# collectors/ai_chat_collector.py
+collector = AIChatCollector()
+result = collector.collect_from_downloads()
 
-    # 1) Parse (Export는 수동)
-    parser = ClaudeParser()
-    conversations = parser.parse_zip(zip_path)
-    filtered = parser.filter_by_date(conversations, target_date)
+    # 1) Export - 다운로드 폴더 스캔
+    watcher = AIExportWatcher()
+    ai_files = watcher.scan_existing()
 
-    # 2) Storage
-    saver = ClaudeSaver()
-    artifact_ids = saver.save_all(filtered, target_date)
+    # 2) Parse - 마크다운 파싱
+    parser = AIMarkdownParser()
+    conversations = parser.parse_multiple(ai_files)
+
+    # 3) Storage - DB 저장
+    saver = AIChatSaver()
+    artifact_ids = saver.save_all(conversations, target_date)
 ```
 
-### 3. 백준 수집 흐름
+### 3. 백준 수집 흐름 (백준허브 연동 레포)
 
 ```python
 # collectors/baekjoon_collector.py
 collector = BaekjoonCollector()
 result = collector.collect(target_date)
 
-    # 1) Export
+    # 1) Export - 백준허브 연동 레포에서 커밋 가져오기
     exporter = BaekjoonExporter()
     problems = exporter.export_today(target_date)
 
-    # 2) Parse
+    # 2) Parse - README.md + 코드 파일 파싱
     parser = BaekjoonParser()
-    parsed_problems = parser.parse_problems(problems)
+    parsed = parser.parse_problems(problems, exporter)
 
-    # 3) Storage
+    # 3) Storage - DB 저장
     saver = BaekjoonSaver()
-    artifact_ids = saver.save_all(parsed_problems, target_date)
+    artifact_ids = saver.save_all(parsed, target_date)
+```
+
+### 4. Claude 마이그레이션 (첫 이용 시)
+
+```python
+# main.py --claude-zip conversations.zip --all
+etl = LearningETL()
+results = etl.run(
+    claude_zip_path='~/Downloads/conversations.zip',
+    all_dates=True
+)
+
+# migration/claude_collector.py
+collector = ClaudeMigrationCollector()
+result = collector.collect(zip_path, all_dates=True)
+
+    # 1) ZIP → 마크다운 변환
+    migration_parser = ClaudeMigrationParser()
+    markdowns = migration_parser.parse_zip(zip_path)
+
+    # 2) 마크다운 파싱 (ai_chat_parse.py 사용)
+    markdown_parser = AIMarkdownParser()
+    conversations = [markdown_parser.parse_file(md) for md in markdowns]
+
+    # 3) DB 저장 (ai_chat_saver.py 사용)
+    saver = AIChatSaver()
+    artifact_ids = saver.save_all(conversations, target_date)
 ```
 
 ## 💾 데이터베이스 스키마
 
 ### learning_artifacts (통합 메타데이터)
 
+모든 학습 활동의 중앙 테이블
+
 ```sql
-CREATE TABLE learning_artifacts (
+CREATE TABLE learning.learning_artifacts (
     id SERIAL PRIMARY KEY,
     artifact_date DATE NOT NULL,
-    source_type VARCHAR(50) NOT NULL,  -- 'github', 'claude', 'baekjoon'
+    source_type VARCHAR(50) NOT NULL,  -- 'github', 'ai_chat_claude', 'baekjoon' 등
     title TEXT,
     summary TEXT,
     tags TEXT[],
-    storage_path TEXT,                 -- 파일 경로 (미래)
+    storage_path TEXT,
     metadata JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX idx_artifacts_date ON learning.learning_artifacts(artifact_date);
+CREATE INDEX idx_artifacts_source ON learning.learning_artifacts(source_type);
+CREATE INDEX idx_artifacts_tags ON learning.learning_artifacts USING GIN(tags);
 ```
 
 ### github_commits
 
 ```sql
-CREATE TABLE github_commits (
+CREATE TABLE learning.github_commits (
     id SERIAL PRIMARY KEY,
-    artifact_id INTEGER REFERENCES learning_artifacts(id),
+    artifact_id INTEGER REFERENCES learning.learning_artifacts(id),
     repo VARCHAR(255) NOT NULL,
-    sha VARCHAR(40) NOT NULL,
+    sha VARCHAR(40) UNIQUE NOT NULL,
     message TEXT,
     commit_date TIMESTAMP,
     files_changed INTEGER,
@@ -204,121 +206,133 @@ CREATE TABLE github_commits (
     commit_data JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX idx_github_repo ON learning.github_commits(repo);
+CREATE INDEX idx_github_sha ON learning.github_commits(sha);
 ```
 
-### claude_conversations
+### ai_chat_conversations (마크다운)
 
 ```sql
-CREATE TABLE claude_conversations (
+CREATE TABLE learning.ai_chat_conversations (
     id SERIAL PRIMARY KEY,
-    artifact_id INTEGER REFERENCES learning_artifacts(id),
+    artifact_id INTEGER REFERENCES learning.learning_artifacts(id),
+    provider VARCHAR(50) NOT NULL,  -- 'claude', 'chatgpt', 'gemini'
+    title TEXT NOT NULL,
+    link TEXT,
+    user_messages INTEGER DEFAULT 0,
+    assistant_messages INTEGER DEFAULT 0,
+    has_code BOOLEAN DEFAULT FALSE,
+    conversation_path TEXT,
+    code_languages TEXT[],
+    code_blocks_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    ingested_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_ai_chat_provider ON learning.ai_chat_conversations(provider);
+CREATE INDEX idx_ai_chat_has_code ON learning.ai_chat_conversations(has_code);
+```
+
+### baekjoon_solutions
+
+```sql
+CREATE TABLE learning.baekjoon_solutions (
+    id SERIAL PRIMARY KEY,
+    artifact_id INTEGER REFERENCES learning.learning_artifacts(id),
+    problem_id INTEGER NOT NULL,
+    title TEXT,
+    tier VARCHAR(50),        -- "Silver III", "Bronze V" 등
+    memory VARCHAR(50),      -- "3336 KB"
+    time VARCHAR(50),        -- "36 ms"
+    tags TEXT[],
+    language VARCHAR(50),
+    code TEXT,
+    description TEXT,
+    commit_sha VARCHAR(40),
+    submitted_at TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_baekjoon_problem ON learning.baekjoon_solutions(problem_id);
+CREATE INDEX idx_baekjoon_tier ON learning.baekjoon_solutions(tier);
+```
+
+### claude_conversations (레거시, ZIP 전용)
+
+```sql
+CREATE TABLE learning.claude_conversations (
+    id SERIAL PRIMARY KEY,
+    artifact_id INTEGER REFERENCES learning.learning_artifacts(id),
     uuid VARCHAR(255) UNIQUE NOT NULL,
     name TEXT,
     summary TEXT,
     user_messages INTEGER,
     assistant_messages INTEGER,
     has_code BOOLEAN,
-    conversation_data JSONB,
+    duration_minutes FLOAT,
+    conversation_path TEXT,
+    code_languages TEXT[],
+    code_blocks_count INTEGER,
     created_at TIMESTAMP DEFAULT NOW()
 );
-```
 
-### baekjoon_solutions
-
-```sql
-CREATE TABLE baekjoon_solutions (
-    id SERIAL PRIMARY KEY,
-    artifact_id INTEGER REFERENCES learning_artifacts(id),
-    problem_id INTEGER NOT NULL,
-    title TEXT,
-    tier VARCHAR(50),
-    tags TEXT[],
-    language VARCHAR(50),
-    code TEXT,
-    memory VARCHAR(50),
-    time VARCHAR(50),
-    solution_data JSONB,
-    created_at TIMESTAMP DEFAULT NOW()
-);
+CREATE INDEX idx_claude_uuid ON learning.claude_conversations(uuid);
 ```
 
 ## 🔧 주요 설계 결정사항
 
-### 1. Claude Export 자동화 제거 (2025-12-27)
+### 1. 백준: Selenium → 백준허브 연동 레포 기반
 
-**변경 전:**
-- `export/claude_export.py`: Selenium으로 자동 로그인 + Export 클릭
-- 쿠키 저장 방식 (`CLAUDE_COOKIES_PATH`)
+**변경 전 (Selenium)**:
+- solved.ac API로 문제 목록 조회
+- Selenium으로 백준 로그인 후 코드 크롤링
+- 쿠키 관리 필요, 불안정
 
-**변경 후:**
-- Export 자동화 삭제
-- 사용자가 수동으로 ZIP 다운로드
-- `collectors/claude_collector.py`가 ZIP 경로를 매개변수로 받음
+**변경 후 (백준허브 연동 레포)**:
+- 백준허브 크롬 확장 프로그램이 GitHub 레포에 자동 푸시
+- GitHub API로 커밋 및 파일 읽기
+- README.md에 모든 메타데이터 포함
+- 안정적이고 API rate limit만 관리
 
-**이유:**
-- 쿠키 기반 자동화는 유지보수 어려움
-- Claude UI 변경 시 코드 수정 필요
-- 수동 다운로드가 더 안정적
+**장점**:
+- Selenium 의존성 제거
+- solved.ac API 불필요
+- 크롤링 실패 위험 없음
+- 모든 메타데이터 포함 (티어, 태그, 성능)
 
-### 2. db_savers → storage 통합
+### 2. AI Chat: ZIP → 마크다운
 
-**변경사항:**
-- `db_savers/` 폴더 → `storage/`로 이동
-- 모든 import 경로 업데이트
+**일상 사용**:
+- 브라우저 확장 프로그램으로 마크다운 내보내기 (사용자가 수동으로 내보내기)
+- 다운로드 폴더 자동 감시 (내보내기 이후 자동화 시작)
+- 다운로드 폴더 감지부터 DB 저장까지 자동화
 
-**이유:**
-- `storage`가 더 포괄적인 이름 (DB + 파일 저장)
-- 향후 `artifact_saver.py`와 통합 용이
+**첫 마이그레이션**:
+- claude.ai에서 전체 대화 ZIP 다운로드
+- `migration/` 폴더의 어댑터가 ZIP → 마크다운 형식으로 변환
+- `--claude-zip` + `--all` 옵션
+- 한 번만 실행
 
-### 3. 테스트 파일 분리
+**이유**:
+- ZIP은 Claude 전용, 다른 AI는 지원 안 함
+- 마크다운은 3개 AI 모두 지원
+- 일상적으로는 마크다운이 더 편리
+- 마이그레이션 어댑터는 ZIP을 마크다운 형식으로 변환하여 통일된 처리 가능
 
-**변경사항:**
-- `test_*.py` → `tests/` 폴더로 이동
+### 3. 모듈화 아키텍처
 
-**이유:**
-- 루트 디렉토리 정리
-- 테스트 코드와 프로덕션 코드 분리
+**Export ↔ Parse ↔ Storage 분리**:
+- Export: 데이터 수집만 담당
+- Parse: 구조화 및 검증
+- Storage: DB 저장 및 파일 관리
+- Collector: 통합 orchestration
 
-## 🚀 향후 확장 계획
-
-### 1. 파일 시스템 저장 (`artifact_saver.py`)
-
-```python
-# storage/artifact_saver.py
-class ArtifactSaver:
-    def save_to_file(self, data, source_type, date):
-        # learning_artifacts/2025/12/27/github/commit_abc123.json
-        path = self.get_file_path(source_type, date)
-        with open(path, 'w') as f:
-            json.dump(data, f)
-        return path
-```
-
-### 2. AI 분석 모듈
-
-```python
-# analysis/claude_analyzer.py
-class ClaudeAnalyzer:
-    def analyze_activity(self, artifact_id):
-        # Claude API로 학습 주제 추출
-        # 핵심 포인트 요약
-        # 블로그 포스트 초안 생성
-        pass
-```
-
-### 3. 블로그 포스팅 자동화
-
-```python
-# blog/post_generator.py
-class PostGenerator:
-    def generate_dev_log(self, commits):
-        # GitHub 커밋 → Dev Log 포스트
-        pass
-
-    def generate_algorithm_post(self, problems):
-        # 백준 문제 → Algorithm 포스트
-        pass
-```
+**장점**:
+- 각 모듈 독립적 테스트 가능
+- 새로운 소스 추가 쉬움
+- 데이터 파이프라인 명확
 
 ## 📊 성능 최적화
 
@@ -326,16 +340,50 @@ class PostGenerator:
 
 ```sql
 -- 날짜별 조회 (가장 빈번)
-CREATE INDEX idx_artifacts_date ON learning_artifacts(artifact_date);
+CREATE INDEX idx_artifacts_date ON learning.learning_artifacts(artifact_date);
 
 -- 소스별 필터링
-CREATE INDEX idx_artifacts_source ON learning_artifacts(source_type);
+CREATE INDEX idx_artifacts_source ON learning.learning_artifacts(source_type);
 
 -- 태그 검색 (GIN 인덱스)
-CREATE INDEX idx_artifacts_tags ON learning_artifacts USING GIN(tags);
+CREATE INDEX idx_artifacts_tags ON learning.learning_artifacts USING GIN(tags);
 
 -- JSONB 메타데이터 검색
-CREATE INDEX idx_artifacts_metadata ON learning_artifacts USING GIN(metadata);
+CREATE INDEX idx_artifacts_metadata ON learning.learning_artifacts USING GIN(metadata);
+```
+
+### GitHub API Rate Limit 관리
+
+```python
+# GitHub API: 5000 requests/hour (authenticated)
+# 전략:
+# 1. 커밋 상세는 필요한 것만
+# 2. 파일 내용은 캐싱
+# 3. 병렬 요청 최소화
+```
+
+## 🛠️ 개발 가이드
+
+### 새로운 소스 추가 예시 (Notion)
+
+1. **Export 모듈**: `export/notion_export.py`
+2. **Parse 모듈**: `parse/notion_parse.py`
+3. **Saver**: `storage/notion_saver.py`
+4. **Collector**: `collectors/notion_collector.py`
+5. **DB 테이블**: `notion_notes` 추가
+6. **Config**: `COLLECT_NOTION` 설정 추가
+7. **Main.py**: `notion_collector` 통합
+
+### 테스트 방법
+
+```bash
+# 개별 모듈 테스트
+python export/github_export.py
+python parse/ai_chat_parse.py test.md
+python collectors/github_collector.py
+
+# 전체 파이프라인 테스트
+python main.py --date 2025-12-28
 ```
 
 ## 🔐 보안 고려사항
@@ -347,6 +395,7 @@ CREATE INDEX idx_artifacts_metadata ON learning_artifacts USING GIN(metadata);
 GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 GITHUB_USERNAME=cjang3285
 BAEKJOON_HANDLE=andy1692
+BAEKJOON_TIL_REPO=Baekjoon_solutions
 
 DB_HOST=localhost
 DB_PORT=5432
@@ -368,7 +417,10 @@ learning_artifacts/
 # Python
 __pycache__/
 *.pyc
-.pytest_cache/
+
+# 출력 데이터
+output/
+outputs/
 ```
 
 ## 📝 사용법
@@ -379,32 +431,38 @@ __pycache__/
 python main.py
 ```
 
-### 2. Claude 포함 전체 수집
+### 2. AI Chat 일상 사용
 
 ```bash
-# 1. claude.ai에서 수동으로 Export → ZIP 다운로드
-# 2. ZIP 경로와 함께 실행
-python main.py --claude-zip ~/Downloads/conversations.zip
+# 다운로드 폴더 자동 스캔
+python main.py --ai-chat-scan
+
+# 특정 파일 지정
+python main.py --ai-chat ~/Downloads/Claude-*.md
 ```
 
-### 3. 특정 날짜 수집
+### 3. 첫 Claude 마이그레이션
 
 ```bash
-python main.py --date 2025-12-26 --claude-zip conversations.zip
+# claude.ai에서 Export → ZIP 다운로드
+# 전체 대화 수집
+python main.py --claude-zip ~/Downloads/conversations.zip --all
 ```
 
-## 🛠️ 개발 가이드
+### 4. 특정 날짜 수집
 
-### 새로운 소스 추가 예시 (Notion)
+```bash
+python main.py --date 2025-12-26
+```
 
-1. **Export 모듈**: `export/notion_export.py`
-2. **Parse 모듈**: `parse/notion_parse.py`
-3. **Collector**: `collectors/notion_collector.py`
-4. **Storage**: `storage/notion_saver.py`
-5. **DB 테이블**: `notion_notes` 추가
-6. **Config**: `settings.py`에 Notion API 키 추가
+### 5. Cron 자동화
+
+```bash
+# crontab -e
+0 23 * * * cd /path/to/LearningETL && python main.py --ai-chat-scan
+```
 
 ## 📚 참고 문서
 
-- [이전 아키텍처 문서](docs/ARCHITECTURE.md)
-- [README](README.md)
+- [README](../README.md)
+- [AI Chat 통합 가이드](AI_CHAT_INTEGRATION.md)

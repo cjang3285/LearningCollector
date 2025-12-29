@@ -6,14 +6,6 @@ requests>=2.31.0
 # PostgreSQL 드라이버
 psycopg2-binary>=2.9.9
 
-# 웹 자동화 (Baekjoon 크롤링)
-selenium>=4.15.0
-
-# 날짜/시간 처리 (기본 내장)
-# python-dateutil
-
-# 데이터 분석 (선택)
-# pandas>=2.1.0
-
-# 테스팅 (기본 내장 unittest 사용)
-# pytest>=7.4.0
+# 파일 시스템 감시 (AI Chat 마크다운 파일 자동 감지용)
+# 다운로드 폴더를 실시간 모니터링하여 Claude/ChatGPT/Gemini 마크다운 파일 감지
+watchdog>=3.0.0

@@ -51,6 +51,7 @@ logs/
 
 # 수집된 학습 데이터 (learning artifacts)
 output/
+outputs/
 learning_artifacts/
 artifacts/
 !output/.gitkeep

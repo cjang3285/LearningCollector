@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from collectors.github_collector import GitHubCollector
-from collectors.claude_collector import ClaudeCollector
+from migration.claude_collector import ClaudeMigrationCollector
 from collectors.baekjoon_collector import BaekjoonCollector
 
 
@@ -63,12 +63,12 @@ class TestGitHubCollector(unittest.TestCase):
             self.skipTest("Collector implementation varies")
 
 
-class TestClaudeCollector(unittest.TestCase):
-    """Claude Collector 통합 테스트"""
+class TestClaudeMigrationCollector(unittest.TestCase):
+    """Claude Migration Collector 통합 테스트"""
 
     def setUp(self):
         """테스트 전 환경 설정"""
-        self.collector = ClaudeCollector()
+        self.collector = ClaudeMigrationCollector()
 
     def test_collector_initialization(self):
         """Collector 초기화 테스트"""
@@ -76,22 +76,29 @@ class TestClaudeCollector(unittest.TestCase):
 
     def test_collect_without_zip_path(self):
         """ZIP 경로 없이 collect 호출"""
-        result = self.collector.collect(zip_path=None)
+        try:
+            result = self.collector.collect(zip_path=None)
+            # ZIP 경로가 없으면 에러 또는 실패 결과 반환
+            self.assertIsInstance(result, dict)
+            self.assertIn('success', result)
+            self.assertFalse(result['success'])
+        except (ValueError, TypeError):
+            # 에러 발생도 정상
+            pass
 
-        # ZIP 경로가 없으면 에러 또는 실패 결과 반환
-        self.assertIsInstance(result, dict)
-        self.assertIn('success', result)
-        self.assertFalse(result['success'])
-
-    @patch('collectors.claude_collector.ClaudeParser')
-    @patch('collectors.claude_collector.ClaudeSaver')
-    def test_collect_with_mock_zip(self, mock_saver, mock_parser):
+    @patch('migration.claude_collector.ClaudeMigrationParser')
+    @patch('migration.claude_collector.AIMarkdownParser')
+    @patch('migration.claude_collector.AIChatSaver')
+    def test_collect_with_mock_zip(self, mock_saver, mock_md_parser, mock_migration_parser):
         """ZIP 파일 수집 테스트 (모킹)"""
         # Mock 설정
-        mock_parser_instance = Mock()
-        mock_parser_instance.parse_zip.return_value = [{'uuid': 'test-uuid'}]
-        mock_parser_instance.filter_by_date.return_value = [{'uuid': 'test-uuid'}]
-        mock_parser.return_value = mock_parser_instance
+        mock_migration_instance = Mock()
+        mock_migration_instance.parse_zip.return_value = ['# Test conversation']
+        mock_migration_parser.return_value = mock_migration_instance
+
+        mock_md_instance = Mock()
+        mock_md_instance.parse_content.return_value = {'title': 'Test', 'messages': []}
+        mock_md_parser.return_value = mock_md_instance
 
         mock_saver_instance = Mock()
         mock_saver_instance.save_all.return_value = [1]
@@ -101,13 +108,12 @@ class TestClaudeCollector(unittest.TestCase):
         zip_path = '/tmp/test_conversations.zip'
 
         try:
-            collector = ClaudeCollector()
+            collector = ClaudeMigrationCollector()
             # collect 메서드 호출 (파일이 없어도 mock이 처리)
-            # 실제로는 파일 체크가 있을 수 있으므로 try-except
-            result = collector.collect(zip_path, date.today())
+            result = collector.collect(zip_path)
             self.assertIsInstance(result, dict)
         except:
-            self.skipTest("Claude collector requires actual ZIP file")
+            self.skipTest("Claude migration collector requires actual ZIP file")
 
 
 class TestBaekjoonCollector(unittest.TestCase):

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-백준 Export - 당일 문제 풀이 + 제출 코드 수집
+백준 Export - 백준허브 연동 레포에서 백준 제출 수집
 
-1. solved.ac API로 당일 푼 문제 찾기 (diff 방식)
-2. Selenium으로 백준 로그인 후 제출 코드 크롤링
+백준허브와 연동된 레포지터리의 백준 폴더에서 당일 제출된 문제를 수집합니다.
+백준허브 크롬 확장 프로그램이 자동으로 푸시한 커밋을 읽어옵니다.
 """
 
 import os
@@ -13,25 +13,12 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import json
-import pickle
 import logging
 import requests
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
-from config.settings import (
-    BAEKJOON_HANDLE,
-    BAEKJOON_COOKIES_PATH,
-    BAEKJOON_CACHE_PATH,
-    SELENIUM_HEADLESS,
-    get_log_file
-)
+from config.settings import GITHUB_TOKEN, GITHUB_USERNAME, get_log_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,371 +32,261 @@ logger = logging.getLogger(__name__)
 
 
 class BaekjoonExporter:
-    """백준 문제 풀이 + 코드 수집"""
+    """백준허브 연동 레포 기반 문제 풀이 수집"""
 
-    def __init__(self, handle: Optional[str] = None, headless: Optional[bool] = None):
-        self.handle = handle or BAEKJOON_HANDLE
-        self.headless = headless if headless is not None else SELENIUM_HEADLESS
+    def __init__(
+        self,
+        baekjoon_repo: str = "Baekjoon_solutions",
+        username: Optional[str] = None,
+        token: Optional[str] = None
+    ):
+        """
+        Args:
+            baekjoon_repo: 백준허브와 연동된 레포지터리 이름 (기본값: Baekjoon_solutions)
+            username: GitHub 사용자명
+            token: GitHub Personal Access Token
+        """
+        self.username = username or GITHUB_USERNAME
+        self.token = token or GITHUB_TOKEN
+        self.baekjoon_repo = baekjoon_repo
 
-        if not self.handle:
-            raise ValueError("BAEKJOON_HANDLE 환경 변수 필요")
+        if not self.username or not self.token:
+            raise ValueError("GITHUB_USERNAME과 GITHUB_TOKEN 환경 변수 필요")
 
-        self.base_url = 'https://solved.ac/api/v3'
-        self.cache_file = BAEKJOON_CACHE_PATH
-        self.cookies_file = BAEKJOON_COOKIES_PATH
-        self.driver = None
-    
-    # ============ solved.ac API 메서드 (기존 유지) ============
-    
-    def get_user_info(self) -> Dict:
-        """사용자 정보 가져오기"""
-        url = f"{self.base_url}/user/show"
-        params = {'handle': self.handle}
-        
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        
-        return response.json()
-    
-    def get_solved_problems(self) -> List[int]:
-        """사용자가 푼 모든 문제 번호 가져오기"""
-        problems = []
-        page = 1
-        
-        while True:
-            url = f"{self.base_url}/search/problem"
-            params = {
-                'query': f'solved_by:{self.handle}',
-                'page': page,
-                'sort': 'id',
-                'direction': 'asc'
-            }
-            
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if not data['items']:
-                break
-            
-            for item in data['items']:
-                problems.append(item['problemId'])
-            
-            page += 1
-        
-        return problems
-    
-    def get_problem_info(self, problem_id: int) -> Dict:
-        """문제 상세 정보 가져오기"""
-        url = f"{self.base_url}/problem/show"
-        params = {'problemId': problem_id}
-        
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        
-        data = response.json()
-        
-        return {
-            'problem_id': data['problemId'],
-            'title': data['titleKo'],
-            'level': data['level'],
-            'tier': self._level_to_tier(data['level']),
-            'tags': [tag['displayNames'][0]['name'] for tag in data['tags']],
-            'url': f"https://www.acmicpc.net/problem/{data['problemId']}"
+        self.base_url = 'https://api.github.com'
+        self.headers = {
+            'Authorization': f'token {self.token}',
+            'Accept': 'application/vnd.github.v3+json'
         }
-    
-    def _level_to_tier(self, level: int) -> str:
-        """레벨 숫자를 티어 문자열로 변환"""
-        tiers = [
-            'Unrated',
-            'Bronze V', 'Bronze IV', 'Bronze III', 'Bronze II', 'Bronze I',
-            'Silver V', 'Silver IV', 'Silver III', 'Silver II', 'Silver I',
-            'Gold V', 'Gold IV', 'Gold III', 'Gold II', 'Gold I',
-            'Platinum V', 'Platinum IV', 'Platinum III', 'Platinum II', 'Platinum I',
-            'Diamond V', 'Diamond IV', 'Diamond III', 'Diamond II', 'Diamond I',
-            'Ruby V', 'Ruby IV', 'Ruby III', 'Ruby II', 'Ruby I'
-        ]
-        
-        if 0 <= level < len(tiers):
-            return tiers[level]
-        return 'Unknown'
-    
-    def load_cache(self) -> List[int]:
-        """캐시된 문제 목록 로드"""
-        if not self.cache_file.exists():
-            return []
-        
-        with open(self.cache_file, 'r') as f:
-            data = json.load(f)
-            return data.get('problems', [])
-    
-    def save_cache(self, problems: List[int]):
-        """문제 목록 캐시 저장"""
-        with open(self.cache_file, 'w') as f:
-            json.dump({'problems': problems}, f)
-    
-    # ============ Selenium 메서드 (코드 크롤링) ============
-    
-    def setup_driver(self):
-        """Selenium WebDriver 설정"""
-        options = Options()
 
-        if self.headless:
-            options.add_argument("--headless")
-            options.add_argument("--disable-software-rasterizer")
+    def get_commits(self, since: datetime, until: datetime) -> List[Dict]:
+        """
+        특정 기간의 커밋 가져오기
 
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
+        Args:
+            since: 시작 시간 (timezone aware)
+            until: 종료 시간 (timezone aware)
 
-        # Raspberry Pi ARM64 감지 및 snap chromium 사용
-        import platform
-        import os
-        import tempfile
-        is_raspberry_pi = platform.machine() in ('aarch64', 'armv7l')
-
-        if is_raspberry_pi:
-            # ARM64에서는 snap chromium 사용 (공식 ARM64 Chrome 없음)
-            options.binary_location = '/snap/bin/chromium'
-
-            # snap chromium의 샌드박스 문제 우회
-            # user-data-dir을 홈 디렉토리 내로 설정 (snap은 홈만 쓰기 가능)
-            user_data_dir = os.path.expanduser('~/.config/chromium-selenium')
-            os.makedirs(user_data_dir, exist_ok=True)
-            options.add_argument(f'--user-data-dir={user_data_dir}')
-
-            logger.info("Chromium 경로: /snap/bin/chromium (snap)")
-
-        try:
-            if is_raspberry_pi:
-                # snap chromium의 내장 chromedriver 사용
-                driver_path = '/snap/bin/chromium.chromedriver'
-                if not os.path.exists(driver_path):
-                    raise Exception(
-                        "chromedriver를 찾을 수 없습니다.\n"
-                        "다음 명령어를 실행하세요:\n"
-                        "  sudo snap install chromium"
-                    )
-
-                # Service에 환경변수 추가 - snap 경로 접근 허용
-                service = Service(
-                    driver_path,
-                    env={
-                        'SNAP': '/snap/chromium/current',
-                        'SNAP_USER_COMMON': os.path.expanduser('~/snap/chromium/common'),
-                        'SNAP_USER_DATA': os.path.expanduser('~/snap/chromium/current')
-                    }
-                )
-                self.driver = webdriver.Chrome(service=service, options=options)
-                logger.info(f"chromedriver 사용: {driver_path}")
-            else:
-                # 다른 플랫폼에서는 Selenium Manager 사용
-                self.driver = webdriver.Chrome(options=options)
-
-            logger.info("Selenium WebDriver 초기화 완료")
-        except Exception as e:
-            raise Exception(f"WebDriver 초기화 실패: {e}")
-    
-    def save_cookies(self):
-        """쿠키 저장"""
-        cookies = self.driver.get_cookies()
-        with open(self.cookies_file, 'wb') as f:
-            pickle.dump(cookies, f)
-        logger.info(f"백준 쿠키 저장: {self.cookies_file}")
-    
-    def load_cookies(self):
-        """쿠키 로드"""
-        if not self.cookies_file.exists():
-            raise FileNotFoundError(
-                f"쿠키 파일 없음: {self.cookies_file}\n"
-                "먼저 setup()을 실행하세요"
-            )
-        
-        with open(self.cookies_file, 'rb') as f:
-            cookies = pickle.load(f)
-        
-        self.driver.get("https://www.acmicpc.net")
-        import time
-        time.sleep(2)
-        
-        for cookie in cookies:
-            try:
-                self.driver.add_cookie(cookie)
-            except Exception:
-                pass
-    
-    def setup(self):
-        """최초 1회 설정: 수동 로그인 후 쿠키 저장"""
-        self.headless = False
-        self.setup_driver()
-
-        logger.info("백준에서 수동 로그인 후 Enter를 눌러주세요...")
-        self.driver.get("https://www.acmicpc.net/login")
-        input()
-
-        self.save_cookies()
-        self.driver.quit()
-        logger.info("백준 설정 완료")
-    
-    def get_my_submissions(self, problem_id: int) -> List[Dict]:
-        """특정 문제의 내 제출 목록 가져오기"""
-        url = f"https://www.acmicpc.net/status"
+        Returns:
+            커밋 리스트
+        """
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/commits"
         params = {
-            'problem_id': problem_id,
-            'user_id': self.handle,
-            'result_id': 4  # 맞았습니다!!
+            'since': since.isoformat(),
+            'until': until.isoformat(),
+            'per_page': 100
         }
-        
-        self.driver.get(url + '?' + '&'.join(f'{k}={v}' for k, v in params.items()))
-        
-        import time
-        time.sleep(2)
-        
-        submissions = []
-        
-        try:
-            # 제출 테이블에서 첫 번째 정답 찾기
-            rows = self.driver.find_elements(By.CSS_SELECTOR, "#status-table tbody tr")
-            
-            for row in rows[:5]:  # 최대 5개만 확인
-                cols = row.find_elements(By.TAG_NAME, "td")
-                
-                if len(cols) >= 7:
-                    submission_id = cols[0].text
-                    language = cols[6].text
-                    code_length = cols[4].text
-                    memory = cols[3].text
-                    time_ms = cols[2].text
-                    
-                    submissions.append({
-                        'submission_id': submission_id,
-                        'language': language,
-                        'code_length': code_length,
-                        'memory': memory,
-                        'time': time_ms
-                    })
-        
-        except Exception as e:
-            logger.warning(f"제출 목록 가져오기 실패: {e}")
-        
-        return submissions
-    
-    def get_source_code(self, submission_id: str) -> str:
-        """제출 코드 가져오기"""
-        url = f"https://www.acmicpc.net/source/{submission_id}"
-        
-        try:
-            self.driver.get(url)
-            
-            import time
-            time.sleep(1)
-            
-            # 코드 영역 찾기
-            code_element = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "textarea.form-control"))
-            )
-            
-            code = code_element.get_attribute('value')
-            return code
-        
-        except Exception as e:
-            logger.warning(f"코드 가져오기 실패: {e}")
-            return ""
-    
-    # ============ 통합 Export 메서드 ============
-    
-    def export_today(self) -> List[Dict]:
-        """당일 푼 문제 + 제출 코드 수집"""
-        logger.info(f"{self.handle}의 오늘 문제 풀이 수집 중...")
 
-        # 1. solved.ac로 오늘 푼 문제 찾기
-        current_problems = self.get_solved_problems()
-        logger.info(f"총 {len(current_problems)}개 문제 해결")
+        response = requests.get(url, headers=self.headers, params=params)
+        response.raise_for_status()
 
-        cached_problems = self.load_cache()
-        new_problems = set(current_problems) - set(cached_problems)
+        commits = response.json()
+        logger.info(f"백준허브 연동 레포에서 {len(commits)}개 커밋 발견")
+        return commits
 
-        if not new_problems:
-            logger.info("오늘 푼 새로운 문제 없음")
-            self.save_cache(current_problems)
+    def get_commit_files(self, sha: str) -> List[Dict]:
+        """
+        커밋에서 변경된 파일 목록 가져오기
+
+        Args:
+            sha: 커밋 SHA
+
+        Returns:
+            변경된 파일 리스트 [{'filename': '...', 'status': 'added', ...}]
+        """
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/commits/{sha}"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+
+        commit_data = response.json()
+        return commit_data.get('files', [])
+
+    def get_file_content(self, file_path: str, ref: str = 'main') -> Optional[str]:
+        """
+        파일 내용 가져오기
+
+        Args:
+            file_path: 레포 내 파일 경로 (예: '백준/Silver/24511. queuestack/README.md')
+            ref: 브랜치 또는 커밋 SHA (기본값: main)
+
+        Returns:
+            파일 내용 (UTF-8 디코딩)
+        """
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/contents/{file_path}"
+        params = {'ref': ref}
+
+        response = requests.get(url, headers=self.headers, params=params)
+
+        if response.status_code == 404:
+            logger.warning(f"파일을 찾을 수 없음: {file_path}")
+            return None
+
+        response.raise_for_status()
+        file_data = response.json()
+
+        # GitHub API는 base64로 인코딩된 content 반환
+        import base64
+        content = base64.b64decode(file_data['content']).decode('utf-8')
+        return content
+
+    def filter_baekjoon_files(self, files: List[Dict]) -> List[Dict]:
+        """
+        백준 관련 파일만 필터링
+
+        Args:
+            files: 커밋의 파일 리스트
+
+        Returns:
+            백준 폴더의 README.md 파일들
+        """
+        baekjoon_files = []
+
+        for file in files:
+            filename = file['filename']
+
+            # '백준/' 또는 'baekjoon/' 경로이면서 README.md인 파일
+            if ('백준/' in filename or 'baekjoon/' in filename.lower()) and \
+               filename.endswith('README.md'):
+                baekjoon_files.append(file)
+
+        return baekjoon_files
+
+    def extract_problem_info_from_path(self, file_path: str) -> Optional[Dict]:
+        """
+        파일 경로에서 문제 정보 추출
+
+        Args:
+            file_path: 예) '백준/Silver/24511. queuestack/README.md'
+
+        Returns:
+            {'tier': 'Silver', 'problem_folder': '24511. queuestack', 'file_path': ...}
+        """
+        parts = file_path.split('/')
+
+        # 백준/Tier/문제폴더/README.md 구조 확인
+        if len(parts) < 4:
+            return None
+
+        tier = parts[1]  # Silver, Bronze, Gold 등
+        problem_folder = parts[2]  # "24511. queuestack"
+
+        return {
+            'tier': tier,
+            'problem_folder': problem_folder,
+            'file_path': file_path,
+            'problem_dir': '/'.join(parts[:-1])  # README.md 제외한 디렉토리
+        }
+
+    def find_code_file(self, problem_dir: str, sha: str) -> Optional[str]:
+        """
+        문제 디렉토리에서 코드 파일 찾기
+
+        Args:
+            problem_dir: 문제 디렉토리 경로
+            sha: 커밋 SHA
+
+        Returns:
+            코드 파일 경로 (예: '백준/Silver/24511. queuestack/queuestack.cc')
+        """
+        # GitHub API로 디렉토리 목록 가져오기
+        url = f"{self.base_url}/repos/{self.username}/{self.baekjoon_repo}/contents/{problem_dir}"
+        params = {'ref': sha}
+
+        response = requests.get(url, headers=self.headers, params=params)
+
+        if response.status_code != 200:
+            return None
+
+        contents = response.json()
+
+        # README.md가 아닌 파일 찾기 (코드 파일)
+        for item in contents:
+            if item['type'] == 'file' and item['name'] != 'README.md':
+                return item['path']
+
+        return None
+
+    def export_today(self, target_date: datetime = None) -> List[Dict]:
+        """
+        당일 제출된 백준 문제 수집
+
+        Args:
+            target_date: 수집 대상 날짜 (기본값: 오늘)
+
+        Returns:
+            문제 리스트 [{'readme_path': ..., 'code_path': ..., 'commit_sha': ...}, ...]
+        """
+        if target_date is None:
+            target_date = datetime.now(timezone.utc)
+        else:
+            # naive datetime을 UTC로 변환
+            if target_date.tzinfo is None:
+                target_date = target_date.replace(tzinfo=timezone.utc)
+
+        # 당일 00:00 ~ 23:59
+        today_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        logger.info(f"백준 문제 수집: {today_start.date()}")
+
+        # 1. 당일 커밋 가져오기
+        commits = self.get_commits(today_start, today_end)
+
+        if not commits:
+            logger.info("당일 커밋이 없습니다.")
             return []
 
-        logger.info(f"새로운 문제 {len(new_problems)}개 발견")
+        # 2. 각 커밋에서 백준 파일 찾기
+        problems = []
 
-        # 2. 각 문제의 상세 정보 수집
-        solved_today = []
-        for problem_id in sorted(new_problems):
-            try:
-                info = self.get_problem_info(problem_id)
-                solved_today.append(info)
-                logger.info(f"{problem_id}: {info['title']} ({info['tier']})")
-            except Exception as e:
-                logger.warning(f"{problem_id}: 정보 수집 실패 - {e}")
-        
-        # 3. 제출 코드 크롤링 (선택적)
-        if solved_today:
-            try:
-                logger.info("제출 코드 크롤링 시작...")
-                self.setup_driver()
-                self.load_cookies()
+        for commit in commits:
+            sha = commit['sha']
+            message = commit['commit']['message']
 
-                for problem in solved_today:
-                    problem_id = problem['problem_id']
+            logger.info(f"커밋 분석: {message[:50]}...")
 
-                    # 제출 목록 가져오기
-                    submissions = self.get_my_submissions(problem_id)
+            # 커밋에서 변경된 파일 가져오기
+            files = self.get_commit_files(sha)
 
-                    if submissions:
-                        # 가장 최근 정답 코드 가져오기
-                        latest = submissions[0]
-                        code = self.get_source_code(latest['submission_id'])
+            # 백준 README.md 파일만 필터링
+            baekjoon_files = self.filter_baekjoon_files(files)
 
-                        if code:
-                            problem['submission'] = {
-                                'submission_id': latest['submission_id'],
-                                'language': latest['language'],
-                                'code': code,
-                                'memory': latest['memory'],
-                                'time': latest['time']
-                            }
-                            logger.info(f"  코드 수집 완료 ({latest['language']})")
-                        else:
-                            logger.warning(f"  코드 수집 실패")
-                    else:
-                        logger.warning(f"  제출 내역 없음")
+            for file in baekjoon_files:
+                file_path = file['filename']
+                problem_info = self.extract_problem_info_from_path(file_path)
 
-                self.driver.quit()
+                if not problem_info:
+                    continue
 
-            except FileNotFoundError:
-                logger.warning("백준 쿠키 없음 - 코드 수집 건너뜀")
-                logger.warning("'setup()' 실행 후 재시도하세요")
-            except Exception as e:
-                logger.error(f"코드 크롤링 실패: {e}")
-                if self.driver:
-                    self.driver.quit()
-        
-        # 캐시 업데이트
-        self.save_cache(current_problems)
-        
-        return solved_today
+                # 코드 파일 찾기
+                code_path = self.find_code_file(problem_info['problem_dir'], sha)
+
+                problems.append({
+                    'readme_path': file_path,
+                    'code_path': code_path,
+                    'commit_sha': sha,
+                    'commit_message': message,
+                    'commit_date': commit['commit']['committer']['date'],
+                    'tier': problem_info['tier'],
+                    'problem_folder': problem_info['problem_folder']
+                })
+
+                logger.info(f"[OK] 백준 문제 발견: {problem_info['problem_folder']} ({problem_info['tier']})")
+
+        logger.info(f"총 {len(problems)}개 문제 수집 완료")
+        return problems
 
 
 if __name__ == '__main__':
-    import sys
-    
+    from datetime import date
+
     exporter = BaekjoonExporter()
-    
-    if "--setup" in sys.argv:
-        exporter.setup()
-    else:
-        problems = exporter.export_today()
-        
-        for p in problems:
-            print(f"\n[{p['tier']}] {p['problem_id']}: {p['title']}")
-            if 'submission' in p:
-                print(f"  언어: {p['submission']['language']}")
-                print(f"  메모리: {p['submission']['memory']}")
-                print(f"  시간: {p['submission']['time']}")
-                print(f"  코드 길이: {len(p['submission']['code'])}자")
+
+    # 오늘 문제 수집
+    problems = exporter.export_today()
+
+    print(f"\n총 {len(problems)}개 문제 수집됨:")
+    for p in problems:
+        print(f"  - {p['problem_folder']} ({p['tier']})")
+        print(f"    README: {p['readme_path']}")
+        print(f"    코드: {p['code_path']}")
