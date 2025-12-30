@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 AI Chat Collector - AI 채팅 마크다운 수집 + 파싱 + DB 저장
-
 Claude, ChatGPT, Gemini 마크다운 내보내기 파일 처리
+ICollector 인터페이스 구현 (SOLID - DIP, SRP)
 """
 
 import os
@@ -19,6 +19,7 @@ import logging
 from parse.ai_chat_parse import AIMarkdownParser
 from storage.ai_chat_saver import AIChatSaver
 from export.ai_chat_export import AIExportWatcher
+from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file
 from config.logging_config import setup_logging
 
@@ -26,12 +27,92 @@ from config.logging_config import setup_logging
 logger = setup_logging(get_log_file('ai_chat_collector'), __name__)
 
 
-class AIChatCollector:
-    """AI 채팅 마크다운 수집 통합"""
+class AIChatCollector(ICollector):
+    """AI 채팅 마크다운 수집 통합 (ICollector 구현)"""
 
     def __init__(self):
         self.parser = AIMarkdownParser()
         self.saver = AIChatSaver()
+
+    # ============================================
+    # ICollector 인터페이스 구현
+    # ============================================
+
+    def collect(self, context: CollectionContext) -> CollectionResult:
+        """
+        AI 채팅 데이터 수집 실행 (ICollector 인터페이스)
+
+        Args:
+            context: 수집 컨텍스트
+                - target_date: 수집 대상 날짜
+                - options: {'file_paths': List[str]} 또는 {'download_dir': str}
+
+        Returns:
+            수집 결과 (CollectionResult)
+        """
+        try:
+            # context.options에서 파라미터 추출
+            file_paths = context.options.get('file_paths')
+            download_dir = context.options.get('download_dir')
+
+            if file_paths:
+                # 파일 리스트로 수집
+                result_dict = self.collect_from_files(file_paths, context.target_date)
+            elif download_dir:
+                # 다운로드 폴더에서 수집
+                result_dict = self.collect_from_downloads(download_dir, context.target_date)
+            else:
+                raise CollectionError("file_paths 또는 download_dir가 필요합니다")
+
+            # Dict를 CollectionResult로 변환
+            return CollectionResult(
+                success=result_dict['success'],
+                date=context.target_date,
+                items_count=result_dict['conversations_count'],
+                artifact_ids=result_dict['artifact_ids'],
+                metadata={
+                    'providers': result_dict.get('providers', {}),
+                    'source': 'ai_chat'
+                },
+                error=result_dict.get('error')
+            )
+
+        except Exception as e:
+            logger.error(f"AI 채팅 수집 실패: {e}")
+            return CollectionResult(
+                success=False,
+                date=context.target_date,
+                items_count=0,
+                artifact_ids=[],
+                metadata={'source': 'ai_chat'},
+                error=str(e)
+            )
+
+    def should_run(self, context: CollectionContext) -> bool:
+        """
+        수집 실행 여부 판단 (ICollector 인터페이스)
+
+        Args:
+            context: 수집 컨텍스트
+
+        Returns:
+            항상 True (AI 채팅은 조건 없이 실행)
+        """
+        # AI 채팅은 파일이 있으면 무조건 수집
+        return True
+
+    def get_name(self) -> str:
+        """
+        Collector 이름 반환 (ICollector 인터페이스)
+
+        Returns:
+            "ai_chat"
+        """
+        return "ai_chat"
+
+    # ============================================
+    # 편의 메서드 (기존 호환성 유지)
+    # ============================================
 
     def collect_from_files(
         self,
