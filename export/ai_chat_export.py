@@ -165,6 +165,9 @@ class AIExportWatcher:
 
     def scan_existing(self) -> List[Path]:
         """기존 AI 채팅 파일 스캔 (엄격한 기준)"""
+        logger.info(f"[DEBUG] download_dir 실제 경로: {self.download_dir}")
+        logger.info(f"[DEBUG] download_dir 절대 경로: {self.download_dir.absolute()}")
+
         ai_files = []
         all_md_files = list(self.download_dir.glob('*.md'))
 
