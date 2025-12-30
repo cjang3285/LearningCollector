@@ -20,16 +20,10 @@ from export.baekjoon_export import BaekjoonExporter
 from parse.baekjoon_parse import BaekjoonParser
 from storage.baekjoon_saver import BaekjoonSaver
 from config.settings import get_log_file
+from config.logging_config import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(get_log_file('baekjoon_collector')),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
+logger = setup_logging(get_log_file('baekjoon_collector'), __name__)
 
 
 class BaekjoonCollector:

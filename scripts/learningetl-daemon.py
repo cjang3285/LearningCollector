@@ -24,18 +24,11 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.settings import get_log_file
+from config.logging_config import setup_logging
 from main import LearningETL
 
-# 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(get_log_file('daemon')),
-        logging.StreamHandler(sys.stdout)  # stdout으로 출력 (daemon.log로 기록됨)
-    ]
-)
-logger = logging.getLogger(__name__)
+# 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
+logger = setup_logging(get_log_file('daemon'), __name__)
 
 
 class CodeReloadHandler(FileSystemEventHandler):

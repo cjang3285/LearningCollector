@@ -19,16 +19,10 @@ import logging
 
 from storage.base_saver import BaseSaver
 from config.settings import get_log_file
+from config.logging_config import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(get_log_file('ai_chat_saver')),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
+logger = setup_logging(get_log_file('ai_chat_saver'), __name__)
 
 
 class AIChatSaver(BaseSaver):

@@ -211,7 +211,12 @@ crontab -l
 tail -f ~/LearningETL/logs/daily-scan.log
 ```
 
-**방법 B: systemd timer (체계적)**
+**장점**: 간단, 익숙함
+**단점**: 시스템 부팅 시 놓친 작업 미실행, 로그 관리 수동, 실행 실패 시 알림 없음
+
+---
+
+**방법 B: systemd timer (체계적 추천 ⭐)**
 
 ```bash
 # 설치
@@ -223,6 +228,22 @@ systemctl list-timers learningetl-daily.timer
 # 로그 확인
 tail -f ~/LearningETL/logs/daily-scan.log
 ```
+
+**장점**:
+- ✅ **Persistent=true**: 시스템 재부팅 시 놓친 작업 자동 실행
+- ✅ **journalctl 통합**: `journalctl -u learningetl-daily.service` 로그 관리
+- ✅ **실행 상태 추적**: `systemctl status` 실패 여부 확인
+- ✅ **의존성 관리**: `After=postgresql.service` DB 준비 후 실행
+- ✅ **타이머 상태 확인**: 다음 실행 시각 확인 가능
+
+**비교**:
+| 기능 | Cron | systemd timer |
+|------|------|---------------|
+| 놓친 작업 실행 | ❌ | ✅ Persistent |
+| 로그 관리 | 수동 | ✅ journalctl |
+| 실패 알림 | ❌ | ✅ systemctl status |
+| 서비스 의존성 | ❌ | ✅ After= |
+| 다음 실행 확인 | ❌ | ✅ list-timers |
 
 ---
 
