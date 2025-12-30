@@ -1,0 +1,13 @@
+[Unit]
+Description=LearningETL Daily Scan Timer
+Requires=learningetl-daily.service
+
+[Timer]
+# 매일 자정 (00:00) 실행
+OnCalendar=daily
+
+# 시스템 재부팅 시 놓친 작업 실행
+Persistent=true
+
+[Install]
+WantedBy=timers.target

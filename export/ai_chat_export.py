@@ -164,13 +164,15 @@ class AIExportWatcher:
             logger.info("AI 채팅 파일 감시 중지")
 
     def scan_existing(self) -> List[Path]:
-        """기존 AI 채팅 파일 스캔"""
+        """기존 AI 채팅 파일 스캔 (엄격한 기준)"""
         ai_files = []
+        all_md_files = list(self.download_dir.glob('*.md'))
 
         prefixes = ['Claude-', 'ChatGPT-', 'Gemini-']
 
-        for file_path in self.download_dir.glob('*.md'):
-            if any(file_path.name.startswith(prefix) for prefix in prefixes):
+        for file_path in all_md_files:
+            matched = any(file_path.name.startswith(prefix) for prefix in prefixes)
+            if matched:
                 ai_files.append(file_path)
 
         logger.info(f"기존 AI 채팅 파일 {len(ai_files)}개 발견")

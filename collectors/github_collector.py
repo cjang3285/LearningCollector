@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 GitHub Collector - GitHub 데이터 수집 + 파싱 + DB 저장
+ICollector 인터페이스 구현 (SOLID - DIP, SRP)
 """
 
 import os
@@ -17,28 +18,87 @@ import logging
 from export.github_export import GitHubExporter
 from parse.github_parse import GitHubParser
 from storage.github_saver import GitHubSaver
+from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file
+from config.logging_config import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(get_log_file('github_collector')),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
+logger = setup_logging(get_log_file('github_collector'), __name__)
 
 
-class GitHubCollector:
-    """GitHub 데이터 수집 통합"""
+class GitHubCollector(ICollector):
+    """GitHub 데이터 수집 통합 (ICollector 구현)"""
 
     def __init__(self):
         self.exporter = GitHubExporter()
         self.parser = GitHubParser()
         self.saver = GitHubSaver()
 
-    def collect(self, target_date: date = None) -> Dict:
+    # ============================================
+    # ICollector 인터페이스 구현
+    # ============================================
+
+    def collect(self, context: CollectionContext) -> CollectionResult:
+        """
+        GitHub 데이터 수집 실행 (ICollector 인터페이스)
+
+        Args:
+            context: 수집 컨텍스트
+                - target_date: 수집 대상 날짜
+                - options: {} (GitHub는 옵션 불필요)
+
+        Returns:
+            수집 결과 (CollectionResult)
+        """
+        try:
+            result_dict = self.collect_github(context.target_date)
+
+            return CollectionResult(
+                success=result_dict['success'],
+                date=context.target_date,
+                items_count=result_dict['commits_count'],
+                artifact_ids=result_dict['artifact_ids'],
+                metadata={'source': 'github'},
+                error=result_dict.get('error')
+            )
+
+        except Exception as e:
+            logger.error(f"GitHub 수집 실패: {e}")
+            return CollectionResult(
+                success=False,
+                date=context.target_date,
+                items_count=0,
+                artifact_ids=[],
+                metadata={'source': 'github'},
+                error=str(e)
+            )
+
+    def should_run(self, context: CollectionContext) -> bool:
+        """
+        수집 실행 여부 판단 (ICollector 인터페이스)
+
+        Args:
+            context: 수집 컨텍스트
+
+        Returns:
+            항상 True (GitHub는 매일 수집)
+        """
+        return True
+
+    def get_name(self) -> str:
+        """
+        Collector 이름 반환 (ICollector 인터페이스)
+
+        Returns:
+            "github"
+        """
+        return "github"
+
+    # ============================================
+    # 편의 메서드 (기존 호환성 유지)
+    # ============================================
+
+    def collect_github(self, target_date: date = None) -> Dict:
         """
         GitHub 데이터 수집 + 파싱 + 저장
 
@@ -95,9 +155,3 @@ class GitHubCollector:
                 'artifact_ids': [],
                 'error': str(e)
             }
-
-
-if __name__ == '__main__':
-    collector = GitHubCollector()
-    result = collector.collect()
-    print(f"\n결과: {result}")

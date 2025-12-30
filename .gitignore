@@ -166,3 +166,11 @@ test_output/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# ========================================
+# Deprecated (아카이브된 구조의 잔여물)
+# ========================================
+
+# HTTP 서버 관련 (client-server-architecture로 아카이브됨)
+server/
+uploads/

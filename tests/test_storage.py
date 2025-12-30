@@ -69,14 +69,14 @@ class TestGitHubSaver(unittest.TestCase):
         self.assertIsNotNone(self.saver)
         self.assertEqual(self.saver.db_config, self.db_config)
 
-    @patch('storage.github_saver.psycopg2.connect')
+    @patch('psycopg2.connect')
     def test_save_with_mock_db(self, mock_connect):
         """DB 저장 테스트 (모킹)"""
         # Mock DB 연결
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-        mock_connect.return_value = mock_conn
+        mock_connect.return_value.__enter__.return_value = mock_conn
 
         # Mock cursor가 artifact_id 반환
         mock_cursor.fetchone.return_value = (1,)
@@ -90,14 +90,14 @@ class TestGitHubSaver(unittest.TestCase):
             'files': []
         }
 
-        # save_github_artifact 메서드가 있다고 가정
+        # save_all 메서드 테스트
         try:
-            artifact_id = self.saver.save_github_artifact(sample_commit, date.today())
-            # 저장이 성공하면 ID 반환
-            self.assertIsNotNone(artifact_id)
+            result = self.saver.save_all([sample_commit], date.today())
+            # 저장이 성공하면 ID 리스트 반환
+            self.assertIsInstance(result, list)
         except AttributeError:
             # 메서드가 없으면 테스트 스킵
-            self.skipTest("save_github_artifact method not implemented")
+            self.skipTest("save_all method not implemented")
 
 
 class TestAIChatSaver(unittest.TestCase):
