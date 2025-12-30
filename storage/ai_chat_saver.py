@@ -34,6 +34,49 @@ logger = logging.getLogger(__name__)
 class AIChatSaver(BaseSaver):
     """AI 채팅 마크다운 대화 DB 저장"""
 
+    def check_duplicate(self, conversation_data: Dict) -> bool:
+        """중복 대화 확인 (link 또는 provider+title+created_at)"""
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # Link가 있으면 link로 중복 확인 (가장 확실함)
+                if conversation_data.get('link'):
+                    cur.execute(
+                        """
+                        SELECT id FROM learning.ai_chat_conversations
+                        WHERE link = %s AND link IS NOT NULL
+                        LIMIT 1
+                        """,
+                        (conversation_data.get('link'),)
+                    )
+                    if cur.fetchone():
+                        logger.info(f"[중복] 링크로 감지: {conversation_data.get('link')}")
+                        return True
+
+                # Link가 없으면 provider + title + created_at으로 확인
+                cur.execute(
+                    """
+                    SELECT id FROM learning.ai_chat_conversations
+                    WHERE provider = %s
+                      AND title = %s
+                      AND (created_at = %s OR (created_at IS NULL AND %s IS NULL))
+                    LIMIT 1
+                    """,
+                    (
+                        conversation_data.get('provider'),
+                        conversation_data.get('title'),
+                        conversation_data.get('created_at'),
+                        conversation_data.get('created_at')
+                    )
+                )
+                if cur.fetchone():
+                    logger.info(f"[중복] 제목+날짜로 감지: {conversation_data.get('title')[:50]}")
+                    return True
+
+                return False
+        finally:
+            conn.close()
+
     def save_conversation(self, artifact_id: int, conversation_data: Dict) -> int:
         """ai_chat_conversations 테이블에 저장"""
         conn = self._get_db_connection()
@@ -82,6 +125,11 @@ class AIChatSaver(BaseSaver):
         self, conversation_data: Dict, artifact_date: date
     ) -> int:
         """AI 채팅 대화 전체 저장 (파일 + DB)"""
+        # 0. 중복 확인
+        if self.check_duplicate(conversation_data):
+            logger.warning(f"[SKIP] 중복 대화 건너뜀: {conversation_data.get('title', 'Untitled')[:50]}")
+            return None
+
         # 1. 코드 언어 추출
         code_languages = []
         code_blocks = conversation_data.get("code_blocks", [])

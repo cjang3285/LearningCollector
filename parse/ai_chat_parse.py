@@ -17,6 +17,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import re
 import logging
+import unicodedata
 from datetime import datetime
 from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
@@ -178,6 +179,9 @@ class AIMarkdownParser:
         # 파일 읽기
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
+
+        # 유니코드 정규화 (NFD → NFC 변환으로 한글 자모 분리 문제 해결)
+        content = unicodedata.normalize('NFC', content)
 
         # 제공자 감지
         provider = self.detect_provider(file_path.name, content)
