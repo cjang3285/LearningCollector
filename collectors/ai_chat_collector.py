@@ -136,9 +136,11 @@ class AIChatCollector:
         """
         target_date = target_date or date.today()
         logger.info("다운로드 폴더에서 AI 채팅 파일 스캔 중...")
+        logger.info(f"[DEBUG] collector가 받은 download_dir: {download_dir}")
 
         try:
             # Watcher로 기존 파일 스캔
+            logger.info(f"[DEBUG] AIExportWatcher 생성 - download_dir={download_dir}")
             watcher = AIExportWatcher(download_dir=download_dir)
             ai_files = watcher.scan_existing()
 

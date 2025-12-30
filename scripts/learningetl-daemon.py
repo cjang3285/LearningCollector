@@ -82,6 +82,7 @@ class LearningFileHandler(FileSystemEventHandler):
 
             # AI 채팅 수집
             logger.info(f"[Daemon] 처리 중: {file_path.name}")
+            logger.info(f"[DEBUG] etl.run()에 전달하는 ai_chat_download_dir: {str(self.watch_dir)}")
             result = self.etl.run(
                 ai_chat_scan=True,
                 ai_chat_download_dir=str(self.watch_dir),
@@ -101,6 +102,7 @@ class LearningFileHandler(FileSystemEventHandler):
         # 첫 실행 또는 1시간 경과
         if self.last_run is None or (now - self.last_run).seconds > 3600:
             logger.info("[Daemon] 주기적 전체 스캔 시작...")
+            logger.info(f"[DEBUG] etl.run()에 전달하는 ai_chat_download_dir: {str(self.watch_dir)}")
             try:
                 result = self.etl.run(
                     ai_chat_scan=True,
@@ -118,6 +120,9 @@ def main():
     # 감시 폴더 (환경변수 또는 기본값)
     watch_dir = os.getenv('LEARNING_WATCH_DIR', '/home/jcw/shared')
     hot_reload = os.getenv('HOT_RELOAD', 'true').lower() == 'true'
+
+    logger.info(f"[DEBUG] LEARNING_WATCH_DIR 환경변수: {os.getenv('LEARNING_WATCH_DIR')}")
+    logger.info(f"[DEBUG] 최종 watch_dir: {watch_dir}")
 
     if not Path(watch_dir).exists():
         logger.error(f"[Daemon] 감시 폴더가 존재하지 않습니다: {watch_dir}")
