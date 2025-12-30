@@ -100,10 +100,8 @@ class LearningETL:
             results['ai_chat'] = self.ai_chat_collector.collect_from_files(ai_chat_files, target_date)
         elif ai_chat_scan:
             logger.info("\n[AI Chat] 다운로드 폴더 스캔 중...")
-            logger.info(f"[DEBUG] main.py가 받은 ai_chat_download_dir: {ai_chat_download_dir}")
             if ai_chat_download_dir:
                 logger.info(f"다운로드 폴더: {ai_chat_download_dir}")
-            logger.info(f"[DEBUG] collector.collect_from_downloads()에 전달: {ai_chat_download_dir}")
             results['ai_chat'] = self.ai_chat_collector.collect_from_downloads(
                 download_dir=ai_chat_download_dir,
                 target_date=target_date

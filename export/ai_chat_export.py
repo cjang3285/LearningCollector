@@ -165,24 +165,15 @@ class AIExportWatcher:
 
     def scan_existing(self) -> List[Path]:
         """기존 AI 채팅 파일 스캔 (엄격한 기준)"""
-        logger.info(f"[DEBUG] download_dir 실제 경로: {self.download_dir}")
-        logger.info(f"[DEBUG] download_dir 절대 경로: {self.download_dir.absolute()}")
-
         ai_files = []
         all_md_files = list(self.download_dir.glob('*.md'))
-
-        logger.info(f"[DEBUG] glob('*.md') 결과: {len(all_md_files)}개 파일")
-        for f in all_md_files:
-            logger.info(f"[DEBUG] glob 발견: {f.name}")
 
         prefixes = ['Claude-', 'ChatGPT-', 'Gemini-']
 
         for file_path in all_md_files:
             matched = any(file_path.name.startswith(prefix) for prefix in prefixes)
-            logger.info(f"[DEBUG] 파일: {file_path.name[:50]}... → startswith 체크: {matched}")
             if matched:
                 ai_files.append(file_path)
-                logger.info(f"[DEBUG] ✓ AI Chat 파일 추가: {file_path.name}")
 
         logger.info(f"기존 AI 채팅 파일 {len(ai_files)}개 발견")
         return ai_files
