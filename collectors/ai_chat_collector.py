@@ -142,6 +142,10 @@ class AIChatCollector:
             watcher = AIExportWatcher(download_dir=download_dir)
             ai_files = watcher.scan_existing()
 
+            logger.info(f"[DEBUG] scan_existing 결과: {len(ai_files)}개 파일")
+            for f in ai_files:
+                logger.info(f"[DEBUG] 발견된 파일: {f.name}")
+
             if not ai_files:
                 logger.info("다운로드 폴더에 AI 채팅 파일이 없습니다.")
                 return {
@@ -154,6 +158,7 @@ class AIChatCollector:
 
             # 파일 경로를 문자열로 변환
             file_paths = [str(f) for f in ai_files]
+            logger.info(f"[DEBUG] collect_from_files 호출: {len(file_paths)}개 파일")
 
             # 파일 리스트로 수집
             return self.collect_from_files(file_paths, target_date)

@@ -164,25 +164,14 @@ class AIExportWatcher:
             logger.info("AI 채팅 파일 감시 중지")
 
     def scan_existing(self) -> List[Path]:
-        """
-        기존 AI 채팅 파일 스캔
-
-        개선:
-        - 대소문자 구분 없이 검색
-        - 파일명에 키워드 포함 여부 확인 (시작뿐 아니라 중간에도 가능)
-        """
+        """기존 AI 채팅 파일 스캔 (엄격한 기준)"""
         ai_files = []
 
-        # 키워드 (대소문자 구분 없이)
-        keywords = ['claude', 'chatgpt', 'gpt', 'gemini']
+        prefixes = ['Claude-', 'ChatGPT-', 'Gemini-']
 
         for file_path in self.download_dir.glob('*.md'):
-            filename_lower = file_path.name.lower()
-
-            # 키워드가 파일명에 포함되어 있으면 AI 채팅 파일로 인식
-            if any(keyword in filename_lower for keyword in keywords):
+            if any(file_path.name.startswith(prefix) for prefix in prefixes):
                 ai_files.append(file_path)
-                logger.debug(f"[AI Chat 파일 인식] {file_path.name}")
 
         logger.info(f"기존 AI 채팅 파일 {len(ai_files)}개 발견")
         return ai_files

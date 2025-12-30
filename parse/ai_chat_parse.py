@@ -257,18 +257,23 @@ class AIMarkdownParser(IParser):
             - 이전: List[AIConversationData] 반환
             - 현재: List[Dict] 반환 (to_dict() 자동 적용)
         """
+        logger.info(f"[DEBUG] parse_multiple 시작: {len(file_paths)}개 파일")
         results = []
-        for file_path in file_paths:
+
+        for idx, file_path in enumerate(file_paths, 1):
+            logger.info(f"[DEBUG] [{idx}/{len(file_paths)}] 파싱 중: {Path(file_path).name}")
             try:
                 data = self.parse(file_path)
                 results.append(data)
                 # 로깅을 위해 메시지 개수 출력
                 logger.info(f"[OK] {Path(file_path).name}: {data.get('total_messages', 0)}개 메시지")
-            except ParseError as e:
-                logger.error(str(e))
+            except Exception as e:
+                # 모든 예외 catch (ParseError뿐 아니라 다른 에러도)
+                logger.error(f"[FAIL] {Path(file_path).name}: {type(e).__name__}: {e}")
                 # 개별 파일 실패는 무시하고 계속 진행
                 continue
 
+        logger.info(f"[DEBUG] parse_multiple 완료: {len(results)}/{len(file_paths)}개 성공")
         return results
 
     def validate(self, data: Dict) -> bool:
