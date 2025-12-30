@@ -217,15 +217,12 @@ print(result)
 
 ---
 
-## ⬆️ Client-Server 모드로 업그레이드
+## 🔄 향후 확장 계획
 
-더 편리한 자동화를 원한다면 [Client-Server 모드](client-server-guide.md)로 전환하세요:
+더 편리한 자동화를 원한다면 [NAS 기반 아키텍처](NAS_ARCHITECTURE.md)를 참고하세요:
 
-- ✅ 노트북에서 다운로드 시 자동 전송
-- ✅ 오프라인 큐잉
-- ✅ 원본 파일 자동 백업
+- ✅ WireGuard VPN으로 노트북-라즈베리파이 연결
+- ✅ NAS 파일 공유로 자동 전송
+- ✅ Docker Compose로 전체 스택 관리
 
-**전환 방법:**
-1. 라즈베리파이에 FastAPI 서버 추가 실행
-2. 노트북에 Client Agent 설치
-3. 기존 cron은 그대로 유지
+**미래 구현 예정** - 현재는 Standalone 모드 사용을 권장합니다.
