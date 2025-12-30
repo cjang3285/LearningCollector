@@ -49,6 +49,7 @@ class LearningETL:
         claude_zip_path: str = None,
         ai_chat_files: list = None,
         ai_chat_scan: bool = False,
+        ai_chat_download_dir: str = None,
         all_dates: bool = False
     ) -> Dict:
         """
@@ -106,7 +107,12 @@ class LearningETL:
             results['ai_chat'] = self.ai_chat_collector.collect_from_files(ai_chat_files, target_date)
         elif ai_chat_scan:
             logger.info("\n[AI Chat] 다운로드 폴더 스캔 중...")
-            results['ai_chat'] = self.ai_chat_collector.collect_from_downloads(target_date=target_date)
+            if ai_chat_download_dir:
+                logger.info(f"다운로드 폴더: {ai_chat_download_dir}")
+            results['ai_chat'] = self.ai_chat_collector.collect_from_downloads(
+                download_dir=ai_chat_download_dir,
+                target_date=target_date
+            )
         else:
             logger.info("\n[AI Chat] 파일이 제공되지 않아 건너뜀")
 
@@ -164,6 +170,7 @@ def main():
     parser.add_argument('--claude-zip', type=str, help='[첫 마이그레이션용] Claude ZIP 파일 경로')
     parser.add_argument('--ai-chat', nargs='*', help='AI 채팅 마크다운 파일 (Claude, ChatGPT, Gemini)')
     parser.add_argument('--ai-chat-scan', action='store_true', help='[일상 사용] 다운로드 폴더 AI 채팅 자동 스캔')
+    parser.add_argument('--download-dir', type=str, help='다운로드 폴더 경로 (기본값: ~/Downloads)')
     parser.add_argument('--date', type=str, help='수집 대상 날짜 (YYYY-MM-DD)')
     parser.add_argument('--all', action='store_true', help='[Claude ZIP 전용] 전체 대화 수집')
     args = parser.parse_args()
@@ -178,6 +185,7 @@ def main():
         claude_zip_path=args.claude_zip,
         ai_chat_files=args.ai_chat,
         ai_chat_scan=args.ai_chat_scan,
+        ai_chat_download_dir=args.download_dir,
         all_dates=getattr(args, "all", False)
     )
 
