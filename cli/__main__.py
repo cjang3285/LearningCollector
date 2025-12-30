@@ -246,7 +246,75 @@ class LearningCLI:
     def show_detail(self, item_type, item_id):
         """항목 상세"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-            if item_type == 'github':
+            if item_type == 'ai-chat':
+                cur.execute("""
+                    SELECT
+                        c.id,
+                        c.provider,
+                        c.title,
+                        c.link,
+                        c.user_messages,
+                        c.assistant_messages,
+                        c.has_code,
+                        c.conversation_path,
+                        c.code_languages,
+                        c.created_at
+                    FROM learning.ai_chat_conversations c
+                    WHERE c.id = %s
+                """, (item_id,))
+                conv = cur.fetchone()
+
+                if conv:
+                    print("="*60)
+                    print(f"💬 AI Chat: [{conv['provider']}] {conv['title'] or '(제목 없음)'}")
+                    print("="*60)
+                    print()
+                    print(f"ID: {conv['id']}")
+                    print(f"Provider: {conv['provider']}")
+                    if conv['link']:
+                        print(f"Link: {conv['link']}")
+                    print(f"메시지: 사용자 {conv['user_messages']}개, AI {conv['assistant_messages']}개")
+                    if conv['has_code']:
+                        print(f"코드: {', '.join(conv['code_languages']) if conv['code_languages'] else 'N/A'}")
+                    print(f"날짜: {conv['created_at']}")
+                    print()
+
+                    # JSON 파일에서 대화 내용 읽기
+                    if conv['conversation_path']:
+                        json_path = Path(conv['conversation_path'])
+                        if json_path.exists():
+                            with open(json_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                                messages = data.get('messages', [])
+
+                                print("="*60)
+                                print("💬 대화 내용")
+                                print("="*60)
+                                print()
+
+                                for i, msg in enumerate(messages, 1):
+                                    role = msg.get('role', 'unknown')
+                                    content = msg.get('content', '')
+
+                                    if role == 'user':
+                                        print(f"👤 사용자:")
+                                    else:
+                                        print(f"🤖 {conv['provider'].title()}:")
+
+                                    print(content)
+                                    print()
+
+                                    if i < len(messages):
+                                        print("-" * 60)
+                                        print()
+                        else:
+                            print(f"⚠️  대화 파일을 찾을 수 없습니다: {conv['conversation_path']}")
+                    else:
+                        print("⚠️  대화 경로가 저장되지 않았습니다.")
+                else:
+                    print(f"❌ AI Chat을 찾을 수 없습니다: {item_id}")
+
+            elif item_type == 'github':
                 cur.execute("""
                     SELECT *
                     FROM learning.github_commits
@@ -346,7 +414,7 @@ def main():
 
     # show
     show_parser = subparsers.add_parser('show', help='항목 상세')
-    show_parser.add_argument('type', choices=['github'])
+    show_parser.add_argument('type', choices=['github', 'ai-chat'])
     show_parser.add_argument('id', help='항목 ID')
 
     # export
