@@ -68,7 +68,8 @@ class CommitData:
     url: str
     files: List[FileChange] = field(default_factory=list)
     stats: Dict = field(default_factory=dict)
-    
+    co_authors: List[Dict] = field(default_factory=list)  # Co-Authored-By 정보
+
     def to_dict(self):
         return {
             'repo': self.repo,
@@ -77,13 +78,42 @@ class CommitData:
             'date': self.date,
             'url': self.url,
             'files': [f.to_dict() for f in self.files],
-            'stats': self.stats
+            'stats': self.stats,
+            'co_authors': self.co_authors
         }
 
 
 class GitHubParser:
     """GitHub 데이터 파서"""
-    
+
+    @staticmethod
+    def parse_co_authors(message: str) -> List[Dict]:
+        """
+        커밋 메시지에서 Co-Authored-By 추출
+
+        예시:
+        Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+        Co-Authored-By: John Doe <john@example.com>
+
+        Returns:
+            [{'name': 'Claude Sonnet 4.5', 'email': 'noreply@anthropic.com'}, ...]
+        """
+        co_authors = []
+
+        # Co-Authored-By: Name <email> 패턴 매칭
+        pattern = r'Co-Authored-By:\s*([^<]+?)\s*<([^>]+)>'
+        matches = re.finditer(pattern, message, re.IGNORECASE | re.MULTILINE)
+
+        for match in matches:
+            name = match.group(1).strip()
+            email = match.group(2).strip()
+            co_authors.append({
+                'name': name,
+                'email': email
+            })
+
+        return co_authors
+
     # 파일 확장자 → 언어 매핑
     LANGUAGE_MAP = {
         '.py': 'Python',
@@ -135,14 +165,17 @@ class GitHubParser:
     def parse_commits(self, commits: List[Dict]) -> List[CommitData]:
         """커밋 리스트를 CommitData로 변환"""
         parsed = []
-        
+
         for commit in commits:
             # 파일 변경사항 파싱
             files = []
             if 'files' in commit:
                 for file_data in commit['files']:
                     files.append(self.parse_file_change(file_data))
-            
+
+            # Co-Authored-By 파싱
+            co_authors = self.parse_co_authors(commit['message'])
+
             parsed.append(CommitData(
                 repo=commit['repo'],
                 sha=commit['sha'],
@@ -150,9 +183,10 @@ class GitHubParser:
                 date=commit['date'],
                 url=commit['url'],
                 files=files,
-                stats=commit.get('stats', {})
+                stats=commit.get('stats', {}),
+                co_authors=co_authors
             ))
-        
+
         return parsed
     
     def group_by_repo(self, commits: List[CommitData]) -> Dict[str, List[CommitData]]:
