@@ -3,6 +3,7 @@
 Learning Artifacts ETL Pipeline - Main Entry Point
 
 모든 학습 활동을 수집하여 DB에 저장하는 메인 프로그램
+CollectorFactory 적용 (SOLID - OCP)
 """
 
 import os
@@ -16,11 +17,8 @@ from datetime import date, datetime
 from typing import Dict
 import logging
 
-from collectors.github_collector import GitHubCollector
-from migration.claude_collector import ClaudeMigrationCollector
-from collectors.baekjoon_collector import BaekjoonCollector
-from collectors.ai_chat_collector import AIChatCollector
-from config.settings import get_log_file, COLLECT_GITHUB, COLLECT_BAEKJOON, AI_CHAT_DOWNLOAD_DIR
+from factories import CollectorFactory
+from config.settings import get_log_file, AI_CHAT_DOWNLOAD_DIR
 from config.logging_config import setup_logging
 
 # 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
@@ -28,13 +26,18 @@ logger = setup_logging(get_log_file('main'), __name__)
 
 
 class LearningETL:
-    """학습 아티팩트 ETL 메인 클래스"""
+    """
+    학습 아티팩트 ETL 메인 클래스 (OCP 적용)
+
+    CollectorFactory를 사용하여 설정 기반으로 Collector 생성
+    새로운 Collector 추가 시 이 클래스 수정 불필요!
+    """
 
     def __init__(self):
-        self.github_collector = GitHubCollector() if COLLECT_GITHUB else None
-        self.claude_migration_collector = ClaudeMigrationCollector()  # 첫 마이그레이션용
-        self.baekjoon_collector = BaekjoonCollector() if COLLECT_BAEKJOON else None
-        self.ai_chat_collector = AIChatCollector()  # 일상 사용 (마크다운)
+        # CollectorFactory로 모든 Collector 생성 (OCP 적용)
+        self.collectors = CollectorFactory.create_all_collectors(enabled_only=True)
+
+        logger.info(f"활성화된 Collector: {list(self.collectors.keys())}")
 
     def run(
         self,
@@ -81,38 +84,46 @@ class LearningETL:
         }
 
         # 1. GitHub 수집
-        if self.github_collector:
+        github_collector = self.collectors.get('github')
+        if github_collector:
             logger.info("\n[GitHub] 데이터 수집 시작...")
-            results['github'] = self.github_collector.collect(target_date)
+            results['github'] = github_collector.collect_github(target_date)
         else:
             logger.info("\n[GitHub] 수집 비활성화됨")
 
         # 2. Claude Migration (첫 이용 시 ZIP 마이그레이션)
         if claude_zip_path:
-            logger.info("\n[Claude Migration] ZIP 파일에서 대화 마이그레이션 중...")
-            results['claude'] = self.claude_migration_collector.collect(claude_zip_path, target_date, all_dates=all_dates)
+            claude_migration_collector = CollectorFactory.create_collector('claude_migration')
+            if claude_migration_collector:
+                logger.info("\n[Claude Migration] ZIP 파일에서 대화 마이그레이션 중...")
+                results['claude'] = claude_migration_collector.collect(claude_zip_path, target_date, all_dates=all_dates)
         else:
             logger.info("\n[Claude Migration] ZIP 파일 미제공 (일상 사용은 --ai-chat-scan 사용)")
 
         # 3. AI Chat 수집 (Claude, ChatGPT, Gemini 마크다운)
-        if ai_chat_files:
-            logger.info("\n[AI Chat] 마크다운 파일 수집 시작...")
-            results['ai_chat'] = self.ai_chat_collector.collect_from_files(ai_chat_files, target_date)
-        elif ai_chat_scan:
-            logger.info("\n[AI Chat] 다운로드 폴더 스캔 중...")
-            if ai_chat_download_dir:
-                logger.info(f"다운로드 폴더: {ai_chat_download_dir}")
-            results['ai_chat'] = self.ai_chat_collector.collect_from_downloads(
-                download_dir=ai_chat_download_dir,
-                target_date=target_date
-            )
+        ai_chat_collector = self.collectors.get('ai_chat')
+        if ai_chat_collector:
+            if ai_chat_files:
+                logger.info("\n[AI Chat] 마크다운 파일 수집 시작...")
+                results['ai_chat'] = ai_chat_collector.collect_from_files(ai_chat_files, target_date)
+            elif ai_chat_scan:
+                logger.info("\n[AI Chat] 다운로드 폴더 스캔 중...")
+                if ai_chat_download_dir:
+                    logger.info(f"다운로드 폴더: {ai_chat_download_dir}")
+                results['ai_chat'] = ai_chat_collector.collect_from_downloads(
+                    download_dir=ai_chat_download_dir,
+                    target_date=target_date
+                )
+            else:
+                logger.info("\n[AI Chat] 파일이 제공되지 않아 건너뜀")
         else:
-            logger.info("\n[AI Chat] 파일이 제공되지 않아 건너뜀")
+            logger.info("\n[AI Chat] 수집 비활성화됨")
 
         # 4. 백준 수집
-        if self.baekjoon_collector:
+        baekjoon_collector = self.collectors.get('baekjoon')
+        if baekjoon_collector:
             logger.info("\n[Baekjoon] 데이터 수집 시작...")
-            results['baekjoon'] = self.baekjoon_collector.collect(target_date)
+            results['baekjoon'] = baekjoon_collector.collect_baekjoon(target_date)
         else:
             logger.info("\n[Baekjoon] 수집 비활성화됨")
 
