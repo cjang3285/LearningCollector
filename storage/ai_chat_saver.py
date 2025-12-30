@@ -173,8 +173,8 @@ class AIChatSaver(BaseSaver):
 
         # 저장 완료 로그 (파일 경로 + DB ID)
         logger.info(
-            f"✅ 저장 완료: artifact_id={artifact_id}, conv_id={conv_id}\n"
-            f"   📄 파일: {storage_path}"
+            f"[AI Chat] 저장 완료: artifact_id={artifact_id}, conv_id={conv_id}\n"
+            f"   파일: {storage_path}"
         )
 
         return artifact_id
@@ -196,13 +196,13 @@ class AIChatSaver(BaseSaver):
             except Exception as e:
                 error_count += 1
                 logger.error(
-                    f"❌ 대화 저장 실패 (provider={conversation.get('provider', 'unknown')}, "
+                    f"[AI Chat] 대화 저장 실패 (provider={conversation.get('provider', 'unknown')}, "
                     f"title={conversation.get('title', 'unknown')[:50]}): {e}"
                 )
                 continue
 
         logger.info(
-            f"💾 DB 저장 완료: 성공 {len(artifact_ids)}개, "
+            f"[AI Chat] DB 저장 완료: 성공 {len(artifact_ids)}개, "
             f"중복 스킵 {skipped_count}개, 오류 {error_count}개"
         )
         return artifact_ids

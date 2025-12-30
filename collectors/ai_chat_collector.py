@@ -90,11 +90,11 @@ class AIChatCollector:
 
             # 구체적인 수집 결과 출력
             logger.info("=" * 60)
-            logger.info(f"📊 AI 채팅 수집 완료")
-            logger.info(f"  📁 발견된 파일: {len(file_paths)}개")
-            logger.info(f"  ✅ 파싱 성공: {len(conversations)}개")
-            logger.info(f"  💾 DB 저장: {len(artifact_ids)}개")
-            logger.info(f"  ⏭️  중복 스킵: {len(conversations) - len(artifact_ids)}개")
+            logger.info("[AI Chat] 수집 완료")
+            logger.info(f"  발견된 파일: {len(file_paths)}개")
+            logger.info(f"  파싱 성공: {len(conversations)}개")
+            logger.info(f"  DB 저장: {len(artifact_ids)}개")
+            logger.info(f"  중복 스킵: {len(conversations) - len(artifact_ids)}개")
             logger.info("=" * 60)
 
             return {

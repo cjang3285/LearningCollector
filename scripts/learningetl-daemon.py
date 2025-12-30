@@ -46,8 +46,8 @@ class CodeReloadHandler(FileSystemEventHandler):
 
         # Python 파일 수정 시 재시작
         if file_path.suffix == '.py':
-            logger.info(f"🔄 코드 변경 감지: {file_path.name}")
-            logger.info("⏳ 3초 후 자동 재시작...")
+            logger.info(f"[Hot Reload] 코드 변경 감지: {file_path.name}")
+            logger.info("[Hot Reload] 3초 후 자동 재시작...")
             time.sleep(3)  # 파일 저장 완료 대기
             self.restart_requested = True
 
@@ -60,7 +60,7 @@ class LearningFileHandler(FileSystemEventHandler):
         self.etl = LearningETL()
         self.processed_files = set()  # 중복 처리 방지
         self.last_run = None
-        logger.info(f"📂 감시 폴더: {self.watch_dir}")
+        logger.info(f"[Daemon] 감시 폴더: {self.watch_dir}")
 
     def on_created(self, event):
         """새 파일 생성 시"""
@@ -71,7 +71,7 @@ class LearningFileHandler(FileSystemEventHandler):
 
         # 마크다운 파일만 처리 (AI 채팅)
         if file_path.suffix == '.md' and file_path not in self.processed_files:
-            logger.info(f"🆕 새 파일 감지: {file_path.name}")
+            logger.info(f"[Daemon] 새 파일 감지: {file_path.name}")
             self.process_file(file_path)
 
     def process_file(self, file_path: Path):
@@ -81,7 +81,7 @@ class LearningFileHandler(FileSystemEventHandler):
             time.sleep(2)
 
             # AI 채팅 수집
-            logger.info(f"🔄 처리 중: {file_path.name}")
+            logger.info(f"[Daemon] 처리 중: {file_path.name}")
             result = self.etl.run(
                 ai_chat_scan=True,
                 ai_chat_download_dir=str(self.watch_dir),
@@ -89,10 +89,10 @@ class LearningFileHandler(FileSystemEventHandler):
             )
 
             self.processed_files.add(file_path)
-            logger.info(f"✅ 완료: {result}")
+            logger.info(f"[Daemon] 완료: {result}")
 
         except Exception as e:
-            logger.error(f"❌ 처리 실패 ({file_path.name}): {e}")
+            logger.error(f"[Daemon] 처리 실패 ({file_path.name}): {e}")
 
     def run_periodic_scan(self):
         """주기적 전체 스캔 (1시간마다)"""
@@ -100,17 +100,17 @@ class LearningFileHandler(FileSystemEventHandler):
 
         # 첫 실행 또는 1시간 경과
         if self.last_run is None or (now - self.last_run).seconds > 3600:
-            logger.info("🔍 주기적 전체 스캔 시작...")
+            logger.info("[Daemon] 주기적 전체 스캔 시작...")
             try:
                 result = self.etl.run(
                     ai_chat_scan=True,
                     ai_chat_download_dir=str(self.watch_dir),
                     target_date=date.today()
                 )
-                logger.info(f"✅ 전체 스캔 완료: {result}")
+                logger.info(f"[Daemon] 전체 스캔 완료: {result}")
                 self.last_run = now
             except Exception as e:
-                logger.error(f"❌ 전체 스캔 실패: {e}")
+                logger.error(f"[Daemon] 전체 스캔 실패: {e}")
 
 
 def main():
@@ -120,16 +120,16 @@ def main():
     hot_reload = os.getenv('HOT_RELOAD', 'true').lower() == 'true'
 
     if not Path(watch_dir).exists():
-        logger.error(f"❌ 감시 폴더가 존재하지 않습니다: {watch_dir}")
+        logger.error(f"[Daemon] 감시 폴더가 존재하지 않습니다: {watch_dir}")
         sys.exit(1)
 
     logger.info("=" * 60)
-    logger.info("🚀 LearningETL 데몬 시작")
+    logger.info("[Daemon] LearningETL 데몬 시작")
     logger.info("=" * 60)
     if hot_reload:
-        logger.info("🔥 Hot Reload: 활성화 (코드 변경 시 자동 재시작)")
+        logger.info("[Daemon] Hot Reload: 활성화 (코드 변경 시 자동 재시작)")
     else:
-        logger.info("🔥 Hot Reload: 비활성화")
+        logger.info("[Daemon] Hot Reload: 비활성화")
 
     # 파일 핸들러 및 옵저버 설정
     event_handler = LearningFileHandler(watch_dir)
@@ -150,13 +150,13 @@ def main():
                 code_observer.schedule(code_reload_handler, str(folder_path), recursive=True)
         code_observer.start()
 
-    logger.info(f"👀 파일 감시 중... (Ctrl+C로 종료)")
+    logger.info("[Daemon] 파일 감시 중... (Ctrl+C로 종료)")
 
     try:
         while True:
             # Hot Reload 체크
             if hot_reload and code_reload_handler and code_reload_handler.restart_requested:
-                logger.info("🔄 재시작 중...")
+                logger.info("[Daemon] 재시작 중...")
                 observer.stop()
                 if code_observer:
                     code_observer.stop()
@@ -170,7 +170,7 @@ def main():
             time.sleep(60)  # 1분마다 깨어남
             event_handler.run_periodic_scan()  # 주기적 스캔
     except KeyboardInterrupt:
-        logger.info("⏹️  데몬 종료 중...")
+        logger.info("[Daemon] 데몬 종료 중...")
         observer.stop()
         if code_observer:
             code_observer.stop()
@@ -178,7 +178,7 @@ def main():
     observer.join()
     if code_observer:
         code_observer.join()
-    logger.info("👋 LearningETL 데몬 종료됨")
+    logger.info("[Daemon] LearningETL 데몬 종료됨")
 
 
 if __name__ == "__main__":

@@ -23,16 +23,20 @@ class StderrFilter(logging.Filter):
         return record.levelno >= logging.ERROR
 
 
-def setup_logging(log_file_path: str, logger_name: str = None) -> logging.Logger:
+def setup_logging(log_file_path: str = None, logger_name: str = None) -> logging.Logger:
     """
     표준 로깅 설정
 
     Args:
-        log_file_path: 로그 파일 경로
+        log_file_path: 로그 파일 경로 (사용 안 함 - systemd가 리다이렉션)
         logger_name: 로거 이름 (기본값: __name__)
 
     Returns:
         설정된 Logger 객체
+
+    Note:
+        systemd가 stdout/stderr을 파일로 리다이렉션하므로
+        FileHandler 사용하지 않음 (중복 기록 방지)
     """
     # stdout 핸들러 (INFO, WARNING)
     stdout_handler = logging.StreamHandler(sys.stdout)
@@ -44,17 +48,12 @@ def setup_logging(log_file_path: str, logger_name: str = None) -> logging.Logger
     stderr_handler.addFilter(StderrFilter())
     stderr_handler.setLevel(logging.ERROR)
 
-    # 파일 핸들러 (모든 레벨)
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.DEBUG)
-
     # 포맷 설정
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     stdout_handler.setFormatter(formatter)
     stderr_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
 
     # 로거 설정
     logger = logging.getLogger(logger_name)
@@ -63,8 +62,7 @@ def setup_logging(log_file_path: str, logger_name: str = None) -> logging.Logger
     # 기존 핸들러 제거 (중복 방지)
     logger.handlers.clear()
 
-    # 핸들러 추가
-    logger.addHandler(file_handler)
+    # 핸들러 추가 (StreamHandler만, systemd가 파일로 리다이렉션)
     logger.addHandler(stdout_handler)
     logger.addHandler(stderr_handler)
 
