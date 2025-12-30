@@ -63,12 +63,12 @@ class LearningCLI:
             # 전체 아티팩트
             cur.execute("""
                 SELECT
-                    artifact_type,
+                    source_type,
                     COUNT(*) as count,
                     MIN(artifact_date) as first_date,
                     MAX(artifact_date) as last_date
                 FROM learning.learning_artifacts
-                GROUP BY artifact_type
+                GROUP BY source_type
                 ORDER BY count DESC
             """)
             artifacts = cur.fetchall()
@@ -79,7 +79,7 @@ class LearningCLI:
             for row in artifacts:
                 count = row['count']
                 total += count
-                print(f"  {row['artifact_type']:15} {count:5}개  ({row['first_date']} ~ {row['last_date']})")
+                print(f"  {row['source_type']:15} {count:5}개  ({row['first_date']} ~ {row['last_date']})")
             print(f"  {'TOTAL':15} {total:5}개")
             print()
 
@@ -89,12 +89,12 @@ class LearningCLI:
             cur.execute("""
                 SELECT
                     artifact_date,
-                    artifact_type,
+                    source_type,
                     COUNT(*) as count
                 FROM learning.learning_artifacts
                 WHERE artifact_date >= CURRENT_DATE - INTERVAL '7 days'
-                GROUP BY artifact_date, artifact_type
-                ORDER BY artifact_date DESC, artifact_type
+                GROUP BY artifact_date, source_type
+                ORDER BY artifact_date DESC, source_type
             """)
             recent = cur.fetchall()
 
@@ -105,7 +105,7 @@ class LearningCLI:
                         print()
                     current_date = row['artifact_date']
                     print(f"  {current_date}:")
-                print(f"    {row['artifact_type']:15} {row['count']:3}개")
+                print(f"    {row['source_type']:15} {row['count']:3}개")
 
             if not recent:
                 print("  (데이터 없음)")
@@ -137,7 +137,7 @@ class LearningCLI:
                 SELECT
                     provider,
                     COUNT(*) as count
-                FROM learning.ai_conversations
+                FROM learning.ai_chat_conversations
                 GROUP BY provider
                 ORDER BY count DESC
             """)
@@ -203,7 +203,7 @@ class LearningCLI:
                         provider,
                         title,
                         created_at
-                    FROM learning.ai_conversations
+                    FROM learning.ai_chat_conversations
                     ORDER BY created_at DESC
                     LIMIT %s
                 """, (limit,))
@@ -297,7 +297,7 @@ class LearningCLI:
             # AI Chat
             cur.execute("""
                 SELECT *
-                FROM learning.ai_conversations
+                FROM learning.ai_chat_conversations
                 WHERE DATE(created_at) = %s
             """, (target_date,))
             ai_chats = cur.fetchall()
