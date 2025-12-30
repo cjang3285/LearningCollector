@@ -23,17 +23,11 @@ from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
 
 from config.settings import get_log_file
+from config.logging_config import setup_logging
 from interfaces import IParser, ParseError
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(get_log_file('ai_chat_parse')),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr, ms 제거)
+logger = setup_logging(get_log_file('ai_chat_parse'), __name__)
 
 
 @dataclass

@@ -48,9 +48,10 @@ def setup_logging(log_file_path: str = None, logger_name: str = None) -> logging
     stderr_handler.addFilter(StderrFilter())
     stderr_handler.setLevel(logging.ERROR)
 
-    # 포맷 설정
+    # 포맷 설정 (ms 제거, 초 단위까지만)
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'  # ms 제거
     )
     stdout_handler.setFormatter(formatter)
     stderr_handler.setFormatter(formatter)
