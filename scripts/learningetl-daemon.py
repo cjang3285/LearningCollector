@@ -32,7 +32,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(get_log_file('daemon')),
-        logging.StreamHandler()
+        logging.StreamHandler(sys.stdout)  # stdout으로 출력 (daemon.log로 기록됨)
     ]
 )
 logger = logging.getLogger(__name__)

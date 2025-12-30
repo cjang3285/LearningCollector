@@ -175,24 +175,40 @@ class AIChatSaver(BaseSaver):
 
         # 4. ai_chat_conversations에 저장
         conversation_data["conversation_path"] = storage_path
-        self.save_conversation(artifact_id, conversation_data)
+        conv_id = self.save_conversation(artifact_id, conversation_data)
+
+        # 저장 완료 로그 (파일 경로 + DB ID)
+        logger.info(
+            f"✅ 저장 완료: artifact_id={artifact_id}, conv_id={conv_id}\n"
+            f"   📄 파일: {storage_path}"
+        )
 
         return artifact_id
 
     def save_all(self, conversations: List[Dict], artifact_date: date) -> List[int]:
         """여러 대화 일괄 저장"""
         artifact_ids = []
+        skipped_count = 0
+        error_count = 0
+
         for conversation in conversations:
             try:
                 artifact_id = self.save_ai_chat_artifact(conversation, artifact_date)
                 if artifact_id:
                     artifact_ids.append(artifact_id)
+                else:
+                    # artifact_id가 None이면 중복으로 스킵된 것
+                    skipped_count += 1
             except Exception as e:
+                error_count += 1
                 logger.error(
-                    f"대화 저장 실패 (provider={conversation.get('provider', 'unknown')}, "
+                    f"❌ 대화 저장 실패 (provider={conversation.get('provider', 'unknown')}, "
                     f"title={conversation.get('title', 'unknown')[:50]}): {e}"
                 )
                 continue
 
-        logger.info(f"AI 채팅 대화 {len(artifact_ids)}개 저장 완료")
+        logger.info(
+            f"💾 DB 저장 완료: 성공 {len(artifact_ids)}개, "
+            f"중복 스킵 {skipped_count}개, 오류 {error_count}개"
+        )
         return artifact_ids
