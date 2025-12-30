@@ -102,79 +102,13 @@ echo ""
 echo "테이블을 생성합니다..."
 echo ""
 
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME << 'EOF'
--- learning_artifacts (통합 메타데이터 테이블)
-CREATE TABLE IF NOT EXISTS learning.learning_artifacts (
-    id SERIAL PRIMARY KEY,
-    artifact_type VARCHAR(50) NOT NULL,
-    artifact_date DATE NOT NULL,
-    file_path TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    metadata JSONB
-);
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME < "$SCRIPT_DIR/create-schema.sql"
 
-CREATE INDEX IF NOT EXISTS idx_artifacts_type ON learning.learning_artifacts(artifact_type);
-CREATE INDEX IF NOT EXISTS idx_artifacts_date ON learning.learning_artifacts(artifact_date);
-CREATE INDEX IF NOT EXISTS idx_artifacts_created ON learning.learning_artifacts(created_at);
-
--- github_commits (GitHub 커밋 테이블)
-CREATE TABLE IF NOT EXISTS learning.github_commits (
-    id SERIAL PRIMARY KEY,
-    artifact_id INTEGER REFERENCES learning.learning_artifacts(id) ON DELETE CASCADE,
-    repo VARCHAR(255) NOT NULL,
-    repo_owner VARCHAR(255),
-    sha VARCHAR(40) UNIQUE NOT NULL,
-    message TEXT,
-    commit_date TIMESTAMP,
-    url TEXT,
-    additions INTEGER DEFAULT 0,
-    deletions INTEGER DEFAULT 0,
-    files_changed INTEGER DEFAULT 0,
-    files JSONB,
-    diff_path TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_commits_sha ON learning.github_commits(sha);
-CREATE INDEX IF NOT EXISTS idx_commits_repo ON learning.github_commits(repo);
-CREATE INDEX IF NOT EXISTS idx_commits_date ON learning.github_commits(commit_date);
-
--- ai_conversations (AI 채팅 테이블)
-CREATE TABLE IF NOT EXISTS learning.ai_conversations (
-    id SERIAL PRIMARY KEY,
-    artifact_id INTEGER REFERENCES learning.learning_artifacts(id) ON DELETE CASCADE,
-    provider VARCHAR(50) NOT NULL,
-    title TEXT,
-    messages JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_conversations_provider ON learning.ai_conversations(provider);
-CREATE INDEX IF NOT EXISTS idx_conversations_created ON learning.ai_conversations(created_at);
-
--- baekjoon_solutions (백준 문제 풀이 테이블)
-CREATE TABLE IF NOT EXISTS learning.baekjoon_solutions (
-    id SERIAL PRIMARY KEY,
-    artifact_id INTEGER REFERENCES learning.learning_artifacts(id) ON DELETE CASCADE,
-    problem_number INTEGER NOT NULL,
-    title VARCHAR(255),
-    tier VARCHAR(50),
-    category VARCHAR(100),
-    tags TEXT[],
-    language VARCHAR(50),
-    code TEXT,
-    memory_kb INTEGER,
-    time_ms INTEGER,
-    solved_date TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_baekjoon_number ON learning.baekjoon_solutions(problem_number);
-CREATE INDEX IF NOT EXISTS idx_baekjoon_tier ON learning.baekjoon_solutions(tier);
-CREATE INDEX IF NOT EXISTS idx_baekjoon_date ON learning.baekjoon_solutions(solved_date);
-
-\q
+# 권한 부여
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME << EOF
+GRANT ALL ON SCHEMA learning TO $DB_USER;
+GRANT ALL ON ALL TABLES IN SCHEMA learning TO $DB_USER;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA learning TO $DB_USER;
 EOF
 
 echo "✅ 테이블 생성 완료"
