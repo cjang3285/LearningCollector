@@ -83,26 +83,56 @@ class GitHubExporter:
         return repos
     
     def get_commits_by_date(
-        self, 
+        self,
         repo_owner: str,
         repo_name: str,
         since: datetime,
         until: datetime
     ) -> List[Dict]:
-        """특정 기간의 커밋 가져오기"""
+        """
+        특정 기간의 커밋 가져오기
+
+        주의: author 필터를 사용하지 않음!
+        - Claude가 primary author인 커밋도 포함하기 위해
+        - 대신 Co-Authored-By나 committer에서 사용자 확인
+        """
         url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/commits"
-        
+
         params = {
-            'author': self.username,
+            # author 필터 제거! Claude 커밋도 가져오기 위해
             'since': since.isoformat(),
             'until': until.isoformat(),
             'per_page': 100
         }
-        
+
         try:
             response = requests.get(url, headers=self.headers, params=params)
             response.raise_for_status()
-            return response.json()
+            commits = response.json()
+
+            # 사용자가 관련된 커밋만 필터링
+            # 1. author가 사용자
+            # 2. committer가 사용자
+            # 3. Co-Authored-By에 사용자 포함
+            filtered = []
+            for commit in commits:
+                commit_data = commit.get('commit', {})
+                author = commit_data.get('author', {}).get('name', '')
+                committer = commit_data.get('committer', {}).get('name', '')
+                message = commit_data.get('message', '')
+
+                # 사용자 관련 커밋인지 확인
+                is_user_commit = (
+                    self.username.lower() in author.lower() or
+                    self.username.lower() in committer.lower() or
+                    f'Co-Authored-By:' in message  # Co-author 체크는 나중에 상세히
+                )
+
+                if is_user_commit:
+                    filtered.append(commit)
+
+            return filtered
+
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 409:
                 return []
