@@ -280,6 +280,108 @@ tail -f ~/LearningETL/logs/daily-scan.log
 
 ---
 
+## 🛠️ 자주 쓰는 커맨드
+
+### Daemon 관리
+
+```bash
+# 데몬 시작/중지/재시작
+sudo systemctl start learningetl
+sudo systemctl stop learningetl
+sudo systemctl restart learningetl
+
+# 데몬 상태 확인
+sudo systemctl status learningetl
+
+# 부팅 시 자동 시작 활성화/비활성화
+sudo systemctl enable learningetl
+sudo systemctl disable learningetl
+
+# 데몬 재설치 (서비스 파일 수정 후)
+sudo cp scripts/learningetl.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl restart learningetl
+```
+
+### 로그 확인
+
+```bash
+# 실시간 로그 확인 (일반 로그)
+tail -f ~/LearningETL/logs/daemon.log
+
+# 실시간 로그 확인 (에러 로그)
+tail -f ~/LearningETL/logs/daemon-error.log
+
+# 최근 50줄 확인
+tail -50 ~/LearningETL/logs/daemon.log
+
+# systemd 저널 로그 확인
+journalctl -u learningetl -f
+
+# 특정 시간대 로그
+journalctl -u learningetl --since "1 hour ago"
+```
+
+### DB 조회
+
+```bash
+# 통계 확인
+python -m cli stats
+
+# AI 채팅 목록 (최근 10개)
+python -m cli list ai-chat
+
+# 특정 대화 상세 보기
+python -m cli show ai-chat <id>
+
+# GitHub 커밋 목록
+python -m cli list github
+
+# 백준 풀이 목록
+python -m cli list baekjoon
+
+# 특정 날짜 아티팩트
+python -m cli list ai-chat --date 2025-12-30
+```
+
+### 수동 실행
+
+```bash
+# AI 채팅만 수집
+python main.py --ai-chat-scan
+
+# GitHub + Baekjoon 수집
+python main.py
+
+# 특정 파일 수집
+python -m collectors.ai_chat_collector file1.md file2.md
+
+# 다운로드 폴더 스캔
+python -m collectors.ai_chat_collector --scan
+```
+
+### 매일 자정 실행 관리
+
+```bash
+# Cron 확인
+crontab -l
+
+# Cron 로그 확인
+tail -f ~/LearningETL/logs/daily-scan.log
+
+# systemd timer 상태
+systemctl list-timers learningetl-daily.timer
+sudo systemctl status learningetl-daily.timer
+
+# systemd timer 수동 실행 (테스트용)
+sudo systemctl start learningetl-daily.service
+
+# systemd timer 로그
+journalctl -u learningetl-daily.service -f
+```
+
+---
+
 ## 🐛 트러블슈팅
 
 ### GitHub API Rate Limit
