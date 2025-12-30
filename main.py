@@ -20,7 +20,7 @@ from collectors.github_collector import GitHubCollector
 from migration.claude_collector import ClaudeMigrationCollector
 from collectors.baekjoon_collector import BaekjoonCollector
 from collectors.ai_chat_collector import AIChatCollector
-from config.settings import get_log_file, COLLECT_GITHUB, COLLECT_BAEKJOON
+from config.settings import get_log_file, COLLECT_GITHUB, COLLECT_BAEKJOON, AI_CHAT_DOWNLOAD_DIR
 from config.logging_config import setup_logging
 
 # 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
@@ -180,7 +180,7 @@ def main():
         claude_zip_path=args.claude_zip,
         ai_chat_files=args.ai_chat,
         ai_chat_scan=args.ai_chat_scan,
-        ai_chat_download_dir=args.download_dir,
+        ai_chat_download_dir=args.download_dir or AI_CHAT_DOWNLOAD_DIR,
         all_dates=getattr(args, "all", False)
     )
 
