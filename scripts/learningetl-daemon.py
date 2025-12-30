@@ -3,12 +3,17 @@
 LearningETL 데몬 - 파일 감지 및 자동 수집
 
 /home/jcw/shared 폴더를 감시하여 새로운 파일이 생기면 자동으로 수집합니다.
+
+Hot Reload:
+- 코드 변경 감지 시 자동 재시작 (개발 편의성)
+- HOT_RELOAD=false 환경변수로 비활성화 가능
 """
 
 import os
 import sys
 import time
 import logging
+import signal
 from pathlib import Path
 from datetime import datetime, date
 from watchdog.observers import Observer
@@ -31,6 +36,27 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+
+class CodeReloadHandler(FileSystemEventHandler):
+    """코드 변경 감지 핸들러 (Hot Reload)"""
+
+    def __init__(self):
+        self.restart_requested = False
+
+    def on_modified(self, event):
+        """Python 파일 수정 감지"""
+        if event.is_directory:
+            return
+
+        file_path = Path(event.src_path)
+
+        # Python 파일 수정 시 재시작
+        if file_path.suffix == '.py':
+            logger.info(f"🔄 코드 변경 감지: {file_path.name}")
+            logger.info("⏳ 3초 후 자동 재시작...")
+            time.sleep(3)  # 파일 저장 완료 대기
+            self.restart_requested = True
 
 
 class LearningFileHandler(FileSystemEventHandler):
@@ -98,6 +124,7 @@ def main():
     """데몬 메인 함수"""
     # 감시 폴더 (환경변수 또는 기본값)
     watch_dir = os.getenv('LEARNING_WATCH_DIR', '/home/jcw/shared')
+    hot_reload = os.getenv('HOT_RELOAD', 'true').lower() == 'true'
 
     if not Path(watch_dir).exists():
         logger.error(f"❌ 감시 폴더가 존재하지 않습니다: {watch_dir}")
@@ -106,6 +133,10 @@ def main():
     logger.info("=" * 60)
     logger.info("🚀 LearningETL 데몬 시작")
     logger.info("=" * 60)
+    if hot_reload:
+        logger.info("🔥 Hot Reload: 활성화 (코드 변경 시 자동 재시작)")
+    else:
+        logger.info("🔥 Hot Reload: 비활성화")
 
     # 파일 핸들러 및 옵저버 설정
     event_handler = LearningFileHandler(watch_dir)
@@ -113,17 +144,47 @@ def main():
     observer.schedule(event_handler, watch_dir, recursive=False)
     observer.start()
 
+    # Hot Reload 설정 (코드 변경 감지)
+    code_reload_handler = None
+    code_observer = None
+    if hot_reload:
+        code_reload_handler = CodeReloadHandler()
+        code_observer = Observer()
+        # 프로젝트 루트의 Python 파일 감시
+        for folder in ['collectors', 'parse', 'storage', 'config', 'scripts']:
+            folder_path = PROJECT_ROOT / folder
+            if folder_path.exists():
+                code_observer.schedule(code_reload_handler, str(folder_path), recursive=True)
+        code_observer.start()
+
     logger.info(f"👀 파일 감시 중... (Ctrl+C로 종료)")
 
     try:
         while True:
+            # Hot Reload 체크
+            if hot_reload and code_reload_handler and code_reload_handler.restart_requested:
+                logger.info("🔄 재시작 중...")
+                observer.stop()
+                if code_observer:
+                    code_observer.stop()
+                observer.join()
+                if code_observer:
+                    code_observer.join()
+
+                # 프로세스 재시작 (systemd가 자동으로 재시작)
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+
             time.sleep(60)  # 1분마다 깨어남
             event_handler.run_periodic_scan()  # 주기적 스캔
     except KeyboardInterrupt:
         logger.info("⏹️  데몬 종료 중...")
         observer.stop()
+        if code_observer:
+            code_observer.stop()
 
     observer.join()
+    if code_observer:
+        code_observer.join()
     logger.info("👋 LearningETL 데몬 종료됨")
 
 
