@@ -258,7 +258,8 @@ class LearningCLI:
                         c.has_code,
                         c.conversation_path,
                         c.code_languages,
-                        c.created_at
+                        c.created_at,
+                        c.messages
                     FROM learning.ai_chat_conversations c
                     WHERE c.id = %s
                 """, (item_id,))
@@ -279,38 +280,48 @@ class LearningCLI:
                     print(f"날짜: {conv['created_at']}")
                     print()
 
-                    # JSON 파일에서 대화 내용 읽기
-                    if conv['conversation_path']:
+                    # DB에서 messages 읽기 (우선), 없으면 JSON 파일에서 읽기
+                    messages = None
+
+                    if conv.get('messages'):
+                        # DB에 messages가 있으면 사용
+                        messages = conv['messages']
+                        print("📊 [DB에서 로드됨]")
+                    elif conv['conversation_path']:
+                        # DB에 없으면 JSON 파일에서 읽기
                         json_path = Path(conv['conversation_path'])
                         if json_path.exists():
                             with open(json_path, 'r', encoding='utf-8') as f:
                                 data = json.load(f)
                                 messages = data.get('messages', [])
-
-                                print("="*60)
-                                print("💬 대화 내용")
-                                print("="*60)
-                                print()
-
-                                for i, msg in enumerate(messages, 1):
-                                    role = msg.get('role', 'unknown')
-                                    content = msg.get('content', '')
-
-                                    if role == 'user':
-                                        print(f"👤 사용자:")
-                                    else:
-                                        print(f"🤖 {conv['provider'].title()}:")
-
-                                    print(content)
-                                    print()
-
-                                    if i < len(messages):
-                                        print("-" * 60)
-                                        print()
+                            print("📁 [파일에서 로드됨]")
                         else:
                             print(f"⚠️  대화 파일을 찾을 수 없습니다: {conv['conversation_path']}")
+
+                    # 메시지 출력
+                    if messages:
+                        print("="*60)
+                        print("💬 대화 내용")
+                        print("="*60)
+                        print()
+
+                        for i, msg in enumerate(messages, 1):
+                            role = msg.get('role', 'unknown')
+                            content = msg.get('content', '')
+
+                            if role == 'user':
+                                print(f"👤 사용자:")
+                            else:
+                                print(f"🤖 {conv['provider'].title()}:")
+
+                            print(content)
+                            print()
+
+                            if i < len(messages):
+                                print("-" * 60)
+                                print()
                     else:
-                        print("⚠️  대화 경로가 저장되지 않았습니다.")
+                        print("⚠️  대화 내용을 찾을 수 없습니다.")
                 else:
                     print(f"❌ AI Chat을 찾을 수 없습니다: {item_id}")
 

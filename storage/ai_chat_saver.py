@@ -82,13 +82,16 @@ class AIChatSaver(BaseSaver):
         conn = self._get_db_connection()
         try:
             with conn.cursor() as cur:
+                # messages를 JSONB로 변환 (DB 저장용)
+                messages_json = json.dumps(conversation_data.get("messages", []))
+
                 cur.execute(
                     """
                     INSERT INTO learning.ai_chat_conversations
                     (artifact_id, provider, title, link, user_messages, assistant_messages,
                      has_code, conversation_path, code_languages, code_blocks_count,
-                     created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     created_at, updated_at, messages)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """,
                     (
@@ -104,6 +107,7 @@ class AIChatSaver(BaseSaver):
                         conversation_data.get("code_blocks_count", 0),
                         conversation_data.get("created_at"),
                         conversation_data.get("updated_at"),
+                        messages_json,
                     ),
                 )
                 result = cur.fetchone()
