@@ -76,17 +76,18 @@ class AIChatCollector:
             # 제공자별 통계
             providers = {}
             for conv in conversations:
-                provider = conv.provider
+                # IParser 리팩토링: 이제 Dict를 반환
+                provider = conv.get('provider', 'unknown')
                 providers[provider] = providers.get(provider, 0) + 1
 
             logger.info(f"파싱 완료: {providers}")
 
-            # ConversationData 객체를 딕셔너리로 변환
-            conversation_dicts = [conv.to_dict() for conv in conversations]
+            # IParser 리팩토링: 이미 Dict이므로 to_dict() 불필요
+            # conversation_dicts = [conv.to_dict() for conv in conversations]
 
             # 2. Save - DB 저장
             logger.info("[2/2] DB에 저장...")
-            artifact_ids = self.saver.save_all(conversation_dicts, target_date)
+            artifact_ids = self.saver.save_all(conversations, target_date)
 
             # 구체적인 수집 결과 출력
             logger.info("=" * 60)
