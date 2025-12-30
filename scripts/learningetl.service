@@ -1,0 +1,26 @@
+[Unit]
+Description=LearningETL Daemon - AI Chat Auto Collector
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=jcw
+Group=jcw
+WorkingDirectory=/home/jcw/LearningETL
+
+# 환경변수 파일
+EnvironmentFile=/home/jcw/LearningETL/.env
+
+# 실행 명령
+ExecStart=/home/jcw/LearningETL/venv/bin/python /home/jcw/LearningETL/scripts/learningetl-daemon.py
+
+# 자동 재시작
+Restart=always
+RestartSec=10
+
+# 로그
+StandardOutput=append:/home/jcw/LearningETL/logs/daemon.log
+StandardError=append:/home/jcw/LearningETL/logs/daemon-error.log
+
+[Install]
+WantedBy=multi-user.target

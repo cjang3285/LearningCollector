@@ -1,0 +1,45 @@
+#!/bin/bash
+# LearningETL 데몬 설치 스크립트
+
+set -e
+
+echo "=========================================="
+echo "LearningETL 데몬 설치"
+echo "=========================================="
+echo ""
+
+# 1. watchdog 설치
+echo "📦 watchdog 라이브러리 설치 중..."
+pip install watchdog
+
+# 2. 실행 권한 부여
+echo "🔧 실행 권한 설정..."
+chmod +x scripts/learningetl-daemon.py
+
+# 3. systemd 서비스 복사
+echo "📋 systemd 서비스 등록..."
+sudo cp scripts/learningetl.service /etc/systemd/system/
+
+# 4. systemd 리로드
+echo "🔄 systemd 리로드..."
+sudo systemctl daemon-reload
+
+# 5. 서비스 활성화 (부팅 시 자동 시작)
+echo "✅ 서비스 활성화..."
+sudo systemctl enable learningetl.service
+
+echo ""
+echo "=========================================="
+echo "✅ 설치 완료!"
+echo "=========================================="
+echo ""
+echo "사용 방법:"
+echo ""
+echo "  시작:   sudo systemctl start learningetl"
+echo "  중지:   sudo systemctl stop learningetl"
+echo "  상태:   sudo systemctl status learningetl"
+echo "  로그:   journalctl -u learningetl -f"
+echo ""
+echo "  또는:"
+echo "  로그:   tail -f ~/LearningETL/logs/daemon.log"
+echo ""

@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""
+LearningETL 데몬 - 파일 감지 및 자동 수집
+
+/home/jcw/shared 폴더를 감시하여 새로운 파일이 생기면 자동으로 수집합니다.
+"""
+
+import os
+import sys
+import time
+import logging
+from pathlib import Path
+from datetime import datetime, date
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+# 프로젝트 루트 추가
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from config.settings import get_log_file
+from main import LearningETL
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(get_log_file('daemon')),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
+class LearningFileHandler(FileSystemEventHandler):
+    """파일 시스템 이벤트 핸들러"""
+
+    def __init__(self, watch_dir: str):
+        self.watch_dir = Path(watch_dir)
+        self.etl = LearningETL()
+        self.processed_files = set()  # 중복 처리 방지
+        self.last_run = None
+        logger.info(f"📂 감시 폴더: {self.watch_dir}")
+
+    def on_created(self, event):
+        """새 파일 생성 시"""
+        if event.is_directory:
+            return
+
+        file_path = Path(event.src_path)
+
+        # 마크다운 파일만 처리 (AI 채팅)
+        if file_path.suffix == '.md' and file_path not in self.processed_files:
+            logger.info(f"🆕 새 파일 감지: {file_path.name}")
+            self.process_file(file_path)
+
+    def process_file(self, file_path: Path):
+        """파일 처리"""
+        try:
+            # 파일이 완전히 쓰여질 때까지 대기
+            time.sleep(2)
+
+            # AI 채팅 수집
+            logger.info(f"🔄 처리 중: {file_path.name}")
+            result = self.etl.run(
+                ai_chat_scan=True,
+                ai_chat_download_dir=str(self.watch_dir),
+                target_date=date.today()
+            )
+
+            self.processed_files.add(file_path)
+            logger.info(f"✅ 완료: {result}")
+
+        except Exception as e:
+            logger.error(f"❌ 처리 실패 ({file_path.name}): {e}")
+
+    def run_periodic_scan(self):
+        """주기적 전체 스캔 (1시간마다)"""
+        now = datetime.now()
+
+        # 첫 실행 또는 1시간 경과
+        if self.last_run is None or (now - self.last_run).seconds > 3600:
+            logger.info("🔍 주기적 전체 스캔 시작...")
+            try:
+                result = self.etl.run(
+                    ai_chat_scan=True,
+                    ai_chat_download_dir=str(self.watch_dir),
+                    target_date=date.today()
+                )
+                logger.info(f"✅ 전체 스캔 완료: {result}")
+                self.last_run = now
+            except Exception as e:
+                logger.error(f"❌ 전체 스캔 실패: {e}")
+
+
+def main():
+    """데몬 메인 함수"""
+    # 감시 폴더 (환경변수 또는 기본값)
+    watch_dir = os.getenv('LEARNING_WATCH_DIR', '/home/jcw/shared')
+
+    if not Path(watch_dir).exists():
+        logger.error(f"❌ 감시 폴더가 존재하지 않습니다: {watch_dir}")
+        sys.exit(1)
+
+    logger.info("=" * 60)
+    logger.info("🚀 LearningETL 데몬 시작")
+    logger.info("=" * 60)
+
+    # 파일 핸들러 및 옵저버 설정
+    event_handler = LearningFileHandler(watch_dir)
+    observer = Observer()
+    observer.schedule(event_handler, watch_dir, recursive=False)
+    observer.start()
+
+    logger.info(f"👀 파일 감시 중... (Ctrl+C로 종료)")
+
+    try:
+        while True:
+            time.sleep(60)  # 1분마다 깨어남
+            event_handler.run_periodic_scan()  # 주기적 스캔
+    except KeyboardInterrupt:
+        logger.info("⏹️  데몬 종료 중...")
+        observer.stop()
+
+    observer.join()
+    logger.info("👋 LearningETL 데몬 종료됨")
+
+
+if __name__ == "__main__":
+    main()
