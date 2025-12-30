@@ -176,13 +176,52 @@ python -m cli show ai-chat 1
 python -m cli list github
 ```
 
-### Cron 자동화
+### 자동화 설정
+
+#### 1. 실시간 파일 감지 (Daemon)
+
+AI 채팅 파일 자동 수집 (파일 감지 즉시 처리)
 
 ```bash
-crontab -e
+# 설치
+bash scripts/install-daemon.sh
 
-# 매일 오전 6시 실행
-0 6 * * * cd /home/jcw/LearningETL && python main.py >> logs/cron.log 2>&1
+# 시작
+sudo systemctl start learningetl
+
+# 상태 확인
+sudo systemctl status learningetl
+
+# 로그 확인
+tail -f ~/LearningETL/logs/daemon.log
+```
+
+#### 2. 매일 자정 전체 스캔
+
+**방법 A: Cron (간단)**
+
+```bash
+# 설치
+bash scripts/setup-daily-cron.sh
+
+# 확인
+crontab -l
+
+# 로그 확인
+tail -f ~/LearningETL/logs/daily-scan.log
+```
+
+**방법 B: systemd timer (체계적)**
+
+```bash
+# 설치
+bash scripts/setup-daily-timer.sh
+
+# 상태 확인
+systemctl list-timers learningetl-daily.timer
+
+# 로그 확인
+tail -f ~/LearningETL/logs/daily-scan.log
 ```
 
 ---

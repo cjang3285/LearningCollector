@@ -18,9 +18,9 @@ ExecStart=/home/jcw/LearningETL/venv/bin/python /home/jcw/LearningETL/scripts/le
 Restart=always
 RestartSec=10
 
-# 로그
+# 로그 (stdout, stderr 모두 daemon.log로 통합)
 StandardOutput=append:/home/jcw/LearningETL/logs/daemon.log
-StandardError=append:/home/jcw/LearningETL/logs/daemon-error.log
+StandardError=append:/home/jcw/LearningETL/logs/daemon.log
 
 [Install]
 WantedBy=multi-user.target
