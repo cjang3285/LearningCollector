@@ -6,12 +6,11 @@
 
 **NoSQL 필요 없습니다!** PostgreSQL의 JSONB로 충분합니다:
 
-- ✅ **구조화된 데이터**: 검색/집계에 최적 (날짜, 타입, 태그)
-- ✅ **비구조화 데이터**: JSONB로 유연하게 저장 (마크다운 전체 내용, 메시지 배열)
-- ✅ **강력한 쿼리**: SQL + JSON 연산자 조합
-- ✅ **인덱싱**: GIN 인덱스로 JSONB 내부도 빠르게 검색
-- ✅ **트랜잭션**: ACID 보장
-- ✅ **관계형 + 문서형**: 하나의 DB로 양쪽 장점
+-  **구조화된 데이터**: 검색/집계에 최적 (날짜, 타입, 태그)
+-  **비구조화 데이터**: JSONB로 유연하게 저장 (마크다운 전체 내용, 메시지 배열)
+-  **강력한 쿼리**: SQL + JSON 연산자 조합
+-  **인덱싱**: GIN 인덱스로 JSONB 내부도 빠르게 검색
+-  **관계형 + 문서형**: 하나의 DB로 양쪽 장점
 
 ### 테이블 구조
 
@@ -52,63 +51,37 @@ learning.baekjoon_solutions
 └── solved_date
 ```
 
-## 🏗️ 블로그와 공존 전략
+### 기존에 사용하던 데이터베이스가 있다면?
 
-### Option 1: 다른 데이터베이스 (추천)
+같은 DB, 다른 스키마
 
-```
-PostgreSQL 서버 (localhost:5432)
-├── blog (기존 블로그 DB)
-└── learning (LearningETL 전용 DB)
-```
-
-**장점**:
-- 완전 분리, 충돌 없음
-- 독립적인 백업/복구
-- 권한 관리 단순
-
-**설정**:
-```bash
-# .env 파일
-DB_HOST=localhost
-DB_NAME=learning          # 블로그와 다른 DB
-DB_USER=learning_user
-DB_PASSWORD=secure_password
-```
-
-### Option 2: 같은 DB, 다른 스키마
-
-```
-PostgreSQL 서버 → my_database
-├── public (블로그 테이블)
+```e.g.
+PostgreSQL 서버 → my_db
+├── blog (스키마)
 │   ├── posts
-│   └── users
-└── learning (LearningETL 테이블)
+│   └── projects
+└── learning (LearningETL 스키마)
     ├── learning_artifacts
     └── github_commits
+    └── baekjoon_solutions
+    └── ai_chat_conversations
 ```
 
 **장점**:
-- 하나의 연결로 블로그 + 학습 데이터 조인 가능
-- "오늘 쓴 블로그 글과 커밋 수" 같은 통합 쿼리
+- 하나의 연결로 기존 스키마와 조인
+- "오늘 쓴 블로그 글과 커밋 수" 같은 쿼리 처리 가능
 
 **설정**:
 ```bash
 # .env 파일
 DB_HOST=localhost
-DB_NAME=blog              # 기존 블로그 DB 사용
-DB_USER=blog_user
+DB_NAME=my_db              
+DB_USER=my_user
 DB_PASSWORD=blog_password
 ```
 
-**스키마 분리로 충돌 방지**:
-```sql
--- 블로그: public.posts, public.users
--- LearningETL: learning.learning_artifacts, learning.github_commits
-```
-
 ## 🔍 실제 데이터 예시
-
+-> 검증 필요.
 ### learning_artifacts
 
 | id | artifact_date | source_type | title | tags | storage_path |
@@ -130,7 +103,7 @@ DB_PASSWORD=blog_password
 | 1 | 2 | Claude | React 최적화 방법 | 5 | true | `{javascript,typescript}` |
 
 ### 쿼리 예시
-
+-> 검증 필요요
 ```sql
 -- 오늘 학습한 모든 활동
 SELECT source_type, COUNT(*)
@@ -168,21 +141,17 @@ FROM learning.github_commits
 WHERE files @> '[{"filename": "main.py"}]'::jsonb;
 ```
 
-## 📦 파일 + DB 하이브리드 저장
-
-### 왜 둘 다?
+## 📦 ai chat은 파일과 DB에 하이브리드 저장
 
 1. **JSON 파일** (`learning_artifacts/`):
-   - ✅ 원본 데이터 보존
-   - ✅ 파싱 로직 변경 시 재처리 가능
-   - ✅ 백업 간단 (디렉토리 복사)
-   - ✅ Git으로 버전 관리 가능
+   -  원본 데이터 보존
+   -  파싱 로직 변경 시 재처리 가능
+   -  백업 간단 (디렉토리 복사)
 
 2. **PostgreSQL**:
-   - ✅ 빠른 검색/집계
-   - ✅ 관계형 쿼리 (JOIN)
-   - ✅ 인덱싱으로 성능 최적화
-   - ✅ CLI/Dashboard에서 즉시 조회
+   -  빠른 검색/집계
+   -  JOIN
+   -  CLI에서 즉시 조회
 
 ### 데이터 흐름
 
@@ -198,11 +167,13 @@ GitHub API
     └─→ DB 저장
         ├─→ learning_artifacts (메타데이터)
         └─→ github_commits (상세 데이터)
+        ...
+        ...
 ```
 
 ## 🚀 빠른 시작
 
-### 1. DB 생성 (깨끗한 상태)
+### 1. DB 생성
 
 ```bash
 # .env 파일 생성
@@ -250,17 +221,3 @@ bash scripts/setup-database.sh
 
 # 3. 데이터 재수집 (JSON 파일이 있다면 재처리 가능)
 ```
-
-## 💡 FAQ
-
-**Q: 마크다운 파일 전체를 DB에 넣어야 하나요?**
-A: 선택사항입니다. 현재는 파일 경로만 저장하고, 필요시 파일을 읽습니다. 검색이 자주 필요하면 JSONB 컬럼에 추가할 수 있습니다.
-
-**Q: NoSQL이 더 낫지 않나요?**
-A: PostgreSQL JSONB가 NoSQL의 유연성 + SQL의 강력함을 모두 제공합니다. 학습 데이터는 관계형 쿼리가 많아서 PostgreSQL이 유리합니다.
-
-**Q: 블로그 DB와 같이 써도 안전한가요?**
-A: 네! `learning` 스키마를 사용하므로 블로그의 `public` 스키마와 충돌하지 않습니다.
-
-**Q: 스키마를 나중에 바꿀 수 있나요?**
-A: 네! `ALTER TABLE` 또는 JSON 파일 재파싱으로 가능합니다.
