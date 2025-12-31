@@ -18,6 +18,7 @@ from typing import Dict
 import logging
 
 from factories import CollectorFactory
+from interfaces import CollectionContext
 from config.settings import get_log_file, AI_CHAT_DOWNLOAD_DIR
 from config.logging_config import setup_logging
 
@@ -98,7 +99,16 @@ class LearningETL:
             github_collector = self.collectors.get('github')
             if github_collector:
                 logger.info("\n[GitHub] 데이터 수집 시작...")
-                results['github'] = github_collector.collect_github(target_date)
+                context = CollectionContext(target_date=target_date, options={})
+                result = github_collector.collect(context)
+                # CollectionResult를 dict 형식으로 변환 (하위 호환성)
+                results['github'] = {
+                    'success': result.success,
+                    'date': result.date,
+                    'commits_count': result.items_count,
+                    'artifact_ids': result.artifact_ids,
+                    **result.metadata
+                }
             else:
                 logger.info("\n[GitHub] 수집 비활성화됨")
 
@@ -144,7 +154,16 @@ class LearningETL:
             baekjoon_collector = self.collectors.get('baekjoon')
             if baekjoon_collector:
                 logger.info("\n[Baekjoon] 데이터 수집 시작...")
-                results['baekjoon'] = baekjoon_collector.collect_baekjoon(target_date)
+                context = CollectionContext(target_date=target_date, options={})
+                result = baekjoon_collector.collect(context)
+                # CollectionResult를 dict 형식으로 변환 (하위 호환성)
+                results['baekjoon'] = {
+                    'success': result.success,
+                    'date': result.date,
+                    'solutions_count': result.items_count,
+                    'artifact_ids': result.artifact_ids,
+                    **result.metadata
+                }
             else:
                 logger.info("\n[Baekjoon] 수집 비활성화됨")
 
