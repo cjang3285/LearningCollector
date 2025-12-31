@@ -46,7 +46,7 @@ cp .env.example .env
 nano .env  # GITHUB_TOKEN, DB 정보 입력
 
 # DB 스키마 생성
-psql -h localhost -U postgres -d my_blog -f scripts/create-schema.sql
+psql -h localhost -U postgres -d my_blog -f scripts/installation/create-schema.sql
 ```
 
 상세 설치 가이드: [INSTALL.md](INSTALL.md)
@@ -215,7 +215,7 @@ AI 채팅 파일 자동 수집 (파일 감지 즉시 처리)
 
 ```bash
 # 설치
-bash scripts/install-daemon.sh
+bash scripts/installation/install-daemon.sh
 
 # 시작
 sudo systemctl start learningetl
@@ -228,7 +228,7 @@ sudo systemctl status learningetl
 
 ```bash
 # 설치
-bash scripts/setup-daily-timer.sh
+bash scripts/installation/setup-daily-timer.sh
 
 # 상태 확인
 systemctl list-timers learningetl-daily.timer

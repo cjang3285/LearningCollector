@@ -124,7 +124,7 @@ BAEKJOON_REPO_PATH=/path/to/baekjoon_hub_repo
 
 ```bash
 # SQL 스크립트 실행
-psql -h localhost -U your_user -d my_db -f scripts/create-schema.sql
+psql -h localhost -U your_user -d my_db -f scripts/installation/create-schema.sql
 ```
 
 **스키마 확인**:
@@ -175,7 +175,7 @@ AI 채팅 파일 다운로드 즉시 처리
 
 ```bash
 # 1. Daemon 설치
-bash scripts/install-daemon.sh
+bash scripts/installation/install-daemon.sh
 
 # 2. 서비스 시작
 sudo systemctl start learningetl
@@ -194,7 +194,7 @@ tail -f ~/LearningETL/logs/daemon.log
 
 ```bash
 # 1. Timer 설치
-bash scripts/setup-daily-timer.sh
+bash scripts/installation/setup-daily-timer.sh
 
 # 2. Timer 활성화
 sudo systemctl enable learningetl-daily.timer
@@ -428,13 +428,13 @@ sudo systemctl cat learningetl-daily.service
 
 # ExecStart 경로가 올바른지 확인
 # 출력 예시:
-# ExecStart=/home/user/LearningETL/scripts/daily-collect.sh
+# ExecStart=/home/user/LearningETL/scripts/runtime/daily-collect.sh
 
 # 스크립트 내부 가상환경 경로 확인
-cat /home/user/LearningETL/scripts/daily-collect.sh | grep venv
+cat /home/user/LearningETL/scripts/runtime/daily-collect.sh | grep venv
 
 # 경로가 틀렸다면 수정
-nano /home/user/LearningETL/scripts/daily-collect.sh
+nano /home/user/LearningETL/scripts/runtime/daily-collect.sh
 ```
 
 **원인 2: 환경 변수 미설정**
@@ -470,7 +470,7 @@ sudo systemctl enable postgresql
 crontab -e
 
 # 다음 줄 추가 (매일 자정 실행)
-0 0 * * * /home/user/LearningETL/scripts/daily-collect.sh
+0 0 * * * /home/user/LearningETL/scripts/runtime/daily-collect.sh
 
 # crontab 확인
 crontab -l

@@ -10,7 +10,7 @@ echo ""
 
 # 프로젝트 루트
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 cd "$PROJECT_ROOT"
 
@@ -64,7 +64,7 @@ read -p "PostgreSQL 데이터베이스를 설정하시겠습니까? (Y/n): " SET
 SETUP_DB=${SETUP_DB:-Y}
 
 if [[ $SETUP_DB =~ ^[Yy]$ ]]; then
-    bash scripts/setup-database.sh
+    bash scripts/installation/setup-database.sh
 else
     echo "[SKIP] 데이터베이스 설정 건너뜀"
 fi
@@ -76,7 +76,7 @@ read -p "매일 자동으로 데이터를 수집하시겠습니까? (systemd tim
 SETUP_TIMER=${SETUP_TIMER:-Y}
 
 if [[ $SETUP_TIMER =~ ^[Yy]$ ]]; then
-    bash scripts/setup-daily-timer.sh
+    bash scripts/installation/setup-daily-timer.sh
 else
     echo "[SKIP] 자동 수집 설정 건너뜀"
 fi
@@ -84,7 +84,7 @@ echo ""
 
 # 설치 테스트
 echo "[TEST] 설치 테스트 중..."
-if bash scripts/test-installation.sh; then
+if bash scripts/maintenance/test-installation.sh; then
     echo "[SUCCESS] 설치 테스트 통과"
 else
     echo "[WARNING] 일부 테스트 실패 (수동으로 확인 필요)"
