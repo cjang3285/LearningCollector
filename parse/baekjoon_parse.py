@@ -186,16 +186,16 @@ class BaekjoonParser:
         self,
         problems: List[Dict],
         exporter  # BaekjoonExporter 인스턴스
-    ) -> List[BaekjoonProblemData]:
+    ) -> List[Dict]:
         """
-        Export에서 수집한 문제 리스트를 파싱
+        Export에서 수집한 문제 리스트를 파싱 (IParser 인터페이스 준수)
 
         Args:
             problems: Export에서 반환한 문제 리스트
             exporter: BaekjoonExporter 인스턴스 (파일 읽기용)
 
         Returns:
-            파싱된 문제 데이터 리스트
+            파싱/검증된 문제 데이터 (Dict 리스트)
         """
         parsed_problems = []
 
@@ -228,7 +228,8 @@ class BaekjoonParser:
                     commit_message=problem['commit_message']
                 )
 
-                parsed_problems.append(parsed)
+                # IParser 인터페이스 준수: Dict 반환
+                parsed_problems.append(parsed.to_dict())
                 logger.info(f"[OK] 파싱 완료: {parsed.problem_id} - {parsed.title}")
 
             except Exception as e:

@@ -156,7 +156,7 @@ class GitHubCollector(ICollector):
         try:
             # 1. Export - GitHub API로 커밋 수집
             logger.info("[1/3] GitHub API에서 커밋 수집...")
-            commits = self.exporter.export_today()
+            commits = self.exporter.export_today(target_date)
 
             if not commits:
                 logger.info("수집된 커밋이 없습니다.")
@@ -167,20 +167,20 @@ class GitHubCollector(ICollector):
                     'artifact_ids': []
                 }
 
-            # 2. Parse - 데이터 파싱
+            # 2. Parse - 데이터 파싱/검증
             logger.info(f"[2/3] {len(commits)}개 커밋 파싱...")
             parsed_commits = self.parser.parse_commits(commits)
 
-            # 3. Save - DB 저장
+            # 3. Save - DB 저장 (Parser 결과 사용)
             logger.info("[3/3] DB에 저장...")
-            artifact_ids = self.saver.save_all(commits, target_date)
+            artifact_ids = self.saver.save_all(parsed_commits, target_date)
 
             logger.info(f"GitHub 수집 완료: {len(artifact_ids)}개 저장")
 
             return {
                 'success': True,
                 'date': target_date,
-                'commits_count': len(commits),
+                'commits_count': len(parsed_commits),
                 'artifact_ids': artifact_ids
             }
 

@@ -193,14 +193,26 @@ class GitHubExporter:
             logger.warning(f"파일 읽기 실패: {e}")
             return ""
     
-    def export_today(self) -> List[Dict]:
-        """당일 커밋 + 상세 정보 수집"""
-        logger.info(f"{self.username}의 오늘 커밋 수집 중...")
+    def export_today(self, target_date=None) -> List[Dict]:
+        """
+        특정 날짜의 커밋 + 상세 정보 수집
 
-        # 오늘 00:00 ~ 23:59 (UTC)
-        now = datetime.now(timezone.utc)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = now
+        Args:
+            target_date: 수집할 날짜 (date 객체), None이면 오늘
+
+        Returns:
+            커밋 데이터 리스트
+        """
+        from datetime import date as date_type
+
+        if target_date is None:
+            target_date = date_type.today()
+
+        logger.info(f"{self.username}의 {target_date} 커밋 수집 중...")
+
+        # target_date의 00:00 ~ 23:59 (UTC)
+        today_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=timezone.utc)
+        today_end = datetime(target_date.year, target_date.month, target_date.day, 23, 59, 59, tzinfo=timezone.utc)
 
         repos = self.get_user_repos()
         logger.info(f"저장소 {len(repos)}개 발견")
