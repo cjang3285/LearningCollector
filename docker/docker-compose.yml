@@ -1,6 +1,0 @@
-# Docker Compose 설정은 docs/DOCKER_COMPOSE_DESIGN.md 참조
-# 이 파일은 향후 Docker 구현 시 사용
-version: '3.8'
-
-# 현재 미구현 - NAS 기반 아키텍처 우선 사용
-# 구현 시 docs/DOCKER_COMPOSE_DESIGN.md의 설정 사용
