@@ -155,9 +155,9 @@ class BaekjoonCollector(ICollector):
         logger.info(f"백준 데이터 수집 시작: {target_date}")
 
         try:
-            # 1. Export - 백준허브 연동 레포에서 당일 제출 문제 수집
+            # 1. Export - 백준허브 연동 레포에서 특정 날짜 제출 문제 수집
             logger.info("[1/3] 백준허브 연동 레포에서 백준 제출 수집...")
-            problems = self.exporter.export_today(target_date)
+            problems = self.exporter.export(target_date)
 
             if not problems:
                 logger.info("당일 제출된 문제가 없습니다.")

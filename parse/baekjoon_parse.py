@@ -48,7 +48,33 @@ class BaekjoonProblemData:
     commit_message: str
 
     def to_dict(self):
-        return asdict(self)
+        """
+        Saver가 바로 사용할 수 있는 nested 구조로 변환
+        Parser 책임: 데이터 변환/정규화
+        """
+        return {
+            'problem_id': self.problem_id,
+            'title': self.title,
+            'tier': self.tier,
+            'tags': self.tags,
+            'url': f"https://www.acmicpc.net/problem/{self.problem_id}",
+            'submission': {
+                'submission_id': None,  # 백준허브는 submission_id 제공 안 함
+                'language': self.code_language,
+                'memory': self.memory,
+                'time': self.time,
+                'code': self.code
+            },
+            'code_analysis': {
+                'code_lines': None,  # TODO: 코드 분석 기능 추가 시
+                'comment_lines': None
+            },
+            # 추가 메타데이터
+            'description': self.description,
+            'submitted_at': self.submitted_at,
+            'commit_sha': self.commit_sha,
+            'commit_message': self.commit_message
+        }
 
 
 class BaekjoonParser:

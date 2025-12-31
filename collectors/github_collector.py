@@ -156,7 +156,7 @@ class GitHubCollector(ICollector):
         try:
             # 1. Export - GitHub API로 커밋 수집
             logger.info("[1/3] GitHub API에서 커밋 수집...")
-            commits = self.exporter.export_today(target_date)
+            commits = self.exporter.export(target_date)
 
             if not commits:
                 logger.info("수집된 커밋이 없습니다.")

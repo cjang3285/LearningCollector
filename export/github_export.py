@@ -193,7 +193,7 @@ class GitHubExporter:
             logger.warning(f"파일 읽기 실패: {e}")
             return ""
     
-    def export_today(self, target_date=None) -> List[Dict]:
+    def export(self, target_date=None) -> List[Dict]:
         """
         특정 날짜의 커밋 + 상세 정보 수집
 
@@ -237,6 +237,7 @@ class GitHubExporter:
                     # 기본 정보
                     commit_data = {
                         'repo': repo_name,
+                        'repo_owner': repo_owner,  # 저장소 소유자 추가
                         'sha': commit['sha'],
                         'message': commit['commit']['message'],
                         'date': commit['commit']['author']['date'],
@@ -291,7 +292,7 @@ class GitHubExporter:
 
 if __name__ == '__main__':
     exporter = GitHubExporter()
-    commits = exporter.export_today()
+    commits = exporter.export()
     
     for commit in commits:
         print(f"\n[{commit['repo']}] {commit['message']}")

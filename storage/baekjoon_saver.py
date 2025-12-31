@@ -37,7 +37,7 @@ class BaekjoonSaver(BaseSaver, ISaver):
         단일 백준 풀이 저장 (ISaver 인터페이스)
 
         Args:
-            data: Parser에서 반환한 백준 풀이 데이터 (Dict)
+            data: Parser에서 반환한 백준 풀이 데이터 (이미 DB 저장 형식)
             artifact_date: 아티팩트 날짜
 
         Returns:
@@ -47,27 +47,9 @@ class BaekjoonSaver(BaseSaver, ISaver):
             SaveError: 저장 실패 시
         """
         try:
-            # Parser의 flat 구조를 Saver가 기대하는 nested 구조로 변환
-            normalized_data = {
-                'problem_id': data['problem_id'],
-                'title': data['title'],
-                'tier': data['tier'],
-                'tags': data['tags'],
-                'url': f"https://www.acmicpc.net/problem/{data['problem_id']}",
-                'submission': {
-                    'submission_id': None,  # 백준허브는 submission_id 제공 안 함
-                    'language': data['code_language'],
-                    'memory': data['memory'],
-                    'time': data['time'],
-                    'code': data['code']
-                },
-                'code_analysis': {
-                    'code_lines': None,  # TODO: 코드 분석 기능 추가 시
-                    'comment_lines': None
-                }
-            }
-
-            return self.save_baekjoon_artifact(normalized_data, artifact_date)
+            # Parser가 이미 최종 구조로 변환했으므로 그대로 저장
+            # Saver 책임: DB 저장만 (Single Responsibility Principle)
+            return self.save_baekjoon_artifact(data, artifact_date)
         except Exception as e:
             raise SaveError(f"백준 풀이 저장 실패: {e}") from e
 
