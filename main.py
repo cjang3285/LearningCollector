@@ -42,7 +42,7 @@ class LearningETL:
     def run(
         self,
         target_date: date = None,
-        claude_zip_path: str = None,
+        import_zip: bool = False,
         ai_chat_files: list = None,
         ai_chat_scan: bool = False,
         ai_chat_download_dir: str = None,
@@ -53,9 +53,11 @@ class LearningETL:
 
         Args:
             target_date: 수집 대상 날짜 (기본값: 오늘)
-            claude_zip_path: Claude 수동 다운로드 ZIP 파일 경로
+            import_zip: Claude ZIP 파일 자동 감지 여부 (첫 마이그레이션용)
             ai_chat_files: AI 채팅 마크다운 파일 리스트
             ai_chat_scan: 다운로드 폴더 스캔 여부
+            ai_chat_download_dir: 다운로드 폴더 경로
+            all_dates: ZIP 임포트 시 모든 날짜 대화 수집 여부
 
         Returns:
             {
@@ -92,13 +94,17 @@ class LearningETL:
             logger.info("\n[GitHub] 수집 비활성화됨")
 
         # 2. Claude Migration (첫 이용 시 ZIP 마이그레이션)
-        if claude_zip_path:
-            claude_migration_collector = CollectorFactory.create_collector('claude_migration')
-            if claude_migration_collector:
-                logger.info("\n[Claude Migration] ZIP 파일에서 대화 마이그레이션 중...")
-                results['claude'] = claude_migration_collector.collect(claude_zip_path, target_date, all_dates=all_dates)
+        if import_zip:
+            from bulk_import.claude_collector import ClaudeMigrationCollector
+            logger.info("\n[Claude Migration] ZIP 파일 자동 감지 및 마이그레이션 중...")
+            claude_collector = ClaudeMigrationCollector()
+            results['claude'] = claude_collector.collect(
+                zip_path=None,  # 자동 감지
+                target_date=target_date,
+                all_dates=all_dates
+            )
         else:
-            logger.info("\n[Claude Migration] ZIP 파일 미제공 (일상 사용은 --ai-chat-scan 사용)")
+            logger.debug("\n[Claude Migration] ZIP 임포트 비활성화됨 (일상 사용은 --ai-chat-scan 사용)")
 
         # 3. AI Chat 수집 (Claude, ChatGPT, Gemini 마크다운)
         ai_chat_collector = self.collectors.get('ai_chat')
@@ -170,13 +176,50 @@ def main():
     """메인 함수"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Learning Artifacts ETL Pipeline')
-    parser.add_argument('--claude-zip', type=str, help='[첫 마이그레이션용] Claude ZIP 파일 경로')
-    parser.add_argument('--ai-chat', nargs='*', help='AI 채팅 마크다운 파일 (Claude, ChatGPT, Gemini)')
-    parser.add_argument('--ai-chat-scan', action='store_true', help='[일상 사용] 다운로드 폴더 AI 채팅 자동 스캔')
-    parser.add_argument('--download-dir', type=str, help='다운로드 폴더 경로 (기본값: ~/Downloads)')
-    parser.add_argument('--date', type=str, help='수집 대상 날짜 (YYYY-MM-DD)')
-    parser.add_argument('--all', action='store_true', help='[Claude ZIP 전용] 전체 대화 수집')
+    parser = argparse.ArgumentParser(
+        description='Learning Artifacts ETL Pipeline',
+        epilog='''
+사용 예시:
+  # 기본 실행 (GitHub + Baekjoon)
+  python main.py
+
+  # AI 채팅 마크다운 자동 스캔 (일상 사용)
+  python main.py --ai-chat-scan
+
+  # Claude ZIP 파일 임포트 (첫 마이그레이션용)
+  python main.py --import-zip --all
+        '''
+    )
+    parser.add_argument(
+        '--import-zip',
+        action='store_true',
+        help='[첫 마이그레이션용] Claude ZIP 파일 자동 감지 및 임포트'
+    )
+    parser.add_argument(
+        '--ai-chat',
+        nargs='*',
+        help='AI 채팅 마크다운 파일 (Claude, ChatGPT, Gemini)'
+    )
+    parser.add_argument(
+        '--ai-chat-scan',
+        action='store_true',
+        help='[일상 사용] 다운로드 폴더 AI 채팅 자동 스캔'
+    )
+    parser.add_argument(
+        '--download-dir',
+        type=str,
+        help='다운로드 폴더 경로 (기본값: AI_CHAT_DOWNLOAD_DIR 환경변수 또는 ~/Downloads)'
+    )
+    parser.add_argument(
+        '--date',
+        type=str,
+        help='수집 대상 날짜 (YYYY-MM-DD)'
+    )
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        help='[--import-zip 전용] ZIP의 모든 대화 수집 (날짜 무관)'
+    )
     args = parser.parse_args()
 
     target_date = None
@@ -186,11 +229,11 @@ def main():
     etl = LearningETL()
     results = etl.run(
         target_date=target_date,
-        claude_zip_path=args.claude_zip,
+        import_zip=args.import_zip,
         ai_chat_files=args.ai_chat,
         ai_chat_scan=args.ai_chat_scan,
         ai_chat_download_dir=args.download_dir or AI_CHAT_DOWNLOAD_DIR,
-        all_dates=getattr(args, "all", False)
+        all_dates=args.all
     )
 
     # 결과를 JSON 파일로도 저장
