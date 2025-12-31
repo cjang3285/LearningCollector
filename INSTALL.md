@@ -14,22 +14,19 @@
 - **Git**: 2.0 이상
 
 ### 2. 필수 계정/토큰
-
+-> 권한 선택 올바른지? 검증 필요
 - [x] **GitHub Personal Access Token** - [생성 방법](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
   - 권한: `repo` (전체), `user:email`
 - [x] **PostgreSQL 접속 정보** - DB명, 사용자명, 비밀번호
-
-### 3. 선택 사항
-
-- [ ] **백준허브 Chrome 확장** - [설치](https://github.com/BaekjoonHub/BaekjoonHub)
-- [ ] **AI 채팅 Exporter 확장**:
+- [x] **백준허브 Chrome 확장** - [설치](https://github.com/BaekjoonHub/BaekjoonHub)
+- [x] **AI 채팅 Exporter Chrome 확장**:
   - [Claude Exporter](https://chromewebstore.google.com/detail/claude-exporter/elhmfakncmnghlnabnolalcjkdpfjnin)
   - [ChatGPT Exporter](https://chromewebstore.google.com/detail/chatgpt-exporter/pldlpacbeonbjfhlongcdflcgfcnglkl)
   - [Gemini Chat Exporter](https://chromewebstore.google.com/detail/gemini-chat-exporter/bhmoomcflhcfhingnjjieheeadmdefkc)
 
 ---
 
-## 🚀 설치 단계
+##  설치 단계
 
 ### Step 1: PostgreSQL 설치 및 설정
 
@@ -50,29 +47,21 @@ sudo -u postgres psql
 
 ```sql
 -- DB 생성
-CREATE DATABASE my_blog;
+CREATE DATABASE my_db;
 
 -- 사용자 생성 및 권한 부여
 CREATE USER your_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE my_blog TO your_user;
+GRANT ALL PRIVILEGES ON DATABASE my_db TO your_user;
 
 -- 연결 확인
-\c my_blog
+\c my_db
 \q
-```
-
-#### macOS (Homebrew)
-
-```bash
-brew install postgresql@15
-brew services start postgresql@15
-createdb my_blog
 ```
 
 #### 연결 테스트
 
 ```bash
-psql -h localhost -U your_user -d my_blog
+psql -h localhost -U your_user -d my_db
 ```
 
 ---
@@ -84,7 +73,7 @@ psql -h localhost -U your_user -d my_blog
 git clone https://github.com/cjang3285/LearningETL.git
 cd LearningETL
 
-# 2. Python 가상환경 생성 (권장)
+# 2. Python 가상환경 생성
 python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
@@ -110,7 +99,7 @@ nano .env  # 또는 vim, code 등
 # PostgreSQL 연결 정보
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=my_blog
+DB_NAME=my_db
 DB_USER=your_user
 DB_PASSWORD=your_password
 
@@ -125,7 +114,7 @@ COLLECT_BAEKJOON=true
 # AI 채팅 다운로드 폴더
 AI_CHAT_DOWNLOAD_DIR=/home/your_user/Downloads
 
-# 백준허브 레포 (선택)
+# 백준허브 레포
 BAEKJOON_REPO_PATH=/path/to/baekjoon_hub_repo
 ```
 
@@ -135,16 +124,14 @@ BAEKJOON_REPO_PATH=/path/to/baekjoon_hub_repo
 
 ```bash
 # SQL 스크립트 실행
-psql -h localhost -U your_user -d my_blog -f scripts/create-schema.sql
+psql -h localhost -U your_user -d my_db -f scripts/create-schema.sql
 
-# 또는 Python 헬퍼 스크립트 사용
-python scripts/init-db.py
 ```
 
 **스키마 확인**:
 
 ```bash
-psql -h localhost -U your_user -d my_blog
+psql -h localhost -U your_user -d my_db
 
 # 테이블 확인
 \dt learning.*
@@ -167,7 +154,7 @@ python main.py --help
 # 2. CLI 테스트
 python -m cli stats
 
-# 3. 수집 테스트 (--date 옵션으로 안전하게)
+# 3. 수집 테스트 (--date 옵션으로 날짜 제한)
 python main.py --date 2025-12-30
 
 # 성공 시 출력:
@@ -181,7 +168,7 @@ python main.py --date 2025-12-30
 
 ---
 
-## 🔧 자동화 설정 (선택)
+## 🔧 자동화 설정
 
 ### 옵션 A: 실시간 파일 감지 (Daemon)
 
@@ -204,7 +191,7 @@ tail -f ~/LearningETL/logs/daemon.log
 
 ---
 
-### 옵션 B: 매일 자정 전체 스캔 (systemd timer 권장 ⭐)
+### 매일 자정 깃허브 커밋, 백준 풀이 레포, 폴더의 ai chat 마크다운 스캔 (systemd timer 권장)
 
 ```bash
 # 1. Timer 설치
@@ -225,14 +212,14 @@ journalctl -u learningetl-daily.service -f
 ```
 
 **왜 systemd timer?**
-- ✅ 시스템 재부팅 시 놓친 작업 자동 실행 (`Persistent=true`)
-- ✅ `journalctl`로 통합 로그 관리
-- ✅ 실행 상태 추적 및 실패 알림
-- ✅ DB 준비 후 실행 (`After=postgresql.service`)
+-  시스템 재부팅 시 놓친 작업 자동 실행 (`Persistent=true`)
+-  `journalctl`로 통합 로그 관리
+-  실행 상태 추적 및 실패 알림
+-  DB 준비 후 실행 (`After=postgresql.service`)
 
 ---
 
-## 🧪 설치 검증
+##  설치 검증
 
 ### 전체 흐름 테스트
 
@@ -275,27 +262,7 @@ psql -h localhost -U your_user -d my_blog
 
 ---
 
-### 2. GitHub API Rate Limit
-
-**증상**: `403 Forbidden: rate limit exceeded`
-
-**해결**:
-
-```bash
-# 현재 rate limit 확인
-curl -H "Authorization: Bearer $GITHUB_TOKEN" \
-  https://api.github.com/rate_limit
-
-# 토큰이 유효한지 확인
-curl -H "Authorization: Bearer $GITHUB_TOKEN" \
-  https://api.github.com/user
-```
-
-**참고**: 인증된 요청은 시간당 5,000회, 미인증은 60회
-
----
-
-### 3. AI 채팅 파일 감지 안 됨
+### 2. AI 채팅 파일 감지 안 됨
 
 **증상**: `--ai-chat-scan` 실행 시 파일을 찾지 못함
 
@@ -315,7 +282,7 @@ python main.py --ai-chat ~/Downloads/Claude-Conversation-*.md
 
 ---
 
-### 4. 백준 풀이 수집 안 됨
+### 3. 백준 풀이 수집 안 됨
 
 **증상**: 백준 Collector가 데이터를 찾지 못함
 
@@ -335,7 +302,7 @@ BAEKJOON_REPO_PATH=/path/to/baekjoon python main.py
 
 ---
 
-### 5. 의존성 설치 실패
+### 4. 의존성 설치 실패
 
 **증상**: `pip install -r requirements.txt` 실패
 
@@ -351,20 +318,17 @@ pip install --upgrade pip
 # 개별 패키지 설치
 pip install psycopg2-binary requests python-dotenv watchdog PyYAML
 
-# macOS에서 psycopg2 오류 시
-brew install postgresql
-pip install psycopg2-binary
 ```
 
 ---
 
-## 📊 사용 예시
+## 사용 예시
 
 ### 일일 사용 (매일 밤 자동 실행 설정 후)
 
 ```bash
 # 아무것도 하지 않음! systemd timer가 자동으로 수집
-# 다음날 아침 DB 조회만 하면 됨
+# 다음날 아침 DB 조회만 해서 정상동작 했는지 파악만 하면 됨
 python -m cli stats
 ```
 
@@ -381,7 +345,7 @@ python main.py
 ### AI 채팅만 수집
 
 ```bash
-# 다운로드 폴더 스캔
+# 지정해둔 폴더 스캔
 python main.py --ai-chat-scan
 
 # 특정 파일 지정
@@ -410,11 +374,3 @@ python main.py --ai-chat ~/Downloads/Claude-*.md ~/Downloads/ChatGPT-*.md
 - [📖 Documentation](docs/) - 전체 문서
 
 ---
-
-<div align="center">
-
-**Happy Learning! 📚**
-
-Made with ❤️ using SOLID principles
-
-</div>
