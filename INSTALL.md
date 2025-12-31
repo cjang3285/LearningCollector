@@ -1,10 +1,10 @@
-# 설치 가이드 (E2E)
+# 설치 가이드
 
-> LearningETL 파이프라인의 전체 설치 과정을 단계별로 안내합니다.
+LearningETL 파이프라인의 전체 설치 과정을 단계별로 안내합니다.
 
 ---
 
-## 📋 사전 준비
+## 사전 준비
 
 ### 1. 시스템 요구사항
 
@@ -14,19 +14,19 @@
 - **Git**: 2.0 이상
 
 ### 2. 필수 계정/토큰
--> 권한 선택 올바른지? 검증 필요
-- [x] **GitHub Personal Access Token** - [생성 방법](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+
+- **GitHub Personal Access Token** - [생성 방법](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
   - 권한: `repo` (전체), `user:email`
-- [x] **PostgreSQL 접속 정보** - DB명, 사용자명, 비밀번호
-- [x] **백준허브 Chrome 확장** - [설치](https://github.com/BaekjoonHub/BaekjoonHub)
-- [x] **AI 채팅 Exporter Chrome 확장**:
+- **PostgreSQL 접속 정보** - DB명, 사용자명, 비밀번호
+- **백준허브 Chrome 확장** - [설치](https://github.com/BaekjoonHub/BaekjoonHub)
+- **AI 채팅 Exporter Chrome 확장**:
   - [Claude Exporter](https://chromewebstore.google.com/detail/claude-exporter/elhmfakncmnghlnabnolalcjkdpfjnin)
   - [ChatGPT Exporter](https://chromewebstore.google.com/detail/chatgpt-exporter/pldlpacbeonbjfhlongcdflcgfcnglkl)
   - [Gemini Chat Exporter](https://chromewebstore.google.com/detail/gemini-chat-exporter/bhmoomcflhcfhingnjjieheeadmdefkc)
 
 ---
 
-##  설치 단계
+## 설치 단계
 
 ### Step 1: PostgreSQL 설치 및 설정
 
@@ -125,7 +125,6 @@ BAEKJOON_REPO_PATH=/path/to/baekjoon_hub_repo
 ```bash
 # SQL 스크립트 실행
 psql -h localhost -U your_user -d my_db -f scripts/create-schema.sql
-
 ```
 
 **스키마 확인**:
@@ -168,7 +167,7 @@ python main.py --date 2025-12-30
 
 ---
 
-## 🔧 자동화 설정
+## 자동화 설정
 
 ### 옵션 A: 실시간 파일 감지 (Daemon)
 
@@ -191,7 +190,7 @@ tail -f ~/LearningETL/logs/daemon.log
 
 ---
 
-### 매일 자정 깃허브 커밋, 백준 풀이 레포, 폴더의 ai chat 마크다운 스캔 (systemd timer 권장)
+### 옵션 B: 매일 자정 전체 스캔 (systemd timer 권장)
 
 ```bash
 # 1. Timer 설치
@@ -211,24 +210,24 @@ sudo systemctl start learningetl-daily.service
 journalctl -u learningetl-daily.service -f
 ```
 
-**왜 systemd timer?**
--  시스템 재부팅 시 놓친 작업 자동 실행 (`Persistent=true`)
--  `journalctl`로 통합 로그 관리
--  실행 상태 추적 및 실패 알림
--  DB 준비 후 실행 (`After=postgresql.service`)
+**systemd timer 장점**:
+- 시스템 재부팅 시 놓친 작업 자동 실행 (`Persistent=true`)
+- `journalctl`로 통합 로그 관리
+- 실행 상태 추적 및 실패 알림
+- DB 준비 후 실행 (`After=postgresql.service`)
 
 ---
 
-##  설치 검증
+## 설치 검증
 
 ### 전체 흐름 테스트
 
 ```bash
-# 1. GitHub 커밋 수집
-python main.py --date 2025-12-30
+# 1. 기본 실행 (GitHub + Baekjoon + AI Chat)
+python main.py
 
-# 2. AI 채팅 파일 수집 (다운로드 폴더 스캔)
-python main.py --ai-chat-scan
+# 2. 특정 날짜
+python main.py --date 2025-12-30
 
 # 3. DB 조회
 python -m cli stats
@@ -241,7 +240,7 @@ python -m cli show ai-chat 1
 
 ---
 
-## 🐛 트러블슈팅
+## 트러블슈팅
 
 ### 1. PostgreSQL 연결 실패
 
@@ -264,7 +263,7 @@ psql -h localhost -U your_user -d my_blog
 
 ### 2. AI 채팅 파일 감지 안 됨
 
-**증상**: `--ai-chat-scan` 실행 시 파일을 찾지 못함
+**증상**: 파일을 찾지 못함
 
 **체크리스트**:
 
@@ -317,7 +316,6 @@ pip install --upgrade pip
 
 # 개별 패키지 설치
 pip install psycopg2-binary requests python-dotenv watchdog PyYAML
-
 ```
 
 ---
@@ -327,8 +325,8 @@ pip install psycopg2-binary requests python-dotenv watchdog PyYAML
 ### 일일 사용 (매일 밤 자동 실행 설정 후)
 
 ```bash
-# 아무것도 하지 않음! systemd timer가 자동으로 수집
-# 다음날 아침 DB 조회만 해서 정상동작 했는지 파악만 하면 됨
+# systemd timer가 자동으로 수집
+# 다음날 아침 DB 조회만 하면 됨
 python -m cli stats
 ```
 
@@ -345,8 +343,11 @@ python main.py
 ### AI 채팅만 수집
 
 ```bash
-# 지정해둔 폴더 스캔
-python main.py --ai-chat-scan
+# 기본 실행 (AI Chat 포함)
+python main.py
+
+# AI Chat 제외
+python main.py --skip-ai-chat
 
 # 특정 파일 지정
 python main.py --ai-chat ~/Downloads/Claude-*.md ~/Downloads/ChatGPT-*.md
@@ -354,23 +355,23 @@ python main.py --ai-chat ~/Downloads/Claude-*.md ~/Downloads/ChatGPT-*.md
 
 ---
 
-## 🎓 다음 단계
+## 다음 단계
 
-설치가 완료되었습니다! 🎉
+설치가 완료되었습니다.
 
 **더 알아보기**:
-- [📖 README](README.md) - 전체 기능 및 사용법
-- [🏗️ 아키텍처 가이드](docs/ARCHITECTURE_EVOLUTION.md) - SOLID 리팩토링 설명
-- [🧩 설계 패턴](docs/DESIGN_PATTERNS.md) - Factory, Registry 패턴
-- [🗄️ DB 가이드](docs/DATABASE_GUIDE.md) - DB 스키마 상세
+- [README](README.md) - 전체 기능 및 사용법
+- [아키텍처 가이드](docs/ARCHITECTURE_EVOLUTION.md) - SOLID 리팩토링 설명
+- [설계 패턴](docs/DESIGN_PATTERNS.md) - Factory, Registry 패턴
+- [DB 가이드](docs/DATABASE_GUIDE.md) - DB 스키마 상세
 
 **새 Collector 추가해보기**:
 1. `ICollector` 인터페이스 구현
 2. `config/collectors.yaml`에 등록
-3. 즉시 사용 가능! (코드 수정 불필요)
+3. 즉시 사용 가능 (코드 수정 불필요)
 
 **문제 발생 시**:
-- [🐛 Issues](https://github.com/cjang3285/LearningETL/issues) - 버그 리포트
-- [📖 Documentation](docs/) - 전체 문서
+- [Issues](https://github.com/cjang3285/LearningETL/issues) - 버그 리포트
+- [Documentation](docs/) - 전체 문서
 
 ---
