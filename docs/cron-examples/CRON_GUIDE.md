@@ -6,7 +6,7 @@ LearningETL을 매일 자동으로 실행하기 위한 cron 설정 템플릿입�
 
 ---
 
-## 🚀 빠른 설정 (자동)
+##  빠른 설정 (자동)
 
 **자동 설치 스크립트 사용:**
 
@@ -19,7 +19,7 @@ bash scripts/setup-cron.sh
 
 ---
 
-## 🔧 수동 설정
+##  수동 설정
 
 ### 1. cron 편집
 
@@ -56,7 +56,7 @@ tail -f /home/jcw/LearningETL/logs/cron_$(date +%Y-%m-%d).log
 
 ---
 
-## 📝 템플릿 예시
+##  템플릿 예시
 
 ### 기본 (매일 오전 6시)
 ```cron
@@ -85,7 +85,7 @@ tail -f /home/jcw/LearningETL/logs/cron_$(date +%Y-%m-%d).log
 
 ---
 
-## 🔍 로그 관리
+##  로그 관리
 
 ### 로그 위치
 ```bash
@@ -117,7 +117,7 @@ grep ERROR logs/cron_$(date +%Y-%m-%d).log
 
 ---
 
-## 🐛 트러블슈팅
+##  트러블슈팅
 
 ### cron이 실행 안 됨
 
@@ -214,21 +214,10 @@ fi
 
 ---
 
-## 💡 권장 설정
+##  권장 설정
 
 ### Standalone Mode
 ```cron
 # 매일 오전 6시 데이터 수집
 0 6 * * * /home/jcw/LearningETL/scripts/daily-collect.sh
 ```
-
-### Client-Server Mode
-**Server (라즈베리파이):**
-```cron
-# 매일 오전 6시 GitHub/Baekjoon 수집
-0 6 * * * /home/jcw/LearningETL/scripts/daily-collect.sh
-```
-
-**Client (노트북):**
-- cron 불필요 (Client Agent가 24시간 실시간 감시)
-- systemd 서비스 사용 권장
