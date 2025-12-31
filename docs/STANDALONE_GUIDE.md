@@ -2,81 +2,26 @@
 
 ## 📖 개요
 
-**한 대의 머신**에서 모든 ETL 작업을 수행하는 전통적인 방식입니다.
+**한 대의 머신**에서 모든 ETL 작업을 수행하는 방식입니다.
 
 ```
 ┌────────────────────────────────┐
 │  라즈베리파이 (또는 단일 서버)  │
-│                                 │
+│                                │
 │  ┌──────────────────────────┐  │
 │  │  main.py (매일 실행)     │  │
 │  │  - GitHub 커밋 수집      │  │
 │  │  - Baekjoon 풀이 수집    │  │
 │  └──────────────────────────┘  │
-│                                 │
+│                                │
 │  ┌──────────────────────────┐  │
-│  │  수동 AI Chat 수집       │  │
-│  │  --ai-chat-scan          │  │
+│  │  다운로드된 파일 감지     |  |
+|  |       AI Chat 수집       │  │
+│  │      --ai-chat-scan      │  │
 │  └──────────────────────────┘  │
-│                                 │
+│                                │
 │  ┌──────────────────────────┐  │
-│  │  PostgreSQL              │  │
-│  └──────────────────────────┘  │
-└────────────────────────────────┘
-```
-
----
-
-## ✅ 이런 경우 적합
-
--  한 머신에서 모든 작업 수행
--  AI 채팅을 해당 머신의 특정 디렉터리에 복사 가능한 상황
--  간단한 설정 원함
--  1대 머신만 사용
-
----
-
-## 🚀 설치 및 실행
-
-### 1. 의존성 설치
-
-```bash
-cd LearningETL
-pip install -r requirements.txt
-```
-
-**requirements.txt 포함 패키지:**
-- requests (GitHub API)
-- psycopg2-binary (PostgreSQL)
-- python-dotenv (환경변수)
-- watchdog (파일 감시)
-
-### 2. 환경 변수 설정
-
-`.env` 파일 생성:
-
-```bash
-# GitHub
-GITHUB_TOKEN=ghp_xxxxx
-GITHUB_USERNAME=your_username
-COLLECT_GITHUB=true
-
-# Baekjoon
-BAEKJOON_HANDLE=your_handle
-COLLECT_BAEKJOON=true
-
-# PostgreSQL
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=learning
-DB_USER=learning_user
-DB_PASSWORD=your_password
-```
-
-### 3. 실행 방법
-
-#### A. 수동 실행 (테스트)
-
+│  │       PostgreSQL     증 필요.
 ```bash
 # GitHub + Baekjoon 수집
 python main.py
@@ -92,7 +37,7 @@ python main.py --ai-chat-scan
 ```
 
 #### B. 주기적으로 자동 실행
--> 수정 필요.
+-> 현재 실제 동작중인 방식으로 수정 필요.
 ```bash
 crontab -e
 ```
@@ -104,7 +49,7 @@ crontab -e
 
 ---
 
-## 📂 AI 채팅 수집 방법
+##  AI 채팅 수집 방법
 
 ### Downloads 폴더 스캔
 
@@ -121,7 +66,7 @@ python main.py --ai-chat-scan --download-dir /home/user/Downloads
 
 ---
 
-## 🔍 로그 확인
+##  로그 확인
 
 ```bash
 # 메인 로그
@@ -139,8 +84,8 @@ tail -f logs/ai_chat_collector.log
 
 ---
 
-## 📊 DB 확인
-
+##  DB 확인
+-> 쿼리 실제 동작하는지 테스트 필요
 ```sql
 -- 오늘 수집된 아티팩트
 SELECT
@@ -180,7 +125,7 @@ ORDER BY solved_date DESC;
 sudo systemctl status postgresql
 
 # DB 접속 테스트
-psql -h localhost -U learning_user -d learning
+psql -h localhost -U my_user -d learning
 ```
 
 ### AI 채팅 파일 파싱 실패
