@@ -13,19 +13,19 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).parent.parent
 
 # .env 파일 로드
-load_dotenv(PROJECT_ROOT / '.env')
+load_dotenv(PROJECT_ROOT / '.env', override=True)
 
 # ============================================
 # GitHub 설정
 # ============================================
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')  # 환경변수에서만 가져오기
-GITHUB_USERNAME = os.getenv('GITHUB_USERNAME', 'cjang3285')
+GITHUB_USERNAME = os.getenv('GITHUB_USERNAME')
 
 # ============================================
 # 백준허브 연동 레포 설정
 # ============================================
-BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE', 'andy1692')
-BAEKJOON_REPO = os.getenv('BAEKJOON_REPO', 'Baekjoon_solutions')  # 백준허브와 연동된 레포지터리
+BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE')
+BAEKJOON_REPO = os.getenv('BAEKJOON_REPO')  # 백준허브와 연동된 레포지터리
 
 # ============================================
 # 디렉토리 설정
@@ -40,11 +40,11 @@ LOGS_DIR.mkdir(exist_ok=True)
 ARTIFACTS_DIR.mkdir(exist_ok=True)
 
 # Claude Migration (첫 마이그레이션용 ZIP 다운로드)
-CLAUDE_MIGRATION_DIR = TEMP_DIR / 'claude_migration'
+CLAUDE_MIGRATION_DIR = TEMP_DIR 
 CLAUDE_MIGRATION_DIR.mkdir(exist_ok=True)
 
 # AI Chat (마크다운 자동 수집)
-AI_CHAT_DOWNLOAD_DIR = os.getenv('AI_CHAT_DOWNLOAD_DIR', str(Path.home() / 'Downloads'))
+AI_CHAT_DOWNLOAD_DIR = os.getenv('AI_CHAT_DOWNLOAD_DIR')
 
 # ============================================
 # 로깅 설정
