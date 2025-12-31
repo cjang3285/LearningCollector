@@ -8,9 +8,16 @@ echo "LearningETL 매일 자정 실행 Timer 설정"
 echo "=========================================="
 echo ""
 
-# 1. systemd 서비스 및 타이머 복사
+# 프로젝트 루트 경로 확인
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+CURRENT_USER="$(whoami)"
+
+# 1. systemd 서비스 및 타이머 복사 (경로 치환)
 echo "[1/4] systemd 파일 복사..."
-sudo cp scripts/systemd/learningetl-daily.service /etc/systemd/system/
+sed -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" \
+    -e "s|{{USER}}|$CURRENT_USER|g" \
+    scripts/systemd/learningetl-daily.service | sudo tee /etc/systemd/system/learningetl-daily.service > /dev/null
 sudo cp scripts/systemd/learningetl-daily.timer /etc/systemd/system/
 
 # 2. systemd 리로드

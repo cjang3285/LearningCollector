@@ -8,6 +8,11 @@ echo "LearningETL 데몬 설치"
 echo "=========================================="
 echo ""
 
+# 프로젝트 루트 경로 확인
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+CURRENT_USER="$(whoami)"
+
 # 1. watchdog 설치
 echo "[1/5] watchdog 라이브러리 설치 중..."
 pip install watchdog
@@ -16,9 +21,11 @@ pip install watchdog
 echo "[2/5] 실행 권한 설정..."
 chmod +x scripts/runtime/learningetl-daemon.py
 
-# 3. systemd 서비스 복사
+# 3. systemd 서비스 복사 (경로 치환)
 echo "[3/5] systemd 서비스 등록..."
-sudo cp scripts/systemd/learningetl.service /etc/systemd/system/
+sed -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" \
+    -e "s|{{USER}}|$CURRENT_USER|g" \
+    scripts/systemd/learningetl.service | sudo tee /etc/systemd/system/learningetl.service > /dev/null
 
 # 4. systemd 리로드
 echo "[4/5] systemd 리로드..."
