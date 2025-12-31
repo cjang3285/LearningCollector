@@ -570,14 +570,13 @@ LearningETL/
 │   └── collector_config.py  #  새로 추가 (설정 관리)
 │
 ├── export/
-├── migration/
+├── bulk_import/
 ├── cli/
 ├── scripts/
 ├── tests/
 └── docs/
     ├── DESIGN_PATTERNS.md        #  새로 추가
-    ├── ARCHITECTURE_EVOLUTION.md #  새로 추가
-    └── REFACTORING_PLAN.md
+    └── ARCHITECTURE_EVOLUTION.md #  새로 추가
 ```
 
 ---

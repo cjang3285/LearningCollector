@@ -320,6 +320,176 @@ pip install psycopg2-binary requests python-dotenv watchdog PyYAML
 
 ---
 
+### 5. 자동 수집이 작동하지 않을 때
+
+**증상**: systemd timer를 설정했는데 데이터가 매일 수집되지 않음 (예: 어제 백준 문제를 풀었는데 오늘 DB에 없음)
+
+#### 5.1 systemd timer 상태 확인
+
+```bash
+# Timer가 활성화되어 있는지 확인
+systemctl list-timers learningetl-daily.timer
+
+# 출력 예시 (정상):
+# NEXT                         LEFT          LAST                         PASSED  UNIT                       ACTIVATES
+# Wed 2025-12-31 00:00:00 KST  5h 23min left Tue 2025-12-30 00:00:05 KST  18h ago learningetl-daily.timer    learningetl-daily.service
+
+# 위와 같이 NEXT, LAST가 표시되면 정상
+# 아무것도 표시되지 않으면 timer가 비활성화됨
+```
+
+**Timer가 목록에 없을 경우**:
+
+```bash
+# Timer 활성화
+sudo systemctl enable learningetl-daily.timer
+sudo systemctl start learningetl-daily.timer
+
+# 다시 확인
+systemctl list-timers learningetl-daily.timer
+```
+
+#### 5.2 마지막 실행 로그 확인
+
+```bash
+# 최근 10개 로그 확인
+journalctl -u learningetl-daily.service -n 10
+
+# 오늘 로그만 확인
+journalctl -u learningetl-daily.service --since today
+
+# 실시간 로그 모니터링
+journalctl -u learningetl-daily.service -f
+```
+
+**로그에서 확인할 사항**:
+- 마지막 실행 시각이 어제 자정인지
+- 에러 메시지가 있는지 (`[ERROR]`, `FAILED`)
+- `[SUCCESS] 수집 성공` 메시지가 있는지
+
+#### 5.3 수동 실행 테스트
+
+```bash
+# systemd service 수동 실행
+sudo systemctl start learningetl-daily.service
+
+# 실행 상태 확인
+sudo systemctl status learningetl-daily.service
+
+# 로그 확인
+journalctl -u learningetl-daily.service -f
+```
+
+**성공 시 출력**:
+```
+[날짜 시각] ==========================================
+[날짜 시각] LearningETL 일일 수집 시작
+[날짜 시각] ==========================================
+[날짜 시각] 작업 디렉토리: /home/user/LearningETL
+...
+[날짜 시각] [SUCCESS] 수집 성공
+```
+
+#### 5.4 DB에서 마지막 수집 날짜 확인
+
+```bash
+# CLI로 최근 데이터 확인
+python -m cli stats
+
+# 백준 최근 풀이 날짜 확인
+python -m cli list baekjoon --limit 5
+
+# GitHub 최근 커밋 날짜 확인
+python -m cli list github --limit 5
+```
+
+**예상 출력**:
+```
+최근 7일
+
+  2025-12-30:
+    github           5개
+    baekjoon        2개
+    ai_chat         3개
+
+  2025-12-29:
+    ...
+```
+
+만약 어제 날짜가 누락되었다면 timer가 실행되지 않은 것입니다.
+
+#### 5.5 자동 수집이 계속 실패하는 경우
+
+**원인 1: 가상환경 경로 문제**
+
+```bash
+# learningetl-daily.service 파일 확인
+sudo systemctl cat learningetl-daily.service
+
+# ExecStart 경로가 올바른지 확인
+# 출력 예시:
+# ExecStart=/home/user/LearningETL/scripts/daily-collect.sh
+
+# 스크립트 내부 가상환경 경로 확인
+cat /home/user/LearningETL/scripts/daily-collect.sh | grep venv
+
+# 경로가 틀렸다면 수정
+nano /home/user/LearningETL/scripts/daily-collect.sh
+```
+
+**원인 2: 환경 변수 미설정**
+
+```bash
+# .env 파일이 있는지 확인
+ls -la /home/user/LearningETL/.env
+
+# 없으면 생성
+cp /home/user/LearningETL/.env.example /home/user/LearningETL/.env
+nano /home/user/LearningETL/.env
+```
+
+**원인 3: PostgreSQL 서비스 미실행**
+
+```bash
+# PostgreSQL 상태 확인
+sudo systemctl status postgresql
+
+# 실행 중이 아니면 시작
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+#### 5.6 systemd가 없는 환경 (Docker, WSL 등)
+
+**증상**: `System has not been booted with systemd`
+
+**해결**: cron 사용
+
+```bash
+# crontab 편집
+crontab -e
+
+# 다음 줄 추가 (매일 자정 실행)
+0 0 * * * /home/user/LearningETL/scripts/daily-collect.sh
+
+# crontab 확인
+crontab -l
+
+# cron 로그 확인 (Ubuntu/Debian)
+grep CRON /var/log/syslog | tail -20
+```
+
+**또는 수동 실행**:
+
+```bash
+# 매일 아침 직접 실행
+cd /home/user/LearningETL
+source venv/bin/activate
+python main.py
+```
+
+---
+
 ## 사용 예시
 
 ### 일일 사용 (매일 밤 자동 실행 설정 후)
