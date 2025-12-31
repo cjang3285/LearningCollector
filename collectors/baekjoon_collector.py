@@ -168,7 +168,7 @@ class BaekjoonCollector(ICollector):
                     'artifact_ids': []
                 }
 
-            # 2. Parse - README.md 및 코드 파일 파싱 (검증용)
+            # 2. Parse - README.md 및 코드 파일 파싱
             logger.info(f"[2/3] {len(problems)}개 문제 파싱...")
             parsed_problems = self.parser.parse_problems(problems, self.exporter)
 
@@ -181,9 +181,9 @@ class BaekjoonCollector(ICollector):
                     'artifact_ids': []
                 }
 
-            # 3. Save - DB 저장 (원본 dict 전달, GitHubCollector 패턴과 일치)
+            # 3. Save - DB 저장 (파싱 결과 전달 - Export에는 problem_id 등 없음)
             logger.info("[3/3] DB에 저장...")
-            artifact_ids = self.saver.save_all(problems, target_date)
+            artifact_ids = self.saver.save_all(parsed_problems, target_date)
 
             logger.info(f"백준 수집 완료: {len(artifact_ids)}개 저장")
 
