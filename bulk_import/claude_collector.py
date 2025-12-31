@@ -18,7 +18,8 @@ from typing import List, Dict
 import logging
 import tempfile
 
-from migration.claude_parse import ClaudeMigrationParser
+from bulk_import.claude_parse import ClaudeMigrationParser
+from bulk_import.zip_finder import ClaudeZipFinder
 from parse.ai_chat_parse import AIMarkdownParser
 from storage.ai_chat_saver import AIChatSaver
 from config.settings import get_log_file
@@ -42,12 +43,12 @@ class ClaudeMigrationCollector:
         self.markdown_parser = AIMarkdownParser()
         self.saver = AIChatSaver()
 
-    def collect(self, zip_path: str, target_date: date = None, all_dates: bool = False) -> Dict:
+    def collect(self, zip_path: str = None, target_date: date = None, all_dates: bool = False) -> Dict:
         """
         Claude ZIP 파일 마이그레이션
 
         Args:
-            zip_path: Claude.ai에서 다운로드한 ZIP 파일
+            zip_path: Claude.ai에서 다운로드한 ZIP 파일 (None이면 자동 감지)
             target_date: 저장할 날짜 (기본값: 오늘)
             all_dates: True면 모든 대화 수집, False면 target_date만
 
@@ -60,12 +61,23 @@ class ClaudeMigrationCollector:
             }
         """
         target_date = target_date or date.today()
+
+        # ZIP 파일 자동 감지
+        if not zip_path:
+            logger.info("ZIP 파일 경로가 지정되지 않음, 자동 감지 시작...")
+            finder = ClaudeZipFinder()
+            zip_file = finder.find_latest_zip()
+
+            if not zip_file:
+                raise ValueError("Claude ZIP 파일을 찾을 수 없습니다. 경로를 직접 지정하거나 ~/Downloads 또는 ../shared에 ZIP 파일을 배치하세요.")
+
+            zip_path = str(zip_file)
+            logger.info(f"자동 감지된 ZIP 파일: {zip_path}")
+
         logger.info(f"Claude ZIP 마이그레이션 시작: {zip_path}")
         logger.info(f"전체 수집 모드: {all_dates}")
 
         try:
-            if not zip_path:
-                raise ValueError("ZIP 파일 경로가 필요합니다")
 
             # 1. ZIP → 마크다운 변환
             logger.info("[1/3] ZIP 파일을 마크다운으로 변환...")
@@ -138,6 +150,9 @@ class ClaudeMigrationCollector:
 
             logger.info(f"Claude 마이그레이션 완료: {len(artifact_ids)}개 저장")
 
+            # DB 저장 결과 상세 출력
+            self._log_saved_conversations(conversations, artifact_ids)
+
             return {
                 'success': True,
                 'date': target_date,
@@ -157,12 +172,56 @@ class ClaudeMigrationCollector:
                 'error': str(e)
             }
 
+    def _log_saved_conversations(self, conversations: List, artifact_ids: List[int]) -> None:
+        """
+        DB에 저장된 대화 결과를 로그로 출력.
+
+        Args:
+            conversations: 저장된 대화 객체 리스트
+            artifact_ids: DB artifact ID 리스트
+        """
+        try:
+            logger.info("=" * 60)
+            logger.info("DB 저장 결과:")
+            logger.info(f"  저장된 대화 수: {len(artifact_ids)}")
+            logger.info("")
+
+            # 각 대화별 상세 정보 (최대 5개만)
+            display_count = min(5, len(conversations))
+            for i in range(display_count):
+                conv = conversations[i]
+                artifact_id = artifact_ids[i] if i < len(artifact_ids) else None
+
+                logger.info(f"  [{i+1}] {conv.title}")
+                logger.info(f"      - Artifact ID: {artifact_id}")
+                logger.info(f"      - Provider: {conv.provider}")
+                logger.info(f"      - 메시지 수: {conv.total_messages} ({conv.user_messages} user, {conv.assistant_messages} assistant)")
+                logger.info(f"      - 코드 포함: {'예' if conv.has_code else '아니오'}")
+                logger.info(f"      - Created: {conv.created_at}")
+                logger.info("")
+
+            if len(conversations) > 5:
+                logger.info(f"  ... (나머지 {len(conversations) - 5}개 대화 생략)")
+
+            logger.info("=" * 60)
+
+        except Exception as e:
+            logger.debug(f"저장 결과 출력 실패: {e}")
+
 
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser(description='Claude ZIP 마이그레이션')
-    parser.add_argument('zip_path', help='Claude ZIP 파일 경로')
+    parser = argparse.ArgumentParser(
+        description='Claude ZIP 마이그레이션',
+        epilog='ZIP 경로를 지정하지 않으면 자동으로 최신 ZIP 파일을 찾습니다.'
+    )
+    parser.add_argument(
+        'zip_path',
+        nargs='?',  # Optional positional argument
+        default=None,
+        help='Claude ZIP 파일 경로 (생략 시 자동 감지)'
+    )
     parser.add_argument('--all', action='store_true', help='모든 대화 마이그레이션')
     parser.add_argument('--date', help='대상 날짜 (YYYY-MM-DD)')
 

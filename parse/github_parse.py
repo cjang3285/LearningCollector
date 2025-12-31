@@ -162,8 +162,16 @@ class GitHubParser:
             language=language
         )
     
-    def parse_commits(self, commits: List[Dict]) -> List[CommitData]:
-        """커밋 리스트를 CommitData로 변환"""
+    def parse_commits(self, commits: List[Dict]) -> List[Dict]:
+        """
+        커밋 리스트 파싱 (IParser 인터페이스 준수)
+
+        Args:
+            commits: Export에서 반환한 원본 커밋 데이터
+
+        Returns:
+            파싱/검증된 커밋 데이터 (Dict 리스트)
+        """
         parsed = []
 
         for commit in commits:
@@ -176,7 +184,7 @@ class GitHubParser:
             # Co-Authored-By 파싱
             co_authors = self.parse_co_authors(commit['message'])
 
-            parsed.append(CommitData(
+            commit_data = CommitData(
                 repo=commit['repo'],
                 sha=commit['sha'],
                 message=commit['message'],
@@ -185,7 +193,10 @@ class GitHubParser:
                 files=files,
                 stats=commit.get('stats', {}),
                 co_authors=co_authors
-            ))
+            )
+
+            # IParser 인터페이스 준수: Dict 반환
+            parsed.append(commit_data.to_dict())
 
         return parsed
     

@@ -18,6 +18,7 @@ from typing import Dict
 import logging
 
 from factories import CollectorFactory
+from interfaces import CollectionContext
 from config.settings import get_log_file, AI_CHAT_DOWNLOAD_DIR
 from config.logging_config import setup_logging
 
@@ -42,20 +43,28 @@ class LearningETL:
     def run(
         self,
         target_date: date = None,
-        claude_zip_path: str = None,
+        import_zip: bool = False,
         ai_chat_files: list = None,
         ai_chat_scan: bool = False,
         ai_chat_download_dir: str = None,
-        all_dates: bool = False
+        all_dates: bool = False,
+        skip_github: bool = False,
+        skip_baekjoon: bool = False,
+        skip_ai_chat: bool = False
     ) -> Dict:
         """
         전체 ETL 프로세스 실행
 
         Args:
             target_date: 수집 대상 날짜 (기본값: 오늘)
-            claude_zip_path: Claude 수동 다운로드 ZIP 파일 경로
+            import_zip: Claude ZIP 파일 자동 감지 여부 (첫 마이그레이션용)
             ai_chat_files: AI 채팅 마크다운 파일 리스트
-            ai_chat_scan: 다운로드 폴더 스캔 여부
+            ai_chat_scan: 다운로드 폴더 스캔 여부 (기본: True)
+            ai_chat_download_dir: 다운로드 폴더 경로
+            all_dates: ZIP 임포트 시 모든 날짜 대화 수집 여부
+            skip_github: GitHub 수집 제외
+            skip_baekjoon: 백준 수집 제외
+            skip_ai_chat: AI Chat 수집 제외
 
         Returns:
             {
@@ -84,48 +93,79 @@ class LearningETL:
         }
 
         # 1. GitHub 수집
-        github_collector = self.collectors.get('github')
-        if github_collector:
-            logger.info("\n[GitHub] 데이터 수집 시작...")
-            results['github'] = github_collector.collect_github(target_date)
+        if skip_github:
+            logger.info("\n[GitHub] 수집 제외됨 (--skip-github)")
         else:
-            logger.info("\n[GitHub] 수집 비활성화됨")
+            github_collector = self.collectors.get('github')
+            if github_collector:
+                logger.info("\n[GitHub] 데이터 수집 시작...")
+                context = CollectionContext(target_date=target_date, options={})
+                result = github_collector.collect(context)
+                # CollectionResult를 dict 형식으로 변환 (하위 호환성)
+                results['github'] = {
+                    'success': result.success,
+                    'date': result.date,
+                    'commits_count': result.items_count,
+                    'artifact_ids': result.artifact_ids,
+                    **result.metadata
+                }
+            else:
+                logger.info("\n[GitHub] 수집 비활성화됨")
 
         # 2. Claude Migration (첫 이용 시 ZIP 마이그레이션)
-        if claude_zip_path:
-            claude_migration_collector = CollectorFactory.create_collector('claude_migration')
-            if claude_migration_collector:
-                logger.info("\n[Claude Migration] ZIP 파일에서 대화 마이그레이션 중...")
-                results['claude'] = claude_migration_collector.collect(claude_zip_path, target_date, all_dates=all_dates)
+        if import_zip:
+            from bulk_import.claude_collector import ClaudeMigrationCollector
+            logger.info("\n[Claude Migration] ZIP 파일 자동 감지 및 마이그레이션 중...")
+            claude_collector = ClaudeMigrationCollector()
+            results['claude'] = claude_collector.collect(
+                zip_path=None,  # 자동 감지
+                target_date=target_date,
+                all_dates=all_dates
+            )
         else:
-            logger.info("\n[Claude Migration] ZIP 파일 미제공 (일상 사용은 --ai-chat-scan 사용)")
+            logger.debug("\n[Claude Migration] ZIP 임포트 비활성화됨 (일상 사용은 --ai-chat-scan 사용)")
 
         # 3. AI Chat 수집 (Claude, ChatGPT, Gemini 마크다운)
-        ai_chat_collector = self.collectors.get('ai_chat')
-        if ai_chat_collector:
-            if ai_chat_files:
-                logger.info("\n[AI Chat] 마크다운 파일 수집 시작...")
-                results['ai_chat'] = ai_chat_collector.collect_from_files(ai_chat_files, target_date)
-            elif ai_chat_scan:
-                logger.info("\n[AI Chat] 다운로드 폴더 스캔 중...")
-                if ai_chat_download_dir:
-                    logger.info(f"다운로드 폴더: {ai_chat_download_dir}")
-                results['ai_chat'] = ai_chat_collector.collect_from_downloads(
-                    download_dir=ai_chat_download_dir,
-                    target_date=target_date
-                )
-            else:
-                logger.info("\n[AI Chat] 파일이 제공되지 않아 건너뜀")
+        if skip_ai_chat:
+            logger.info("\n[AI Chat] 수집 제외됨 (--skip-ai-chat)")
         else:
-            logger.info("\n[AI Chat] 수집 비활성화됨")
+            ai_chat_collector = self.collectors.get('ai_chat')
+            if ai_chat_collector:
+                if ai_chat_files:
+                    logger.info("\n[AI Chat] 마크다운 파일 수집 시작...")
+                    results['ai_chat'] = ai_chat_collector.collect_from_files(ai_chat_files, target_date)
+                elif ai_chat_scan:
+                    logger.info("\n[AI Chat] 다운로드 폴더 스캔 중...")
+                    if ai_chat_download_dir:
+                        logger.info(f"다운로드 폴더: {ai_chat_download_dir}")
+                    results['ai_chat'] = ai_chat_collector.collect_from_downloads(
+                        download_dir=ai_chat_download_dir,
+                        target_date=target_date
+                    )
+                else:
+                    logger.info("\n[AI Chat] 파일이 제공되지 않아 건너뜀")
+            else:
+                logger.info("\n[AI Chat] 수집 비활성화됨")
 
         # 4. 백준 수집
-        baekjoon_collector = self.collectors.get('baekjoon')
-        if baekjoon_collector:
-            logger.info("\n[Baekjoon] 데이터 수집 시작...")
-            results['baekjoon'] = baekjoon_collector.collect_baekjoon(target_date)
+        if skip_baekjoon:
+            logger.info("\n[Baekjoon] 수집 제외됨 (--skip-baekjoon)")
         else:
-            logger.info("\n[Baekjoon] 수집 비활성화됨")
+            baekjoon_collector = self.collectors.get('baekjoon')
+            if baekjoon_collector:
+                logger.info("\n[Baekjoon] 데이터 수집 시작...")
+                context = CollectionContext(target_date=target_date, options={})
+                result = baekjoon_collector.collect(context)
+                # CollectionResult를 dict 형식으로 변환 (하위 호환성)
+                results['baekjoon'] = {
+                    'success': result.success,
+                    'date': result.date,
+                    'solutions_count': result.items_count,
+                    'artifact_ids': result.artifact_ids,
+                    **result.metadata
+                }
+            else:
+                logger.info("\n[Baekjoon] 수집 비활성화됨")
 
         # 5. 요약
         total_artifacts = 0
@@ -170,27 +210,83 @@ def main():
     """메인 함수"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Learning Artifacts ETL Pipeline')
-    parser.add_argument('--claude-zip', type=str, help='[첫 마이그레이션용] Claude ZIP 파일 경로')
-    parser.add_argument('--ai-chat', nargs='*', help='AI 채팅 마크다운 파일 (Claude, ChatGPT, Gemini)')
-    parser.add_argument('--ai-chat-scan', action='store_true', help='[일상 사용] 다운로드 폴더 AI 채팅 자동 스캔')
-    parser.add_argument('--download-dir', type=str, help='다운로드 폴더 경로 (기본값: ~/Downloads)')
-    parser.add_argument('--date', type=str, help='수집 대상 날짜 (YYYY-MM-DD)')
-    parser.add_argument('--all', action='store_true', help='[Claude ZIP 전용] 전체 대화 수집')
+    parser = argparse.ArgumentParser(
+        description='Learning Artifacts ETL Pipeline',
+        epilog='''
+사용 예시:
+  # 기본 실행 (GitHub + Baekjoon + AI Chat 자동 스캔)
+  python main.py
+
+  # GitHub만 제외하고 실행
+  python main.py --skip-github
+
+  # AI Chat만 수집
+  python main.py --skip-github --skip-baekjoon
+
+  # Claude ZIP 파일 임포트 (첫 마이그레이션용)
+  python main.py --import-zip --all
+        '''
+    )
+    parser.add_argument(
+        '--import-zip',
+        action='store_true',
+        help='[첫 마이그레이션용] Claude ZIP 파일 자동 감지 및 임포트'
+    )
+    parser.add_argument(
+        '--ai-chat',
+        nargs='*',
+        help='AI 채팅 마크다운 파일 직접 지정 (Claude, ChatGPT, Gemini)'
+    )
+    parser.add_argument(
+        '--download-dir',
+        type=str,
+        help='다운로드 폴더 경로 (기본값: AI_CHAT_DOWNLOAD_DIR 환경변수 또는 ~/Downloads)'
+    )
+    parser.add_argument(
+        '--date',
+        type=str,
+        help='수집 대상 날짜 (YYYY-MM-DD)'
+    )
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        help='[--import-zip 전용] ZIP의 모든 대화 수집 (날짜 무관)'
+    )
+    parser.add_argument(
+        '--skip-github',
+        action='store_true',
+        help='GitHub 수집 제외'
+    )
+    parser.add_argument(
+        '--skip-baekjoon',
+        action='store_true',
+        help='백준 수집 제외'
+    )
+    parser.add_argument(
+        '--skip-ai-chat',
+        action='store_true',
+        help='AI Chat 수집 제외'
+    )
     args = parser.parse_args()
 
     target_date = None
     if args.date:
         target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
 
+    # AI Chat 기본 실행: --ai-chat 파일 지정 없고, --skip-ai-chat 없으면 자동 스캔
+    ai_chat_scan = not args.skip_ai_chat and not args.ai_chat
+
     etl = LearningETL()
     results = etl.run(
         target_date=target_date,
-        claude_zip_path=args.claude_zip,
+        import_zip=args.import_zip,
         ai_chat_files=args.ai_chat,
-        ai_chat_scan=args.ai_chat_scan,
+        ai_chat_scan=ai_chat_scan,
         ai_chat_download_dir=args.download_dir or AI_CHAT_DOWNLOAD_DIR,
-        all_dates=getattr(args, "all", False)
+        all_dates=args.all,
+        skip_github=args.skip_github,
+        skip_baekjoon=args.skip_baekjoon,
+        skip_ai_chat=args.skip_ai_chat
     )
 
     # 결과를 JSON 파일로도 저장

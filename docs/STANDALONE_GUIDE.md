@@ -1,8 +1,8 @@
 # Standalone Mode (단독 실행 모드)
 
-## 📖 개요
+## 개요
 
-**한 대의 머신**에서 모든 ETL 작업을 수행하는 방식입니다.
+한 대의 머신에서 모든 ETL 작업을 수행하는 방식입니다.
 
 ```
 ┌────────────────────────────────┐
@@ -12,61 +12,73 @@
 │  │  main.py (매일 실행)     │  │
 │  │  - GitHub 커밋 수집      │  │
 │  │  - Baekjoon 풀이 수집    │  │
+│  │  - AI Chat 수집          │  │
 │  └──────────────────────────┘  │
 │                                │
 │  ┌──────────────────────────┐  │
-│  │  다운로드된 파일 감지     |  |
-|  |       AI Chat 수집       │  │
-│  │      --ai-chat-scan      │  │
+│  │       PostgreSQL         │  │
 │  └──────────────────────────┘  │
-│                                │
-│  ┌──────────────────────────┐  │
-│  │       PostgreSQL     증 필요.
+└────────────────────────────────┘
+```
+
+## 사용 방법
+
+### A. 수동 실행
+
 ```bash
-# GitHub + Baekjoon 수집
+# 기본 실행 (GitHub + Baekjoon + AI Chat)
 python main.py
 
 # 특정 날짜
 python main.py --date 2025-12-25
 
-# AI 채팅 파일 포함
+# AI 채팅 파일 직접 지정
 python main.py --ai-chat ~/Downloads/Claude-Export.md
 
-# AI 채팅 다운로드 폴더 스캔
-python main.py --ai-chat-scan
+# AI 채팅 제외
+python main.py --skip-ai-chat
+
+# GitHub만 제외
+python main.py --skip-github
 ```
 
-#### B. 주기적으로 자동 실행
--> 현재 실제 동작중인 방식으로 수정 필요.
+### B. 주기적으로 자동 실행 (systemd timer 권장)
+
 ```bash
-crontab -e
-```
+# Timer 설치
+bash scripts/setup-daily-timer.sh
 
-```cron
-# 매일 오전 6시에 GitHub/Baekjoon 수집
-0 6 * * * cd /home/jcw/LearningETL && /home/jcw/LearningETL/venv/bin/python main.py >> logs/cron.log 2>&1
+# Timer 활성화
+sudo systemctl enable learningetl-daily.timer
+sudo systemctl start learningetl-daily.timer
+
+# 상태 확인
+systemctl list-timers learningetl-daily.timer
+
+# 로그 확인
+journalctl -u learningetl-daily.service -f
 ```
 
 ---
 
-##  AI 채팅 수집 방법
+## AI 채팅 수집 방법
 
-### Downloads 폴더 스캔
+### Downloads 폴더 스캔 (기본 동작)
 
-readme.md에서 다룬 ai chat exporter들을 사용 시 파일들은 특정 접두사들을 가지게 됩니다.
+README.md에서 다룬 AI chat exporter들을 사용 시 파일들은 특정 접두사들을 가지게 됩니다.
 지정해둔 폴더에서 해당 접두사들(Claude-, Gemini-, ChatGPT-)을 가지는 파일들을 감지합니다.
 
 ```bash
-# Downloads 폴더에서 AI 채팅 파일 자동 감지
-python main.py --ai-chat-scan
+# 기본 실행 (Downloads 폴더 자동 스캔)
+python main.py
 
 # 특정 폴더 지정
-python main.py --ai-chat-scan --download-dir /home/user/Downloads
+python main.py --download-dir /home/user/Downloads
 ```
 
 ---
 
-##  로그 확인
+## 로그 확인
 
 ```bash
 # 메인 로그
@@ -84,8 +96,8 @@ tail -f logs/ai_chat_collector.log
 
 ---
 
-##  DB 확인
--> 쿼리 실제 동작하는지 테스트 필요
+## DB 확인
+
 ```sql
 -- 오늘 수집된 아티팩트
 SELECT
@@ -103,7 +115,7 @@ ORDER BY commit_date DESC;
 
 -- AI 대화
 SELECT provider, title, created_at
-FROM learning.ai_conversations
+FROM learning.ai_chat_conversations
 WHERE DATE(created_at) = CURRENT_DATE
 ORDER BY created_at DESC;
 
@@ -116,7 +128,7 @@ ORDER BY solved_date DESC;
 
 ---
 
-## 🐛 트러블슈팅
+## 트러블슈팅
 
 ### DB 연결 실패
 

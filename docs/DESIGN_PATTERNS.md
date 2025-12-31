@@ -71,7 +71,7 @@ self.collectors = CollectorFactory.create_all_collectors(enabled_only=True)
 # config/collectors.yaml
 collectors:
   github:
-    enabled: false    # 여기만 true로 바꾸면 활성화!
+    enabled: false    # true로 변경하면 활성화
     class_path: "collectors.github_collector.GitHubCollector"
 ```
 
@@ -95,7 +95,7 @@ collectors:
 
 **After (Factory 사용)**:
 1. Collector 클래스 작성
-2. `collectors.yaml`에 한 줄 추가 ✨
+2. `collectors.yaml`에 추가
 
 ```yaml
 notion:
@@ -104,7 +104,7 @@ notion:
   priority: 25
 ```
 
-끝! 코드 수정 없음.
+코드 수정 불필요.
 
 ---
 
@@ -149,7 +149,7 @@ github:
 1. 새 Collector 클래스 작성
 2. YAML 파일 수정
 3. `factory.reload_config()` 호출
-4. 즉시 사용 가능! (재시작 불필요)
+4. 재시작 불필요
 
 #### 3. **테스트 용이성**
 Mock Collector 주입이 쉬움:
@@ -250,15 +250,15 @@ class LearningETL:
 ### Phase 6: 설정 기반 + 동적 로딩 (현재)
 
 ```yaml
-# config/collectors.yaml (코드 밖으로 분리!)
+# config/collectors.yaml (코드 밖으로 분리)
 collectors:
   github:
     enabled: false
-    class_path: "collectors.github_collector.GitHubCollector"  # 문자열!
+    class_path: "collectors.github_collector.GitHubCollector"  # 문자열
     priority: 10
     description: "GitHub 커밋 수집"
 
-  notion:  # 새 Collector 추가 (코드 수정 없이!)
+  notion:  # 새 Collector 추가 (코드 수정 없이)
     enabled: true
     class_path: "collectors.notion_collector.NotionCollector"
     priority: 15
@@ -288,7 +288,7 @@ class CollectorFactory:
 ```
 
 ```python
-# main.py (완전히 동일! 코드 수정 없음)
+# main.py (코드 수정 없음)
 class LearningETL:
     def __init__(self):
         self.collectors = CollectorFactory.create_all_collectors(enabled_only=True)
@@ -314,7 +314,7 @@ class LearningETL:
 ```python
 # 직접 import (컴파일 타임)
 from collectors.github_collector import GitHubCollector
-collector = GitHubCollector()  # ~0.001초
+collector = GitHubCollector()
 ```
 
 **After (동적 로딩)**:
@@ -322,15 +322,14 @@ collector = GitHubCollector()  # ~0.001초
 # 런타임 import (importlib)
 module = importlib.import_module("collectors.github_collector")
 collector_class = getattr(module, "GitHubCollector")
-collector = collector_class()  # ~0.002초 (+0.001초)
+collector = collector_class()
 ```
+
+동적 로딩은 런타임에 import를 수행하므로 직접 import보다 약간 느립니다.
 
 #### 2. **실행 시간 (실제 ETL 작업)**
 
-**실제 측정**:
-```
-예정
-```
+ETL 작업 자체의 실행 시간은 리팩토링 전후가 동일합니다.
 
 #### 3. **캐싱 최적화**
 
@@ -339,28 +338,28 @@ Factory는 클래스 캐싱을 사용:
 ```python
 def _import_collector_class(self, class_path):
     if class_path in self._cache:
-        return self._cache[class_path]  # 즉시 반환 (0ms)
+        return self._cache[class_path]  # 캐시된 클래스 반환
 
-    # 첫 로드만 느림 (1ms)
+    # 첫 로드만 import 수행
     module = importlib.import_module(module_path)
     collector_class = getattr(module, class_name)
     self._cache[class_path] = collector_class  # 캐싱
     return collector_class
 ```
 
-**결과**: 같은 Collector를 여러 번 생성해도 **첫 번째만 1ms, 나머지는 0ms**
+같은 Collector를 여러 번 생성해도 첫 번째 로드 이후에는 캐시에서 즉시 반환됩니다.
 
-#### 4. **유지보수 비용 감소 → 간접적 속도 향상**
+#### 4. **유지보수 작업**
 
-리팩토링으로 개발 속도 향상:
-- 새 Collector 추가: **5분 → 30초** (10배 빠름)
+리팩토링으로 개발 작업 개선:
+- 새 Collector 추가: 코드 수정 불필요, YAML만 수정
 - 버그 수정: 한 곳만 수정 (전파 오류 감소)
-- 테스트: Mock 주입 쉬워져서 **테스트 작성 시간 50% 감소**
+- 테스트: Mock 주입 용이
 
 #### 결론
 
-**런타임 성능**: 영향 없음 (0.05% 오버헤드)
-**개발 생산성**: 대폭 향상 (10배 빠른 기능 추가)
+**런타임 성능**: 유사한 수준 (동적 로딩 오버헤드는 미미함)
+**개발 작업**: 개선됨 (확장 용이)
 
 ---
 
@@ -372,13 +371,12 @@ def _import_collector_class(self, class_path):
 | **설정 위치** | Python 코드 | Python 코드 | YAML 파일 |
 | **클래스 로딩** | 직접 import | 직접 import | 동적 로딩 |
 | **런타임 변경** | 불가능 | 불가능 | 가능  |
-| **플러그인 지원** | 불가능 | 불가능 | 가능  |
+| **플러그인 지원** | 불가능 | 불가능 | 가능 |
 | **우선순위 제어** | 코드 수정 | 코드 수정 | YAML 설정 |
-| **초기화 시간** | .. | .. | .. |
 | **실행 성능** | 동일 | 동일 | 동일 |
-| **개발 속도** | 느림 | 빠름 | 매우 빠름  |
+| **개발 작업** | 여러 파일 수정 | Factory 코드 수정 | 설정만 수정 |
 
 **핵심 메시지**:
-- **확장성**: 무한 확장 가능 (플러그인, 외부 Collector)
-- **유지보수**: 코드 수정 없이 설정만으로 제어
+- 확장성: 플러그인 방식으로 외부 Collector 로드 가능
+- 유지보수: 코드 수정 없이 설정만으로 제어
 

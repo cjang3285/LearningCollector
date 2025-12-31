@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""
+Claude conversation formatter.
+
+SOLID Principles:
+- SRP: Single Responsibility - only formats Claude conversations to markdown
+- OCP: Open for extension - can be subclassed for custom formatting
+- DIP: Implements IMarkdownFormatter interface
+"""
+
+import html
+import logging
+from typing import Dict, List
+from .base_formatter import IMarkdownFormatter
+
+logger = logging.getLogger(__name__)
+
+
+class ClaudeMessageFormatter(IMarkdownFormatter):
+    """
+    Formats Claude conversations to markdown compatible with ai_chat_parse.py.
+
+    This formatter produces markdown that matches the format expected by
+    AIMarkdownParser, using the ## Prompt: / ## Response: pattern.
+    """
+
+    def format_conversation(self, conversation: Dict) -> str:
+        """
+        Convert Claude conversation to markdown format.
+
+        Args:
+            conversation: Dictionary with keys:
+                - name: conversation title
+                - created_at: ISO timestamp
+                - updated_at: ISO timestamp
+                - uuid: conversation ID
+                - chat_messages: list of message dicts
+
+        Returns:
+            Markdown-formatted conversation string
+
+        Raises:
+            ValueError: If required fields are missing
+        """
+        if not conversation:
+            raise ValueError("Conversation data is empty")
+
+        if 'chat_messages' not in conversation:
+            raise ValueError("Conversation missing 'chat_messages' field")
+
+        lines = []
+
+        # Title (generate from first message if empty)
+        title = conversation.get('name', '').strip()
+        if not title:
+            title = self._generate_title_from_messages(conversation.get('chat_messages', []))
+        lines.append(f"# {self._clean_text(title)}\n")
+
+        # Metadata
+        created_at = conversation.get('created_at', '')
+        updated_at = conversation.get('updated_at', '')
+        uuid = conversation.get('uuid', '')
+
+        lines.append(f"**Created:** {created_at}")
+        lines.append(f"**Updated:** {updated_at}")
+        lines.append(f"**Link:** https://claude.ai/chat/{uuid}\n")
+
+        # Messages
+        messages = conversation.get('chat_messages', [])
+        for msg in messages:
+            formatted_msg = self.format_message(msg)
+            if formatted_msg:
+                lines.append(formatted_msg)
+                lines.append("")  # Empty line after each message
+
+        # Footer
+        lines.append("---\n")
+        lines.append("*Powered by Claude Exporter*")
+
+        markdown = "\n".join(lines)
+
+        # 마크다운 변환 결과 미리보기 출력
+        self._log_markdown_preview(markdown, title)
+
+        return markdown
+
+    def format_message(self, message: Dict) -> str:
+        """
+        Format a single Claude message.
+
+        Args:
+            message: Dictionary with keys:
+                - sender: 'human' or 'assistant'
+                - text: message content
+
+        Returns:
+            Formatted message string with header
+        """
+        if not message:
+            return ""
+
+        sender = message.get('sender', 'unknown')
+        text = message.get('text', '')
+
+        # Clean and decode text
+        text = self._clean_text(text)
+
+        if sender == 'human':
+            return f"## Prompt:\n\n{text}"
+        elif sender == 'assistant':
+            return f"## Response:\n\n{text}"
+        else:
+            # Unknown sender, skip
+            return ""
+
+    def _clean_text(self, text: str) -> str:
+        """
+        Clean and normalize text content.
+
+        - Decodes HTML entities
+        - Normalizes Unicode characters
+        - Strips excessive whitespace
+
+        Args:
+            text: Raw text content
+
+        Returns:
+            Cleaned text
+        """
+        if not text:
+            return ""
+
+        # Decode HTML entities (e.g., &lt; -> <)
+        text = html.unescape(text)
+
+        # Normalize Unicode (important for Korean characters)
+        import unicodedata
+        text = unicodedata.normalize('NFC', text)
+
+        # Strip excessive whitespace at start/end
+        text = text.strip()
+
+        return text
+
+    def _log_markdown_preview(self, markdown: str, title: str) -> None:
+        """
+        로그에 마크다운 변환 결과 미리보기 출력 (디버깅용).
+
+        Args:
+            markdown: 변환된 마크다운 전체
+            title: 대화 제목
+        """
+        try:
+            lines = markdown.split('\n')
+
+            # 처음 15줄만 미리보기
+            preview_lines = lines[:15]
+            total_lines = len(lines)
+
+            logger.info("=" * 60)
+            logger.info("마크다운 변환 결과 미리보기:")
+            logger.info(f"  제목: {title}")
+            logger.info(f"  총 줄 수: {total_lines}")
+            logger.info("")
+            for line in preview_lines:
+                logger.info(f"  {line}")
+
+            if total_lines > 15:
+                logger.info(f"  ... (나머지 {total_lines - 15}줄 생략)")
+
+            logger.info("=" * 60)
+
+        except Exception as e:
+            logger.debug(f"미리보기 출력 실패: {e}")
+
+    def _generate_title_from_messages(self, messages: List[Dict]) -> str:
+        """
+        메시지가 없거나 제목이 비어있을 때 첫 메시지로 제목 생성.
+
+        Args:
+            messages: 메시지 리스트
+
+        Returns:
+            생성된 제목 (최대 50자)
+        """
+        if not messages:
+            return "Untitled Conversation"
+
+        # 첫 번째 사용자 메시지 찾기
+        for msg in messages:
+            if msg.get('sender') == 'human':
+                text = msg.get('text', '').strip()
+                if text:
+                    # 첫 50자만 사용, 줄바꿈 제거
+                    title = text.replace('\n', ' ')[:50]
+                    if len(text) > 50:
+                        title += "..."
+                    return title
+
+        return "Untitled Conversation"

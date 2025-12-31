@@ -48,7 +48,33 @@ class BaekjoonProblemData:
     commit_message: str
 
     def to_dict(self):
-        return asdict(self)
+        """
+        Saver가 바로 사용할 수 있는 nested 구조로 변환
+        Parser 책임: 데이터 변환/정규화
+        """
+        return {
+            'problem_id': self.problem_id,
+            'title': self.title,
+            'tier': self.tier,
+            'tags': self.tags,
+            'url': f"https://www.acmicpc.net/problem/{self.problem_id}",
+            'submission': {
+                'submission_id': None,  # 백준허브는 submission_id 제공 안 함
+                'language': self.code_language,
+                'memory': self.memory,
+                'time': self.time,
+                'code': self.code
+            },
+            'code_analysis': {
+                'code_lines': None,  # TODO: 코드 분석 기능 추가 시
+                'comment_lines': None
+            },
+            # 추가 메타데이터
+            'description': self.description,
+            'submitted_at': self.submitted_at,
+            'commit_sha': self.commit_sha,
+            'commit_message': self.commit_message
+        }
 
 
 class BaekjoonParser:
@@ -186,16 +212,16 @@ class BaekjoonParser:
         self,
         problems: List[Dict],
         exporter  # BaekjoonExporter 인스턴스
-    ) -> List[BaekjoonProblemData]:
+    ) -> List[Dict]:
         """
-        Export에서 수집한 문제 리스트를 파싱
+        Export에서 수집한 문제 리스트를 파싱 (IParser 인터페이스 준수)
 
         Args:
             problems: Export에서 반환한 문제 리스트
             exporter: BaekjoonExporter 인스턴스 (파일 읽기용)
 
         Returns:
-            파싱된 문제 데이터 리스트
+            파싱/검증된 문제 데이터 (Dict 리스트)
         """
         parsed_problems = []
 
@@ -228,7 +254,8 @@ class BaekjoonParser:
                     commit_message=problem['commit_message']
                 )
 
-                parsed_problems.append(parsed)
+                # IParser 인터페이스 준수: Dict 반환
+                parsed_problems.append(parsed.to_dict())
                 logger.info(f"[OK] 파싱 완료: {parsed.problem_id} - {parsed.title}")
 
             except Exception as e:

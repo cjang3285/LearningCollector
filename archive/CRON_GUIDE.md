@@ -1,12 +1,12 @@
 # cron 설정 예시
 
-## 📖 개요
+## 개요
 
 LearningETL을 매일 자동으로 실행하기 위한 cron 설정 템플릿입니다.
 
 ---
 
-##  빠른 설정 (자동)
+## 빠른 설정 (자동)
 
 **자동 설치 스크립트 사용:**
 
@@ -19,7 +19,7 @@ bash scripts/setup-cron.sh
 
 ---
 
-##  수동 설정
+## 수동 설정
 
 ### 1. cron 편집
 
@@ -56,7 +56,7 @@ tail -f /home/jcw/LearningETL/logs/cron_$(date +%Y-%m-%d).log
 
 ---
 
-##  템플릿 예시
+## 템플릿 예시
 
 ### 기본 (매일 오전 6시)
 ```cron
@@ -85,7 +85,7 @@ tail -f /home/jcw/LearningETL/logs/cron_$(date +%Y-%m-%d).log
 
 ---
 
-##  로그 관리
+## 로그 관리
 
 ### 로그 위치
 ```bash
@@ -117,7 +117,7 @@ grep ERROR logs/cron_$(date +%Y-%m-%d).log
 
 ---
 
-##  트러블슈팅
+## 트러블슈팅
 
 ### cron이 실행 안 됨
 
@@ -172,7 +172,7 @@ python main.py
 
 ---
 
-## 📧 알림 설정 (선택)
+## 알림 설정 (선택)
 
 ### 이메일 알림
 
@@ -201,7 +201,7 @@ fi
 
 ---
 
-## 📋 체크리스트
+## 체크리스트
 
 설정 후 확인사항:
 
@@ -214,7 +214,7 @@ fi
 
 ---
 
-##  권장 설정
+## 권장 설정
 
 ### Standalone Mode
 ```cron

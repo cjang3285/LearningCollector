@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from parse.github_parse import GitHubParser
-from migration.claude_parse import ClaudeMigrationParser
+from bulk_import.claude_parse import ClaudeMigrationParser
 from parse.baekjoon_parse import BaekjoonParser
 from parse.ai_chat_parse import AIMarkdownParser
 

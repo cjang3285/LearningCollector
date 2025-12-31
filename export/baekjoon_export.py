@@ -206,9 +206,9 @@ class BaekjoonExporter:
 
         return None
 
-    def export_today(self, target_date: datetime = None) -> List[Dict]:
+    def export(self, target_date: datetime = None) -> List[Dict]:
         """
-        당일 제출된 백준 문제 수집
+        특정 날짜에 제출된 백준 문제 수집
 
         Args:
             target_date: 수집 대상 날짜 (기본값: 오늘)

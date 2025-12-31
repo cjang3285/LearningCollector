@@ -4,23 +4,23 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=jcw
-Group=jcw
-WorkingDirectory=/home/jcw/LearningETL
+User={{USER}}
+Group={{USER}}
+WorkingDirectory={{PROJECT_ROOT}}
 
 # 환경변수 파일
-EnvironmentFile=/home/jcw/LearningETL/.env
+EnvironmentFile={{PROJECT_ROOT}}/.env
 
 # 실행 명령
-ExecStart=/home/jcw/LearningETL/venv/bin/python /home/jcw/LearningETL/scripts/learningetl-daemon.py
+ExecStart={{PROJECT_ROOT}}/venv/bin/python {{PROJECT_ROOT}}/scripts/runtime/learningetl-daemon.py
 
 # 자동 재시작
 Restart=always
 RestartSec=10
 
 # 로그 분리 (INFO/WARNING → daemon.log, ERROR → daemon-error.log)
-StandardOutput=append:/home/jcw/LearningETL/logs/daemon.log
-StandardError=append:/home/jcw/LearningETL/logs/daemon-error.log
+StandardOutput=append:{{PROJECT_ROOT}}/logs/daemon.log
+StandardError=append:{{PROJECT_ROOT}}/logs/daemon-error.log
 
 [Install]
 WantedBy=multi-user.target

@@ -44,7 +44,7 @@ class LearningCLI:
             )
             return True
         except Exception as e:
-            print(f"❌ DB 연결 실패: {e}")
+            print(f"[ERROR] DB 연결 실패: {e}")
             return False
 
     def close(self):
@@ -55,7 +55,7 @@ class LearningCLI:
     def stats(self):
         """전체 통계"""
         print("="*60)
-        print("📊 LearningETL 통계")
+        print("LearningETL 통계")
         print("="*60)
         print()
 
@@ -73,7 +73,7 @@ class LearningCLI:
             """)
             artifacts = cur.fetchall()
 
-            print("📦 전체 아티팩트")
+            print("전체 아티팩트")
             print()
             total = 0
             for row in artifacts:
@@ -84,7 +84,7 @@ class LearningCLI:
             print()
 
             # 최근 7일 통계
-            print("📅 최근 7일")
+            print("최근 7일")
             print()
             cur.execute("""
                 SELECT
@@ -124,12 +124,32 @@ class LearningCLI:
             github = cur.fetchone()
 
             if github and github['total_commits']:
-                print("💻 GitHub")
+                print("GitHub")
                 print()
                 print(f"  커밋: {github['total_commits']}개")
                 print(f"  레포: {github['total_repos']}개")
                 print(f"  추가: +{github['total_additions']:,} 줄")
                 print(f"  삭제: -{github['total_deletions']:,} 줄")
+
+                # 최근 5개 커밋
+                cur.execute("""
+                    SELECT
+                        message,
+                        repo,
+                        commit_date
+                    FROM learning.github_commits
+                    ORDER BY commit_date DESC
+                    LIMIT 5
+                """)
+                recent_commits = cur.fetchall()
+
+                if recent_commits:
+                    print()
+                    print("  최근 커밋:")
+                    for c in recent_commits:
+                        msg = c['message'].split('\n')[0][:50]
+                        print(f"    [{c['commit_date']}] {c['repo']:20} {msg}")
+
                 print()
 
             # AI 채팅 통계
@@ -144,7 +164,7 @@ class LearningCLI:
             ai_chats = cur.fetchall()
 
             if ai_chats:
-                print("💬 AI 채팅")
+                print("AI 채팅")
                 print()
                 for row in ai_chats:
                     print(f"  {row['provider']:10} {row['count']:3}개")
@@ -160,9 +180,30 @@ class LearningCLI:
             baekjoon = cur.fetchone()
 
             if baekjoon and baekjoon['total_problems']:
-                print("🏆 백준")
+                print("백준")
                 print()
                 print(f"  문제: {baekjoon['total_problems']}개")
+
+                # 최근 5개 문제
+                cur.execute("""
+                    SELECT
+                        bs.problem_id,
+                        bs.title,
+                        bs.tier,
+                        la.artifact_date
+                    FROM learning.baekjoon_solutions bs
+                    JOIN learning.learning_artifacts la ON bs.artifact_id = la.id
+                    ORDER BY la.artifact_date DESC
+                    LIMIT 5
+                """)
+                recent_problems = cur.fetchall()
+
+                if recent_problems:
+                    print()
+                    print("  최근 풀이:")
+                    for p in recent_problems:
+                        print(f"    {p['problem_id']:5} {p['title'][:30]:30} [{p['tier']}] {p['artifact_date']}")
+
                 print()
 
         print("="*60)
@@ -186,12 +227,12 @@ class LearningCLI:
                 commits = cur.fetchall()
 
                 print("="*60)
-                print(f"💻 GitHub 커밋 (최근 {limit}개)")
+                print(f"GitHub 커밋 (최근 {limit}개)")
                 print("="*60)
                 print()
 
                 for commit in commits:
-                    print(f"📝 {commit['sha'][:8]} - {commit['repo']}")
+                    print(f"[{commit['sha'][:8]}] {commit['repo']}")
                     print(f"   {commit['message'][:60]}")
                     print(f"   {commit['commit_date']} (+{commit['additions']} -{commit['deletions']})")
                     print()
@@ -210,12 +251,12 @@ class LearningCLI:
                 conversations = cur.fetchall()
 
                 print("="*60)
-                print(f"💬 AI 채팅 (최근 {limit}개)")
+                print(f"AI 채팅 (최근 {limit}개)")
                 print("="*60)
                 print()
 
                 for conv in conversations:
-                    print(f"💬 [{conv['provider']}] {conv['title'] or '(제목 없음)'}")
+                    print(f"[{conv['provider']}] {conv['title'] or '(제목 없음)'}")
                     print(f"   ID: {conv['id']} | {conv['created_at']}")
                     print()
 
@@ -234,12 +275,12 @@ class LearningCLI:
                 problems = cur.fetchall()
 
                 print("="*60)
-                print(f"🏆 백준 풀이 (최근 {limit}개)")
+                print(f"백준 풀이 (최근 {limit}개)")
                 print("="*60)
                 print()
 
                 for problem in problems:
-                    print(f"🏆 {problem['problem_number']} - {problem['title']}")
+                    print(f"[{problem['problem_number']}] {problem['title']}")
                     print(f"   {problem['tier']} | {problem['language']} | {problem['solved_date']}")
                     print()
 
@@ -267,7 +308,7 @@ class LearningCLI:
 
                 if conv:
                     print("="*60)
-                    print(f"💬 AI Chat: [{conv['provider']}] {conv['title'] or '(제목 없음)'}")
+                    print(f"AI Chat: [{conv['provider']}] {conv['title'] or '(제목 없음)'}")
                     print("="*60)
                     print()
                     print(f"ID: {conv['id']}")
@@ -286,7 +327,7 @@ class LearningCLI:
                     if conv.get('messages'):
                         # DB에 messages가 있으면 사용
                         messages = conv['messages']
-                        print("📊 [DB에서 로드됨]")
+                        print("[DB에서 로드됨]")
                     elif conv['conversation_path']:
                         # DB에 없으면 JSON 파일에서 읽기
                         json_path = Path(conv['conversation_path'])
@@ -294,14 +335,14 @@ class LearningCLI:
                             with open(json_path, 'r', encoding='utf-8') as f:
                                 data = json.load(f)
                                 messages = data.get('messages', [])
-                            print("📁 [파일에서 로드됨]")
+                            print("[파일에서 로드됨]")
                         else:
-                            print(f"⚠️  대화 파일을 찾을 수 없습니다: {conv['conversation_path']}")
+                            print(f"[WARNING] 대화 파일을 찾을 수 없습니다: {conv['conversation_path']}")
 
                     # 메시지 출력
                     if messages:
                         print("="*60)
-                        print("💬 대화 내용")
+                        print("대화 내용")
                         print("="*60)
                         print()
 
@@ -310,9 +351,9 @@ class LearningCLI:
                             content = msg.get('content', '')
 
                             if role == 'user':
-                                print(f"👤 사용자:")
+                                print(f"[사용자]")
                             else:
-                                print(f"🤖 {conv['provider'].title()}:")
+                                print(f"[{conv['provider'].title()}]")
 
                             print(content)
                             print()
@@ -321,9 +362,9 @@ class LearningCLI:
                                 print("-" * 60)
                                 print()
                     else:
-                        print("⚠️  대화 내용을 찾을 수 없습니다.")
+                        print("[WARNING] 대화 내용을 찾을 수 없습니다.")
                 else:
-                    print(f"❌ AI Chat을 찾을 수 없습니다: {item_id}")
+                    print(f"[ERROR] AI Chat을 찾을 수 없습니다: {item_id}")
 
             elif item_type == 'github':
                 cur.execute("""
@@ -335,7 +376,7 @@ class LearningCLI:
 
                 if commit:
                     print("="*60)
-                    print(f"💻 GitHub 커밋: {commit['sha'][:8]}")
+                    print(f"GitHub 커밋: {commit['sha'][:8]}")
                     print("="*60)
                     print()
                     print(f"레포: {commit['repo']}")
@@ -352,7 +393,7 @@ class LearningCLI:
                             print(f"  {f['status']:10} {f['filename']}")
                         print()
                 else:
-                    print(f"❌ 커밋을 찾을 수 없습니다: {item_id}")
+                    print(f"[ERROR] 커밋을 찾을 수 없습니다: {item_id}")
 
     def export_data(self, target_date=None, output_dir='exports'):
         """데이터 내보내기"""
@@ -405,7 +446,7 @@ class LearningCLI:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2, default=str)
 
-        print(f"✅ 내보내기 완료: {filename}")
+        print(f"[SUCCESS] 내보내기 완료: {filename}")
         print(f"   GitHub: {len(github_commits)}개")
         print(f"   AI Chat: {len(ai_chats)}개")
         print(f"   Baekjoon: {len(baekjoon_solutions)}개")

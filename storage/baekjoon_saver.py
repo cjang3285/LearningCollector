@@ -37,7 +37,7 @@ class BaekjoonSaver(BaseSaver, ISaver):
         단일 백준 풀이 저장 (ISaver 인터페이스)
 
         Args:
-            data: 백준 풀이 데이터
+            data: Parser에서 반환한 백준 풀이 데이터 (이미 DB 저장 형식)
             artifact_date: 아티팩트 날짜
 
         Returns:
@@ -47,6 +47,8 @@ class BaekjoonSaver(BaseSaver, ISaver):
             SaveError: 저장 실패 시
         """
         try:
+            # Parser가 이미 최종 구조로 변환했으므로 그대로 저장
+            # Saver 책임: DB 저장만 (Single Responsibility Principle)
             return self.save_baekjoon_artifact(data, artifact_date)
         except Exception as e:
             raise SaveError(f"백준 풀이 저장 실패: {e}") from e
@@ -78,8 +80,9 @@ class BaekjoonSaver(BaseSaver, ISaver):
                     skipped_count += 1
             except SaveError as e:
                 error_count += 1
+                problem_id = solution.get('problem_id', 'unknown')
                 logger.error(
-                    f"풀이 저장 실패 (problem={solution.get('problem_id', 'unknown')}): {e}"
+                    f"풀이 저장 실패 (problem={problem_id}): {e}"
                 )
                 continue
 
