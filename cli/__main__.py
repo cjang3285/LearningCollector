@@ -130,6 +130,26 @@ class LearningCLI:
                 print(f"  레포: {github['total_repos']}개")
                 print(f"  추가: +{github['total_additions']:,} 줄")
                 print(f"  삭제: -{github['total_deletions']:,} 줄")
+
+                # 최근 5개 커밋
+                cur.execute("""
+                    SELECT
+                        message,
+                        repo,
+                        commit_date
+                    FROM learning.github_commits
+                    ORDER BY commit_date DESC
+                    LIMIT 5
+                """)
+                recent_commits = cur.fetchall()
+
+                if recent_commits:
+                    print()
+                    print("  최근 커밋:")
+                    for c in recent_commits:
+                        msg = c['message'].split('\n')[0][:50]
+                        print(f"    [{c['commit_date']}] {c['repo']:20} {msg}")
+
                 print()
 
             # AI 채팅 통계
