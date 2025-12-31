@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import json
-from datetime import date
+from datetime import date, datetime
 from typing import Dict, List, Optional
 import logging
 
@@ -53,13 +53,13 @@ class AIChatSaver(BaseSaver, ISaver):
         except Exception as e:
             raise SaveError(f"AI 채팅 저장 실패: {e}") from e
 
-    def save_all(self, data_list: List[Dict], artifact_date: date) -> List[int]:
+    def save_all(self, data_list: List[Dict], artifact_date: date = None) -> List[int]:
         """
         여러 AI 채팅 대화 일괄 저장 (ISaver 인터페이스)
 
         Args:
             data_list: AI 채팅 대화 데이터 리스트
-            artifact_date: 아티팩트 날짜
+            artifact_date: 아티팩트 날짜 (fallback, None이면 각 대화의 created_at 사용)
 
         Returns:
             성공한 artifact_id 리스트
@@ -73,7 +73,10 @@ class AIChatSaver(BaseSaver, ISaver):
 
         for conversation in data_list:
             try:
-                artifact_id = self.save(conversation, artifact_date)
+                # 각 대화의 실제 생성 날짜 사용 (created_at → artifact_date)
+                conv_date = self._parse_conversation_date(conversation, artifact_date)
+
+                artifact_id = self.save(conversation, conv_date)
                 if artifact_id:
                     artifact_ids.append(artifact_id)
                 else:
@@ -147,6 +150,46 @@ class AIChatSaver(BaseSaver, ISaver):
     # ============================================
     # 내부 구현 메서드 (AI Chat 전용)
     # ============================================
+
+    def _parse_conversation_date(self, conversation: Dict, fallback_date: date = None) -> date:
+        """
+        대화의 실제 생성 날짜 추출.
+
+        Args:
+            conversation: 대화 데이터
+            fallback_date: created_at 파싱 실패 시 사용할 날짜
+
+        Returns:
+            대화의 생성 날짜 (created_at → updated_at → fallback_date → 오늘)
+        """
+        # 1. created_at 파싱 시도
+        created_at = conversation.get('created_at')
+        if created_at:
+            try:
+                # ISO 8601 형식 파싱 (예: "2024-01-01T12:00:00.000Z" 또는 "2024-01-01T12:00:00+00:00")
+                dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                logger.debug(f"대화 생성일 파싱: {dt.date()} (created_at={created_at})")
+                return dt.date()
+            except Exception as e:
+                logger.debug(f"created_at 파싱 실패 ({created_at}): {e}")
+
+        # 2. updated_at 파싱 시도
+        updated_at = conversation.get('updated_at')
+        if updated_at:
+            try:
+                dt = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                logger.debug(f"대화 수정일 사용: {dt.date()} (updated_at={updated_at})")
+                return dt.date()
+            except Exception as e:
+                logger.debug(f"updated_at 파싱 실패 ({updated_at}): {e}")
+
+        # 3. fallback_date 또는 오늘
+        result = fallback_date or date.today()
+        logger.warning(
+            f"대화 날짜를 파싱할 수 없음 (title={conversation.get('title', 'Untitled')[:50]}), "
+            f"fallback 사용: {result}"
+        )
+        return result
 
     def save_conversation(self, artifact_id: int, conversation_data: Dict) -> int:
         """ai_chat_conversations 테이블에 저장"""
