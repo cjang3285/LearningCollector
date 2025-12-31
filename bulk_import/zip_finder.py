@@ -3,8 +3,10 @@
 Claude ZIP file finder.
 
 Automatically locates Claude export ZIP files in common directories.
+Uses AI_CHAT_DOWNLOAD_DIR environment variable if set.
 """
 
+import os
 import logging
 from pathlib import Path
 from typing import List, Optional
@@ -16,6 +18,11 @@ logger = logging.getLogger(__name__)
 class ClaudeZipFinder:
     """
     Finds Claude export ZIP files in specified directories.
+
+    Priority:
+    1. AI_CHAT_DOWNLOAD_DIR environment variable
+    2. Custom search_dirs parameter
+    3. DEFAULT_SEARCH_DIRS
     """
 
     DEFAULT_SEARCH_DIRS = [
@@ -29,9 +36,17 @@ class ClaudeZipFinder:
         Initialize ZIP finder.
 
         Args:
-            search_dirs: List of directories to search (defaults to DEFAULT_SEARCH_DIRS)
+            search_dirs: List of directories to search (defaults to env var or DEFAULT_SEARCH_DIRS)
         """
-        self.search_dirs = search_dirs or self.DEFAULT_SEARCH_DIRS
+        # Priority: custom > env var > defaults
+        if search_dirs:
+            self.search_dirs = search_dirs
+        elif os.getenv('AI_CHAT_DOWNLOAD_DIR'):
+            env_dir = os.getenv('AI_CHAT_DOWNLOAD_DIR')
+            logger.info(f"Using AI_CHAT_DOWNLOAD_DIR: {env_dir}")
+            self.search_dirs = [env_dir]
+        else:
+            self.search_dirs = self.DEFAULT_SEARCH_DIRS
 
     def find_latest_zip(self) -> Optional[Path]:
         """

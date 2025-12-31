@@ -212,8 +212,16 @@ class ClaudeMigrationCollector:
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser(description='Claude ZIP 마이그레이션')
-    parser.add_argument('zip_path', help='Claude ZIP 파일 경로')
+    parser = argparse.ArgumentParser(
+        description='Claude ZIP 마이그레이션',
+        epilog='ZIP 경로를 지정하지 않으면 자동으로 최신 ZIP 파일을 찾습니다.'
+    )
+    parser.add_argument(
+        'zip_path',
+        nargs='?',  # Optional positional argument
+        default=None,
+        help='Claude ZIP 파일 경로 (생략 시 자동 감지)'
+    )
     parser.add_argument('--all', action='store_true', help='모든 대화 마이그레이션')
     parser.add_argument('--date', help='대상 날짜 (YYYY-MM-DD)')
 
