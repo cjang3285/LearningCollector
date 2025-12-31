@@ -29,10 +29,10 @@
 
 ## ✅ 이런 경우 적합
 
-- ✅ 라즈베리파이에서 모든 작업 수행
-- ✅ AI 채팅을 수동으로 라즈베리파이에 복사
-- ✅ 간단한 설정 원함
-- ✅ 1대 머신만 사용
+-  한 머신에서 모든 작업 수행
+-  AI 채팅을 해당 머신의 특정 디렉터리에 복사 가능한 상황
+-  간단한 설정 원함
+-  1대 머신만 사용
 
 ---
 
@@ -91,8 +91,8 @@ python main.py --ai-chat ~/Downloads/Claude-Export.md
 python main.py --ai-chat-scan
 ```
 
-#### B. Cron 자동 실행
-
+#### B. 주기적으로 자동 실행
+-> 수정 필요.
 ```bash
 crontab -e
 ```
@@ -106,20 +106,10 @@ crontab -e
 
 ## 📂 AI 채팅 수집 방법
 
-### 옵션 1: 수동 복사
+### Downloads 폴더 스캔
 
-```bash
-# 1. 노트북에서 AI 채팅 다운로드
-# 2. scp로 라즈베리파이에 복사
-scp ~/Downloads/Claude-Export.md pi@raspberrypi:/tmp/
-
-# 3. 라즈베리파이에서 실행
-python main.py --ai-chat /tmp/Claude-Export.md
-```
-
-### 옵션 2: Downloads 폴더 스캔
-
-라즈베리파이가 데스크탑으로 사용될 때:
+readme.md에서 다룬 ai chat exporter들을 사용 시 파일들은 특정 접두사들을 가지게 됩니다.
+지정해둔 폴더에서 해당 접두사들(Claude-, Gemini-, ChatGPT-)을 가지는 파일들을 감지합니다.
 
 ```bash
 # Downloads 폴더에서 AI 채팅 파일 자동 감지
@@ -183,13 +173,6 @@ ORDER BY solved_date DESC;
 
 ## 🐛 트러블슈팅
 
-### GitHub API Rate Limit
-
-```bash
-# 남은 API 호출 횟수 확인
-curl -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/rate_limit
-```
-
 ### DB 연결 실패
 
 ```bash
@@ -204,7 +187,7 @@ psql -h localhost -U learning_user -d learning
 
 ```bash
 # 파일 형식 확인
-head -20 ~/Downloads/Claude-Export.md
+head -20 ~/Downloads/Claude-yourmdname.md
 
 # 수동 파싱 테스트
 python -c "
@@ -216,13 +199,3 @@ print(result)
 ```
 
 ---
-
-## 🔄 향후 확장 계획
-
-더 편리한 자동화를 원한다면 [NAS 기반 아키텍처](NAS_ARCHITECTURE.md)를 참고하세요:
-
-- ✅ WireGuard VPN으로 노트북-라즈베리파이 연결
-- ✅ NAS 파일 공유로 자동 전송
-- ✅ Docker Compose로 전체 스택 관리
-
-**미래 구현 예정** - 현재는 Standalone 모드 사용을 권장합니다.
