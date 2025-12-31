@@ -18,7 +18,7 @@ from typing import List, Dict
 import logging
 import tempfile
 
-from migration.claude_parse import ClaudeMigrationParser
+from bulk_import.claude_parse import ClaudeMigrationParser
 from parse.ai_chat_parse import AIMarkdownParser
 from storage.ai_chat_saver import AIChatSaver
 from config.settings import get_log_file

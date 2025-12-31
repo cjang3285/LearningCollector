@@ -1,8 +1,8 @@
 # Standalone Mode (단독 실행 모드)
 
-## 📖 개요
+## 개요
 
-**한 대의 머신**에서 모든 ETL 작업을 수행하는 방식입니다.
+한 대의 머신에서 모든 ETL 작업을 수행하는 방식입니다.
 
 ```
 ┌────────────────────────────────┐
@@ -21,7 +21,15 @@
 │  └──────────────────────────┘  │
 │                                │
 │  ┌──────────────────────────┐  │
-│  │       PostgreSQL     증 필요.
+│  │       PostgreSQL         │  │
+│  └──────────────────────────┘  │
+└────────────────────────────────┘
+```
+
+## 사용 방법
+
+### A. 수동 실행
+
 ```bash
 # GitHub + Baekjoon 수집
 python main.py
@@ -36,8 +44,8 @@ python main.py --ai-chat ~/Downloads/Claude-Export.md
 python main.py --ai-chat-scan
 ```
 
-#### B. 주기적으로 자동 실행
--> 현재 실제 동작중인 방식으로 수정 필요.
+### B. 주기적으로 자동 실행
+
 ```bash
 crontab -e
 ```
@@ -49,7 +57,7 @@ crontab -e
 
 ---
 
-##  AI 채팅 수집 방법
+## AI 채팅 수집 방법
 
 ### Downloads 폴더 스캔
 
@@ -66,7 +74,7 @@ python main.py --ai-chat-scan --download-dir /home/user/Downloads
 
 ---
 
-##  로그 확인
+## 로그 확인
 
 ```bash
 # 메인 로그
@@ -84,8 +92,8 @@ tail -f logs/ai_chat_collector.log
 
 ---
 
-##  DB 확인
--> 쿼리 실제 동작하는지 테스트 필요
+## DB 확인
+
 ```sql
 -- 오늘 수집된 아티팩트
 SELECT
@@ -116,7 +124,7 @@ ORDER BY solved_date DESC;
 
 ---
 
-## 🐛 트러블슈팅
+## 트러블슈팅
 
 ### DB 연결 실패
 

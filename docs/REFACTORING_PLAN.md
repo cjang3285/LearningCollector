@@ -23,10 +23,10 @@ class AIChatCollector:
 ```
 
 **책임**:
-- ✅ 데이터 수집 (Export)
-- ✅ 데이터 파싱 (Parse)
-- ✅ 데이터 저장 (Save)
-- ✅ 워크플로우 조율
+- 데이터 수집 (Export)
+- 데이터 파싱 (Parse)
+- 데이터 저장 (Save)
+- 워크플로우 조율
 
 **리팩토링 방향**:
 - Collector는 **워크플로우 조율**만 담당

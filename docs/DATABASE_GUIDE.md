@@ -1,16 +1,16 @@
 # LearningETL 데이터베이스 가이드
 
-## 📊 스키마 설계
+## 스키마 설계
 
 ### 왜 PostgreSQL + JSONB?
 
-**NoSQL 필요 없습니다!** PostgreSQL의 JSONB로 충분합니다:
+PostgreSQL의 JSONB를 사용하는 이유:
 
--  **구조화된 데이터**: 검색/집계에 최적 (날짜, 타입, 태그)
--  **비구조화 데이터**: JSONB로 유연하게 저장 (마크다운 전체 내용, 메시지 배열)
--  **강력한 쿼리**: SQL + JSON 연산자 조합
--  **인덱싱**: GIN 인덱스로 JSONB 내부도 빠르게 검색
--  **관계형 + 문서형**: 하나의 DB로 양쪽 장점
+- 구조화된 데이터: 검색/집계에 최적 (날짜, 타입, 태그)
+- 비구조화 데이터: JSONB로 유연하게 저장 (마크다운 전체 내용, 메시지 배열)
+- 강력한 쿼리: SQL + JSON 연산자 조합
+- 인덱싱: GIN 인덱스로 JSONB 내부도 빠르게 검색
+- 관계형 + 문서형: 하나의 DB로 양쪽 장점
 
 ### 테이블 구조
 
@@ -80,8 +80,8 @@ DB_USER=my_user
 DB_PASSWORD=blog_password
 ```
 
-## 🔍 실제 데이터 예시
--> 검증 필요.
+## 실제 데이터 예시
+
 ### learning_artifacts
 
 | id | artifact_date | source_type | title | tags | storage_path |
@@ -103,7 +103,7 @@ DB_PASSWORD=blog_password
 | 1 | 2 | Claude | React 최적화 방법 | 5 | true | `{javascript,typescript}` |
 
 ### 쿼리 예시
--> 검증 필요요
+
 ```sql
 -- 오늘 학습한 모든 활동
 SELECT source_type, COUNT(*)
@@ -141,17 +141,17 @@ FROM learning.github_commits
 WHERE files @> '[{"filename": "main.py"}]'::jsonb;
 ```
 
-## 📦 ai chat은 파일과 DB에 하이브리드 저장
+## AI Chat 파일과 DB 하이브리드 저장
 
 1. **JSON 파일** (`learning_artifacts/`):
-   -  원본 데이터 보존
-   -  파싱 로직 변경 시 재처리 가능
-   -  백업 간단 (디렉토리 복사)
+   - 원본 데이터 보존
+   - 파싱 로직 변경 시 재처리 가능
+   - 백업 간단 (디렉토리 복사)
 
 2. **PostgreSQL**:
-   -  빠른 검색/집계
-   -  JOIN
-   -  CLI에서 즉시 조회
+   - 빠른 검색/집계
+   - JOIN
+   - CLI에서 즉시 조회
 
 ### 데이터 흐름
 
@@ -171,7 +171,7 @@ GitHub API
         ...
 ```
 
-## 🚀 빠른 시작
+## 빠른 시작
 
 ### 1. DB 생성
 
@@ -207,7 +207,7 @@ psql -h localhost -U learning_user -d learning
 SELECT * FROM learning.learning_artifacts ORDER BY created_at DESC LIMIT 5;
 ```
 
-## 🔧 마이그레이션 (기존 데이터가 있다면)
+## 마이그레이션 (기존 데이터가 있다면)
 
 만약 이전에 다른 스키마로 데이터를 넣었다면:
 
