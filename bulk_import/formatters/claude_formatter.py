@@ -50,8 +50,10 @@ class ClaudeMessageFormatter(IMarkdownFormatter):
 
         lines = []
 
-        # Title
-        title = conversation.get('name', 'Untitled')
+        # Title (generate from first message if empty)
+        title = conversation.get('name', '').strip()
+        if not title:
+            title = self._generate_title_from_messages(conversation.get('chat_messages', []))
         lines.append(f"# {self._clean_text(title)}\n")
 
         # Metadata
@@ -170,3 +172,29 @@ class ClaudeMessageFormatter(IMarkdownFormatter):
 
         except Exception as e:
             logger.debug(f"미리보기 출력 실패: {e}")
+
+    def _generate_title_from_messages(self, messages: List[Dict]) -> str:
+        """
+        메시지가 없거나 제목이 비어있을 때 첫 메시지로 제목 생성.
+
+        Args:
+            messages: 메시지 리스트
+
+        Returns:
+            생성된 제목 (최대 50자)
+        """
+        if not messages:
+            return "Untitled Conversation"
+
+        # 첫 번째 사용자 메시지 찾기
+        for msg in messages:
+            if msg.get('sender') == 'human':
+                text = msg.get('text', '').strip()
+                if text:
+                    # 첫 50자만 사용, 줄바꿈 제거
+                    title = text.replace('\n', ' ')[:50]
+                    if len(text) > 50:
+                        title += "..."
+                    return title
+
+        return "Untitled Conversation"

@@ -69,14 +69,17 @@ class ClaudeZipConverter:
 
         try:
             with zipfile.ZipFile(zip_path, 'r') as zf:
-                # Find all JSON files in ZIP
-                json_files = [f for f in zf.namelist() if f.endswith('.json')]
+                # Find conversations.json files only (ignore other JSON files)
+                json_files = [
+                    f for f in zf.namelist()
+                    if f.endswith('.json') and 'conversations' in f.lower()
+                ]
 
                 if not json_files:
-                    logger.warning("No JSON files found in ZIP")
+                    logger.warning("No conversations.json found in ZIP")
                     return markdowns
 
-                logger.info(f"Found {len(json_files)} JSON files in ZIP")
+                logger.info(f"Found {len(json_files)} conversations JSON files in ZIP")
 
                 # Process each JSON file
                 for json_file in json_files:

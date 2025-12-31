@@ -19,6 +19,7 @@ import logging
 import tempfile
 
 from bulk_import.claude_parse import ClaudeMigrationParser
+from bulk_import.zip_finder import ClaudeZipFinder
 from parse.ai_chat_parse import AIMarkdownParser
 from storage.ai_chat_saver import AIChatSaver
 from config.settings import get_log_file
@@ -42,12 +43,12 @@ class ClaudeMigrationCollector:
         self.markdown_parser = AIMarkdownParser()
         self.saver = AIChatSaver()
 
-    def collect(self, zip_path: str, target_date: date = None, all_dates: bool = False) -> Dict:
+    def collect(self, zip_path: str = None, target_date: date = None, all_dates: bool = False) -> Dict:
         """
         Claude ZIP 파일 마이그레이션
 
         Args:
-            zip_path: Claude.ai에서 다운로드한 ZIP 파일
+            zip_path: Claude.ai에서 다운로드한 ZIP 파일 (None이면 자동 감지)
             target_date: 저장할 날짜 (기본값: 오늘)
             all_dates: True면 모든 대화 수집, False면 target_date만
 
@@ -60,12 +61,23 @@ class ClaudeMigrationCollector:
             }
         """
         target_date = target_date or date.today()
+
+        # ZIP 파일 자동 감지
+        if not zip_path:
+            logger.info("ZIP 파일 경로가 지정되지 않음, 자동 감지 시작...")
+            finder = ClaudeZipFinder()
+            zip_file = finder.find_latest_zip()
+
+            if not zip_file:
+                raise ValueError("Claude ZIP 파일을 찾을 수 없습니다. 경로를 직접 지정하거나 ~/Downloads 또는 ../shared에 ZIP 파일을 배치하세요.")
+
+            zip_path = str(zip_file)
+            logger.info(f"자동 감지된 ZIP 파일: {zip_path}")
+
         logger.info(f"Claude ZIP 마이그레이션 시작: {zip_path}")
         logger.info(f"전체 수집 모드: {all_dates}")
 
         try:
-            if not zip_path:
-                raise ValueError("ZIP 파일 경로가 필요합니다")
 
             # 1. ZIP → 마크다운 변환
             logger.info("[1/3] ZIP 파일을 마크다운으로 변환...")

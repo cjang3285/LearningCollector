@@ -107,6 +107,11 @@ class ClaudeJsonParser(IJsonParser):
             logger.warning("'chat_messages' is not a list")
             return False
 
+        # Skip empty conversations
+        if len(messages) == 0:
+            logger.debug("Conversation has no messages, skipping")
+            return False
+
         # Validate each message has required fields
         for msg in messages:
             if not isinstance(msg, dict):
