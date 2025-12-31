@@ -37,7 +37,7 @@ class BaekjoonSaver(BaseSaver, ISaver):
         단일 백준 풀이 저장 (ISaver 인터페이스)
 
         Args:
-            data: 백준 풀이 데이터 (Dict 또는 BaekjoonProblemData)
+            data: 백준 풀이 데이터 (dict)
             artifact_date: 아티팩트 날짜
 
         Returns:
@@ -47,17 +47,6 @@ class BaekjoonSaver(BaseSaver, ISaver):
             SaveError: 저장 실패 시
         """
         try:
-            # BaekjoonProblemData 객체면 dict로 변환하고 구조 맞추기
-            if hasattr(data, 'to_dict'):
-                data = data.to_dict()
-                # BaekjoonProblemData 구조 → save_baekjoon_artifact 구조 변환
-                # code, code_language를 submission 객체로 래핑
-                if 'code' in data and 'submission' not in data:
-                    data['submission'] = {
-                        'code': data.get('code'),
-                        'language': data.get('code_language')
-                    }
-
             return self.save_baekjoon_artifact(data, artifact_date)
         except Exception as e:
             raise SaveError(f"백준 풀이 저장 실패: {e}") from e
@@ -89,8 +78,7 @@ class BaekjoonSaver(BaseSaver, ISaver):
                     skipped_count += 1
             except SaveError as e:
                 error_count += 1
-                # BaekjoonProblemData 객체 또는 dict 처리
-                problem_id = getattr(solution, 'problem_id', None) or solution.get('problem_id', 'unknown')
+                problem_id = solution.get('problem_id', 'unknown')
                 logger.error(
                     f"풀이 저장 실패 (problem={problem_id}): {e}"
                 )
