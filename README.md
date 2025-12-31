@@ -21,15 +21,15 @@
 
 ### 🏗️ 아키텍처 강점
 
-- ✅ **SOLID 원칙 완전 적용**: 유지보수성, 확장성, 테스트 용이성
-- ✅ **설정 기반 확장**: 새 Collector 추가 시 **YAML 파일만 수정** (코드 수정 불필요!)
-- ✅ **플러그인 시스템**: 외부 Collector 로드 가능
-- ✅ **동적 클래스 로딩**: 런타임에 Collector 추가/제거
-- ✅ **완벽한 하위 호환성**: 기존 코드 전혀 수정 안 함
+- **SOLID 원칙 완전 적용**: 유지보수성, 확장성, 테스트 용이성
+- **설정 기반 확장**: 새 Collector 추가 시 **YAML 파일만 수정** (코드 수정 불필요!)
+- **플러그인 시스템**: 외부 Collector 로드 가능
+- **동적 클래스 로딩**: 런타임에 Collector 추가/제거
+- **완벽한 하위 호환성**: 기존 코드 전혀 수정 안 함
 
 ---
 
-## 🚀 빠른 시작
+## 빠른 시작
 
 ### 1. 설치
 
@@ -86,10 +86,10 @@ python -m cli show ai-chat 1
 | 문서 | 설명 |
 |------|------|
 | [🔧 설치 가이드](INSTALL.md) | E2E 설치 및 설정 |
-| [🏗️ 아키텍처 진화](docs/ARCHITECTURE_EVOLUTION.md) | SOLID 리팩토링 전후 비교 |
+| [🏗️ 아키텍처 진화](docs/ARCHITECTURE_EVOLUTION.md) | 리팩토링 전후 비교 |
 | [🧩 설계 패턴](docs/DESIGN_PATTERNS.md) | Factory, Registry, 동적 로딩 설명 |
 | [🗄️ DB 가이드](docs/DATABASE_GUIDE.md) | DB 스키마 및 설정 |
-| [📋 리팩토링 계획](docs/REFACTORING_PLAN.md) | Phase 1~6 상세 계획 |
+| [📋 리팩토링 계획](docs/REFACTORING_PLAN.md) | Phase 1~6 상세 진행 과정 |
 
 ### 🎓 더 알아보기
 
@@ -98,7 +98,7 @@ python -m cli show ai-chat 1
 
 ---
 
-## 🏗️ 프로젝트 구조 (리팩토링 후)
+## 🏗️ 현재 프로젝트 구조
 
 ```
 LearningETL/
@@ -155,16 +155,6 @@ LearningETL/
 
 ## 🎨 새로운 Collector 추가 방법
 
-### Before 리팩토링 (5분, 5개 파일 수정)
-
-1. `collectors/new_collector.py` 작성
-2. `main.py` 수정 (import 추가)
-3. `__init__` 수정 (인스턴스 생성)
-4. `run()` 메서드 수정 (실행 로직)
-5. 환경변수 설정
-
-### After 리팩토링 (30초, 1개 파일 수정) ✨
-
 **1. Collector 클래스 작성** (ICollector 인터페이스 구현)
 
 ```python
@@ -194,16 +184,13 @@ collectors:
     priority: 25
     description: "Notion 페이지 수집"
 ```
-
-**끝!** 코드 수정 없이 즉시 사용 가능합니다.
-
 ---
 
 ## 🧩 SOLID 원칙 적용
 
-| 원칙 | 적용 방법 | 효과 |
-|------|-----------|------|
-| **SRP** | Collector는 조율만, Parser는 파싱만, Saver는 저장만 | 책임 명확, 유지보수 용이 |
+| 원칙 | 적용 방법|
+|------|-----------|
+| **SRP** | Collector는 조율만, Parser는 파싱만, Saver는 저장만 |
 | **OCP** | YAML 설정으로 확장, 코드 수정 불필요 | 새 Collector 추가 시간 **10배 단축** |
 | **LSP** | 모든 Collector가 `ICollector` 구현 | 다형성, 일관된 인터페이스 |
 | **ISP** | 최소한의 메서드만 정의 (3개) | 인터페이스 부담 감소 |
@@ -230,7 +217,7 @@ sudo systemctl start learningetl
 sudo systemctl status learningetl
 ```
 
-### 매일 자정 전체 스캔 (systemd timer 추천 ⭐)
+### 매일 자정 전체 스캔 (systemd timer 추천합니다)
 
 ```bash
 # 설치
@@ -244,10 +231,10 @@ journalctl -u learningetl-daily.service -f
 ```
 
 **장점**:
-- ✅ 시스템 재부팅 시 놓친 작업 자동 실행 (Persistent=true)
-- ✅ journalctl 통합 로그 관리
-- ✅ 실행 상태 추적 및 실패 알림
-- ✅ 의존성 관리 (PostgreSQL 준비 후 실행)
+-  시스템 재부팅 시 놓친 작업 자동 실행 (Persistent=true)
+-  journalctl 통합 로그 관리
+-  실행 상태 추적 및 실패 알림
+-  의존성 관리 (PostgreSQL 준비 후 실행)
 
 ---
 
@@ -268,48 +255,7 @@ learning.ai_chat_conversations       -- AI Chat (Claude/ChatGPT/Gemini)
 
 ---
 
-## 📊 성능
-
-| 항목 | 측정값 | 참고 |
-|------|--------|------|
-| **초기화 오버헤드** | +1ms | 동적 로딩 비용 (무시 가능) |
-| **실행 시간** | 변화 없음 | 병목은 네트워크/DB (수 초) |
-| **클래스 캐싱** | 첫 로드만 1ms, 이후 0ms | Factory 내부 캐싱 |
-| **개발 속도** | **10배 향상** | 새 Collector 추가 5분→30초 |
-
-**결론**: 런타임 성능 영향 없음 (0.05%), 개발 생산성 대폭 향상
-
-**상세 분석**: [📖 DESIGN_PATTERNS.md#성능-영향-분석](docs/DESIGN_PATTERNS.md#성능-영향-분석)
-
----
-
-## 🔮 미래 확장 방향
-
-### 즉시 가능
-
-- ✅ **외부 플러그인 개발** (Notion, Slack 등)
-- ✅ **웹 UI 기반 설정 관리** (재시작 없이 활성화/비활성화)
-- ✅ **성능 모니터링** (Prometheus/Grafana)
-
-### 향후 계획
-
-- 🎯 **조건부 실행** (스케줄, 네트워크 상태 기반)
-- 🎯 **Collector 의존성 관리** (DAG 기반 실행 순서)
-- 🎯 **분산 실행** (Celery/RQ 연동)
-- 🎯 **설정 버전 관리** (스키마 변경 시 마이그레이션)
-
-**상세 계획**: [📖 DESIGN_PATTERNS.md#미래-확장-방향](docs/DESIGN_PATTERNS.md#미래-확장-방향)
-
----
-
-## 🐛 트러블슈팅
-
-### GitHub API Rate Limit
-
-```bash
-curl -H "Authorization: Bearer $GITHUB_TOKEN" \
-  https://api.github.com/rate_limit
-```
+## 🐛 자주 쓰는 명령어
 
 ### AI 채팅 파일 감지 안 됨
 
@@ -317,7 +263,7 @@ curl -H "Authorization: Bearer $GITHUB_TOKEN" \
 2. 확장자 확인: `.md` 파일인지
 3. 다운로드 폴더 확인: `.env`에 설정한 경로 확인
 
-### DB 연결 실패
+### DB 연결
 
 ```bash
 # PostgreSQL 상태 확인
@@ -329,13 +275,13 @@ psql -h localhost -U postgres -d my_blog
 
 ---
 
-## 📋 전제조건
+## 📋 의존성
 
 - Python 3.8+
 - PostgreSQL 12+
 - GitHub Personal Access Token
-- **백준허브 연동 레포** (선택) - [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub)
-- **AI 채팅 브라우저 확장** (선택):
+- **백준허브 연동 레포** - [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub)
+- **AI chat exporter chrome extensions**
   - [Claude Exporter](https://chromewebstore.google.com/detail/claude-exporter/elhmfakncmnghlnabnolalcjkdpfjnin)
   - [ChatGPT Exporter](https://chromewebstore.google.com/detail/chatgpt-exporter/pldlpacbeonbjfhlongcdflcgfcnglkl)
   - [Gemini Chat Exporter](https://chromewebstore.google.com/detail/gemini-chat-exporter/bhmoomcflhcfhingnjjieheeadmdefkc)
@@ -344,12 +290,12 @@ psql -h localhost -U postgres -d my_blog
 
 ## 📖 아키텍처 히스토리
 
-### Phase 6 (현재): 설정 기반 + 동적 로딩
+### 현재 설정 기반 + 동적 로딩
 
-- ✅ YAML 설정 파일로 Collector 관리
-- ✅ 동적 클래스 로딩 (importlib)
-- ✅ 런타임 활성화/비활성화
-- ✅ 플러그인 시스템 기반 마련
+-  YAML 설정 파일로 Collector 관리
+-  동적 클래스 로딩 (importlib)
+-  런타임 활성화/비활성화
+-  플러그인 시스템 기반 마련
 
 ### Phase 1~5: SOLID 리팩토링
 
@@ -359,11 +305,10 @@ psql -h localhost -U postgres -d my_blog
 - Phase 4: Collector 리팩토링 (SRP, LSP 적용)
 - Phase 5: CollectorFactory 도입 (OCP 적용)
 
-### Phase 0: Legacy (리팩토링 전)
+### Phase 0: 리팩토링 전
 
 - 절차적 프로그래밍
-- 하드코딩, 중복 코드
-- 테스트 불가능
+- 하드코딩
 
 **전체 변화 과정**: [📖 ARCHITECTURE_EVOLUTION.md](docs/ARCHITECTURE_EVOLUTION.md)
 
@@ -372,13 +317,6 @@ psql -h localhost -U postgres -d my_blog
 ## 🤝 기여
 
 Issues와 Pull Requests를 환영합니다!
-
-새로운 Collector를 개발하고 싶다면:
-1. `ICollector` 인터페이스 구현
-2. `collectors.yaml`에 등록
-3. PR 제출
-
-**가이드**: [📖 ARCHITECTURE_EVOLUTION.md#마이그레이션-가이드](docs/ARCHITECTURE_EVOLUTION.md#마이그레이션-가이드)
 
 ---
 
@@ -390,7 +328,7 @@ MIT License
 
 ## 🔗 관련 프로젝트
 
-- [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub) - 백준 문제 자동 커밋
+- [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub) - 백준에서 해결한 문제를 지정한 레포지터리로 자동 커밋 푸시 
 - [Claude Exporter](https://github.com/jasonkneen/claude-exporter) - Claude 대화 내보내기
 - [ChatGPT Exporter](https://github.com/pionxzh/chatgpt-exporter) - ChatGPT 대화 내보내기
 - [Gemini Chat Exporter](https://github.com/jiajunhang/gemini-chat-exporter) - Gemini 대화 내보내기
