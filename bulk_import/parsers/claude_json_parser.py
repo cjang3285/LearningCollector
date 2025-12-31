@@ -66,6 +66,11 @@ class ClaudeJsonParser(IJsonParser):
                 raise ValueError(f"Unexpected JSON root type: {type(data)}")
 
             logger.info(f"Parsed {len(conversations)} conversations from JSON")
+
+            # 첫 번째 대화 미리보기 출력
+            if conversations:
+                self._log_conversation_preview(conversations[0])
+
             return conversations
 
         except json.JSONDecodeError as e:
@@ -113,3 +118,37 @@ class ClaudeJsonParser(IJsonParser):
                 return False
 
         return True
+
+    def _log_conversation_preview(self, conversation: Dict) -> None:
+        """
+        로그에 대화 미리보기 출력 (디버깅용).
+
+        Args:
+            conversation: 대화 딕셔너리
+        """
+        try:
+            title = conversation.get('name', 'Untitled')
+            created_at = conversation.get('created_at', 'Unknown')
+            messages = conversation.get('chat_messages', [])
+
+            logger.info("=" * 60)
+            logger.info("JSON 파싱 결과 미리보기:")
+            logger.info(f"  제목: {title}")
+            logger.info(f"  생성일: {created_at}")
+            logger.info(f"  메시지 수: {len(messages)}")
+
+            if messages:
+                first_msg = messages[0]
+                sender = first_msg.get('sender', 'unknown')
+                text = first_msg.get('text', '')
+
+                # 텍스트 미리보기 (처음 200자)
+                preview = text[:200] + "..." if len(text) > 200 else text
+
+                logger.info(f"  첫 메시지 ({sender}):")
+                logger.info(f"    {preview}")
+
+            logger.info("=" * 60)
+
+        except Exception as e:
+            logger.debug(f"미리보기 출력 실패: {e}")

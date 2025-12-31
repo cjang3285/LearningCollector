@@ -138,6 +138,9 @@ class ClaudeMigrationCollector:
 
             logger.info(f"Claude 마이그레이션 완료: {len(artifact_ids)}개 저장")
 
+            # DB 저장 결과 상세 출력
+            self._log_saved_conversations(conversations, artifact_ids)
+
             return {
                 'success': True,
                 'date': target_date,
@@ -156,6 +159,42 @@ class ClaudeMigrationCollector:
                 'artifact_ids': [],
                 'error': str(e)
             }
+
+    def _log_saved_conversations(self, conversations: List, artifact_ids: List[int]) -> None:
+        """
+        DB에 저장된 대화 결과를 로그로 출력.
+
+        Args:
+            conversations: 저장된 대화 객체 리스트
+            artifact_ids: DB artifact ID 리스트
+        """
+        try:
+            logger.info("=" * 60)
+            logger.info("DB 저장 결과:")
+            logger.info(f"  저장된 대화 수: {len(artifact_ids)}")
+            logger.info("")
+
+            # 각 대화별 상세 정보 (최대 5개만)
+            display_count = min(5, len(conversations))
+            for i in range(display_count):
+                conv = conversations[i]
+                artifact_id = artifact_ids[i] if i < len(artifact_ids) else None
+
+                logger.info(f"  [{i+1}] {conv.title}")
+                logger.info(f"      - Artifact ID: {artifact_id}")
+                logger.info(f"      - Provider: {conv.provider}")
+                logger.info(f"      - 메시지 수: {conv.total_messages} ({conv.user_messages} user, {conv.assistant_messages} assistant)")
+                logger.info(f"      - 코드 포함: {'예' if conv.has_code else '아니오'}")
+                logger.info(f"      - Created: {conv.created_at}")
+                logger.info("")
+
+            if len(conversations) > 5:
+                logger.info(f"  ... (나머지 {len(conversations) - 5}개 대화 생략)")
+
+            logger.info("=" * 60)
+
+        except Exception as e:
+            logger.debug(f"저장 결과 출력 실패: {e}")
 
 
 if __name__ == '__main__':

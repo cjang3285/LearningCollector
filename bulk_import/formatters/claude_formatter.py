@@ -9,8 +9,11 @@ SOLID Principles:
 """
 
 import html
+import logging
 from typing import Dict, List
 from .base_formatter import IMarkdownFormatter
+
+logger = logging.getLogger(__name__)
 
 
 class ClaudeMessageFormatter(IMarkdownFormatter):
@@ -72,7 +75,12 @@ class ClaudeMessageFormatter(IMarkdownFormatter):
         lines.append("---\n")
         lines.append("*Powered by Claude Exporter*")
 
-        return "\n".join(lines)
+        markdown = "\n".join(lines)
+
+        # 마크다운 변환 결과 미리보기 출력
+        self._log_markdown_preview(markdown, title)
+
+        return markdown
 
     def format_message(self, message: Dict) -> str:
         """
@@ -131,3 +139,34 @@ class ClaudeMessageFormatter(IMarkdownFormatter):
         text = text.strip()
 
         return text
+
+    def _log_markdown_preview(self, markdown: str, title: str) -> None:
+        """
+        로그에 마크다운 변환 결과 미리보기 출력 (디버깅용).
+
+        Args:
+            markdown: 변환된 마크다운 전체
+            title: 대화 제목
+        """
+        try:
+            lines = markdown.split('\n')
+
+            # 처음 15줄만 미리보기
+            preview_lines = lines[:15]
+            total_lines = len(lines)
+
+            logger.info("=" * 60)
+            logger.info("마크다운 변환 결과 미리보기:")
+            logger.info(f"  제목: {title}")
+            logger.info(f"  총 줄 수: {total_lines}")
+            logger.info("")
+            for line in preview_lines:
+                logger.info(f"  {line}")
+
+            if total_lines > 15:
+                logger.info(f"  ... (나머지 {total_lines - 15}줄 생략)")
+
+            logger.info("=" * 60)
+
+        except Exception as e:
+            logger.debug(f"미리보기 출력 실패: {e}")
