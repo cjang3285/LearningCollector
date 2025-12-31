@@ -6,7 +6,7 @@ set -e  # 에러 발생 시 중단
 
 # 프로젝트 루트 디렉토리 (이 스크립트 위치 기준)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # 가상환경 활성화
 if [ -d "$PROJECT_ROOT/venv" ]; then

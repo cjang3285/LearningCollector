@@ -12,7 +12,7 @@ WorkingDirectory=/home/jcw/LearningETL
 EnvironmentFile=/home/jcw/LearningETL/.env
 
 # 실행 명령
-ExecStart=/home/jcw/LearningETL/venv/bin/python /home/jcw/LearningETL/scripts/learningetl-daemon.py
+ExecStart=/home/jcw/LearningETL/venv/bin/python /home/jcw/LearningETL/scripts/runtime/learningetl-daemon.py
 
 # 자동 재시작
 Restart=always
