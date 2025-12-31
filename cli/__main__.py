@@ -167,12 +167,13 @@ class LearningCLI:
                 # 최근 5개 문제
                 cur.execute("""
                     SELECT
-                        problem_number,
-                        title,
-                        tier,
-                        solved_date
-                    FROM learning.baekjoon_solutions
-                    ORDER BY solved_date DESC
+                        bs.problem_id,
+                        bs.title,
+                        bs.tier,
+                        la.artifact_date
+                    FROM learning.baekjoon_solutions bs
+                    JOIN learning.learning_artifacts la ON bs.artifact_id = la.id
+                    ORDER BY la.artifact_date DESC
                     LIMIT 5
                 """)
                 recent_problems = cur.fetchall()
@@ -181,7 +182,7 @@ class LearningCLI:
                     print()
                     print("  최근 풀이:")
                     for p in recent_problems:
-                        print(f"    {p['problem_number']:5} {p['title'][:30]:30} [{p['tier']}] {p['solved_date']}")
+                        print(f"    {p['problem_id']:5} {p['title'][:30]:30} [{p['tier']}] {p['artifact_date']}")
 
                 print()
 
