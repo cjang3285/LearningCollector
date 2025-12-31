@@ -88,12 +88,12 @@ class LearningETL:
 
 #### 문제점
 
-❌ **SRP 위반**: Collector가 너무 많은 책임 (Export + Parse + Save + 조율)
-❌ **OCP 위반**: 새 Collector 추가 시 `main.py` 수정 필요
-❌ **DIP 위반**: 구체 클래스에 직접 의존 (테스트 어려움)
-❌ **LSP 위반**: Collector마다 다른 인터페이스 (`collect_github` vs `collect_baekjoon`)
-❌ **코드 중복**: Export → Parse → Save 패턴 반복
-❌ **테스트 불가**: Mock 주입 어려움
+ **SRP 위반**: Collector가 너무 많은 책임 (Export + Parse + Save + 조율)
+ **OCP 위반**: 새 Collector 추가 시 `main.py` 수정 필요
+ **DIP 위반**: 구체 클래스에 직접 의존 (테스트 어려움)
+ **LSP 위반**: Collector마다 다른 인터페이스 (`collect_github` vs `collect_baekjoon`)
+ **코드 중복**: Export → Parse → Save 패턴 반복
+ **테스트 불가**: Mock 주입 어려움
 
 ---
 
@@ -135,9 +135,9 @@ class ICollector(ABC):
 
 #### 개선사항
 
-✅ **DIP**: 추상화에 의존 (인터페이스)
-✅ **ISP**: 최소한의 메서드만 정의
-✅ **테스트 가능**: Mock 구현 가능
+ **DIP**: 추상화에 의존 (인터페이스)
+ **ISP**: 최소한의 메서드만 정의
+ **테스트 가능**: Mock 구현 가능
 
 ---
 
@@ -217,10 +217,10 @@ class AIChatCollector(ICollector):
 
 #### 개선사항
 
-✅ **SRP**: Collector는 조율만, Parser는 파싱만, Saver는 저장만
-✅ **LSP**: 모든 Collector가 동일한 `collect()` 메서드
-✅ **DIP**: 인터페이스에 의존 (구체 클래스 교체 가능)
-✅ **테스트 용이**: Mock Parser/Saver 주입 가능
+ **SRP**: Collector는 조율만, Parser는 파싱만, Saver는 저장만
+ **LSP**: 모든 Collector가 동일한 `collect()` 메서드
+ **DIP**: 인터페이스에 의존 (구체 클래스 교체 가능)
+ **테스트 용이**: Mock Parser/Saver 주입 가능
 
 ---
 
@@ -283,11 +283,11 @@ class LearningETL:
 
 #### 개선사항
 
-✅ **OCP**: Registry에 등록만 하면 자동 인식
-✅ **중앙화**: Collector 생성 로직 한 곳에 집중
-✅ **일관성**: 모든 Collector 동일한 방식으로 생성
+ **OCP**: Registry에 등록만 하면 자동 인식
+ **중앙화**: Collector 생성 로직 한 곳에 집중
+ **일관성**: 모든 Collector 동일한 방식으로 생성
 
-❌ **한계**: Registry가 여전히 Python 코드에 하드코딩됨
+ **한계**: Registry가 여전히 Python 코드에 하드코딩됨
 
 ---
 
@@ -412,12 +412,12 @@ class LearningETL:
 
 #### 개선사항
 
-✅ **완전한 OCP**: 코드 수정 없이 YAML만 수정
-✅ **동적 로딩**: 문자열 → 클래스 (런타임 로드)
-✅ **플러그인 시스템**: 외부 Collector 로드 가능
-✅ **런타임 설정**: 재시작 없이 활성화/비활성화
-✅ **우선순위 제어**: 실행 순서 YAML에서 관리
-✅ **하위 호환성**: 기존 코드 전혀 수정 안 함
+ **OCP**: 코드 수정 없이 YAML만 수정
+ **동적 로딩**: 문자열 → 클래스 (런타임 로드)
+ **플러그인 시스템**: 외부 Collector 로드 가능
+ **런타임 설정**: 재시작 없이 활성화/비활성화
+ **우선순위 제어**: 실행 순서 YAML에서 관리
+ **하위 호환성**: 기존 코드 전혀 수정 안 함
 
 ---
 
@@ -502,7 +502,7 @@ class LearningETL:
 **특징**:
 - 설정과 코드 분리 (YAML)
 - 모든 컴포넌트가 인터페이스 구현
-- 책임 명확히 분리 (SRP)
+- 책임 분리 (SRP)
 - 동적 로딩 (확장 가능)
 - 테스트 가능 (Mock 주입)
 
@@ -538,28 +538,28 @@ LearningETL/
 
 ```
 LearningETL/
-├── main.py                # 간결함 (Factory 사용)
+├── main.py                # Factory 사용
 │
-├── interfaces/            # ✨ 새로 추가
+├── interfaces/            #  새로 추가
 │   ├── __init__.py        # IParser, ISaver, ICollector
 │   ├── contexts.py        # CollectionContext
 │   └── results.py         # CollectionResult
 │
-├── factories/             # ✨ 새로 추가
+├── factories/             #  새로 추가
 │   ├── __init__.py
 │   └── collector_factory.py  # 동적 Collector 생성
 │
-├── collectors/            # ✨ 리팩토링됨 (ICollector 구현)
+├── collectors/            #  리팩토링됨 (ICollector 구현)
 │   ├── github_collector.py    # 조율만 담당 (SRP)
 │   ├── baekjoon_collector.py
 │   └── ai_chat_collector.py
 │
-├── parse/                 # ✨ 리팩토링됨 (IParser 구현)
+├── parse/                 #  리팩토링됨 (IParser 구현)
 │   ├── github_parse.py
 │   ├── baekjoon_parse.py
 │   └── ai_chat_parse.py
 │
-├── storage/               # ✨ 리팩토링됨 (ISaver 구현)
+├── storage/               #  리팩토링됨 (ISaver 구현)
 │   ├── base_saver.py
 │   ├── github_saver.py
 │   ├── baekjoon_saver.py
@@ -568,8 +568,8 @@ LearningETL/
 ├── config/
 │   ├── settings.py
 │   ├── logging_config.py
-│   ├── collectors.yaml    # ✨ 새로 추가 (Collector 설정)
-│   └── collector_config.py  # ✨ 새로 추가 (설정 관리)
+│   ├── collectors.yaml    #  새로 추가 (Collector 설정)
+│   └── collector_config.py  #  새로 추가 (설정 관리)
 │
 ├── export/
 ├── migration/
@@ -577,8 +577,8 @@ LearningETL/
 ├── scripts/
 ├── tests/
 └── docs/
-    ├── DESIGN_PATTERNS.md        # ✨ 새로 추가
-    ├── ARCHITECTURE_EVOLUTION.md # ✨ 새로 추가
+    ├── DESIGN_PATTERNS.md        #  새로 추가
+    ├── ARCHITECTURE_EVOLUTION.md #  새로 추가
     └── REFACTORING_PLAN.md
 ```
 
@@ -587,7 +587,7 @@ LearningETL/
 ## 주요 개선사항
 
 ### 1. 코드 품질
-
+-> 테스트 커버리지 수치 의심. 검증 필요.
 | 항목 | Before | After |
 |------|--------|-------|
 | **SOLID 준수** | ❌ 미적용 | ✅ 완전 적용 |
@@ -596,7 +596,7 @@ LearningETL/
 | **순환 의존성** | 있음 | 없음 |
 
 ### 2. 개발 생산성
-
+-> 수치 검증 필요
 | 작업 | Before | After | 개선 |
 |------|--------|-------|------|
 | **새 Collector 추가** | 5분 (코드 수정) | 30초 (YAML) | **10배** |
@@ -607,10 +607,7 @@ LearningETL/
 
 | 기능 | Before | After |
 |------|--------|-------|
-| **외부 플러그인** | ❌ 불가능 | ✅ 가능 |
-| **런타임 설정 변경** | ❌ 불가능 | ✅ 가능 |
-| **조건부 실행** | ❌ 불가능 | ✅ 가능 (미래) |
-| **분산 실행** | ❌ 불가능 | ✅ 가능 (미래) |
+| **런타임 설정 변경** |  불가능 |  가능 |
 
 ### 4. 유지보수성
 
@@ -618,38 +615,11 @@ LearningETL/
 |------|--------|-------|
 | **설정 위치** | 코드 곳곳 | YAML 한 곳 |
 | **의존성 파악** | 어려움 | 명확함 (인터페이스) |
-| **문서화** | 부족 | 풍부 |
+| **문서화** | 부족 | 개선 |
 
 ---
 
-## 마이그레이션 가이드
-
-### 기존 코드 호환성
-
-**좋은 소식**: 기존 코드는 **전혀 수정하지 않아도** 작동합니다!
-
-```python
-# 기존 코드 (여전히 작동!)
-etl = LearningETL()
-results = etl.run(target_date=date.today())
-```
-
-Factory가 하위 호환성을 제공하기 때문입니다.
-
 ### 새로운 Collector 추가 방법
-
-#### Before
-
-1. `collectors/new_collector.py` 작성
-2. `main.py` 열기
-3. `from collectors.new_collector import NewCollector` 추가
-4. `__init__` 메서드 수정
-5. `run()` 메서드 수정
-6. `config/settings.py`에 환경변수 추가
-7. `.env.example` 업데이트
-8. 테스트 코드 작성 (어려움)
-
-#### After
 
 1. `collectors/new_collector.py` 작성 (ICollector 구현)
 2. `config/collectors.yaml`에 추가:
@@ -660,20 +630,8 @@ Factory가 하위 호환성을 제공하기 때문입니다.
      priority: 25
      description: "새로운 데이터 소스"
    ```
-3. 끝!
 
 ### 테스트 작성 방법
-
-#### Before (어려움)
-
-```python
-# 테스트 불가능 (의존성 하드코딩됨)
-def test_collector():
-    collector = AIChatCollector()  # 실제 DB 연결 필요
-    # ...
-```
-
-#### After (쉬움)
 
 ```python
 # Mock 주입 가능!
@@ -695,27 +653,8 @@ def test_collector():
 
 ### 달성한 것
 
-✅ **완전한 SOLID 적용**: 5가지 원칙 모두 적용
-✅ **설정 기반 아키텍처**: 코드 수정 없이 확장 가능
-✅ **동적 로딩**: 플러그인 시스템 기반 마련
-✅ **하위 호환성**: 기존 코드 전혀 수정 안 함
-✅ **테스트 용이성**: Mock 주입 가능
-✅ **문서화**: 모든 변경사항 문서화
-
-### 다음 단계
-
-🎯 **즉시 가능**:
-- 외부 플러그인 개발 (Notion, Slack 등)
-- 웹 UI 개발 (설정 관리)
-- 성능 모니터링 추가
-
-🎯 **미래 계획**:
-- 분산 실행 (Celery/RQ)
-- 조건부 실행 (스케줄, 네트워크 상태)
-- Collector 의존성 관리 (DAG)
-
----
-
-**리팩토링 성공! 🎉**
-
-이제 LearningETL은 확장 가능하고, 테스트 가능하며, 유지보수하기 쉬운 시스템이 되었습니다.
+ **SOLID 적용**: 5가지 원칙 모두 적용
+ **설정 기반 아키텍처**: 코드 수정 없이 확장 가능
+ **동적 로딩**: 런타임에서 동작
+ **하위 호환성**: 리팩토링 전 사용하던 코드 수정 없이 호환
+ **테스트 용이성**: Mock 주입 가능
