@@ -18,14 +18,20 @@ load_dotenv(PROJECT_ROOT / '.env', override=True)
 # ============================================
 # GitHub 설정
 # ============================================
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')  # 환경변수에서만 가져오기
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 
-# GitHub Username(s) - 쉼표로 구분하여 여러 계정/작성자 지원
-# 예: GITHUB_USERNAME=cjang3285,Claude,another-user
-# 첫 번째 username이 primary (API 인증, 레포 소유자)로 사용됨
-_github_usernames_str = os.getenv('GITHUB_USERNAME', '')
-GITHUB_USERNAMES = [u.strip() for u in _github_usernames_str.split(',') if u.strip()]
-GITHUB_USERNAME = GITHUB_USERNAMES[0] if GITHUB_USERNAMES else None  # Primary username
+# GitHub Username (레포 소유자, API 인증 주체)
+# BaekjoonExporter 등에서 사용
+GITHUB_USERNAME = os.getenv('GITHUB_USERNAME')
+
+# GitHub 커밋 수집 대상 (작성자 이름 기준, 쉼표로 구분)
+# GitHubExporter에서 사용
+# 예: JANG CHANWOOK,Claude
+_github_authors_str = os.getenv('GITHUB_COMMIT_AUTHORS', '')
+GITHUB_USERNAMES = [u.strip() for u in _github_authors_str.split(',') if u.strip()]
+# 만약 AUTHORS가 비어있으면, 기본 USERNAME이라도 사용
+if not GITHUB_USERNAMES and GITHUB_USERNAME:
+    GITHUB_USERNAMES = [GITHUB_USERNAME]
 
 # ============================================
 # 백준허브 연동 레포 설정

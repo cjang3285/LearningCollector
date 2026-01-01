@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from parse.github_parse import GitHubParser
-from bulk_import.claude_parse import ClaudeMigrationParser
+from bulk_import.parsers.claude_json_parser import ClaudeJsonParser
 from parse.baekjoon_parse import BaekjoonParser
 from parse.ai_chat_parse import AIMarkdownParser
 
@@ -77,55 +77,39 @@ class TestGitHubParser(unittest.TestCase):
         self.assertGreater(len(result), 0)
 
 
-class TestClaudeMigrationParser(unittest.TestCase):
-    """Claude Migration Parser 테스트"""
+class TestClaudeJsonParser(unittest.TestCase):
+    """Claude JSON Parser 테스트"""
 
     def setUp(self):
         """테스트 전 환경 설정"""
-        self.parser = ClaudeMigrationParser()
+        self.parser = ClaudeJsonParser()
 
     def test_parser_initialization(self):
         """Parser 초기화 테스트"""
         self.assertIsNotNone(self.parser)
 
-    def test_parse_zip_with_invalid_path(self):
-        """잘못된 ZIP 경로 파싱 시 에러 처리"""
-        invalid_path = '/invalid/path/to/file.zip'
-
-        # 파일이 없으면 에러 또는 빈 결과 반환
-        try:
-            result = self.parser.parse_zip(invalid_path)
-            # 에러가 발생하지 않으면 빈 리스트여야 함
-            self.assertIsInstance(result, list)
-        except (FileNotFoundError, Exception):
-            # 에러 발생도 정상
-            pass
-
-    def test_convert_to_markdown(self):
-        """JSON을 마크다운으로 변환 테스트"""
-        sample_conversation = {
-            'uuid': 'test-uuid',
-            'name': 'Test Conversation',
-            'created_at': '2025-12-26T12:00:00Z',
-            'updated_at': '2025-12-26T13:00:00Z',
-            'chat_messages': [
-                {
-                    'sender': 'human',
-                    'text': 'Hello'
-                },
-                {
-                    'sender': 'assistant',
-                    'text': 'Hi there!'
-                }
-            ]
-        }
-
-        markdown = self.parser.convert_to_markdown(sample_conversation)
-
-        self.assertIsInstance(markdown, str)
-        self.assertIn('Test Conversation', markdown)
-        self.assertIn('Hello', markdown)
-        self.assertIn('Hi there!', markdown)
+    def test_parse_json_with_sample_data(self):
+        """샘플 JSON 데이터 파싱 테스트"""
+        sample_json_data = """
+        [
+            {
+                "uuid": "uuid1",
+                "name": "Conversation 1",
+                "created_at": "2023-01-01T10:00:00Z",
+                "updated_at": "2023-01-01T11:00:00Z",
+                "chat_messages": [
+                    {"sender": "human", "text": "Hello"},
+                    {"sender": "assistant", "text": "Hi there"}
+                ]
+            }
+        ]
+        """
+        conversations = self.parser.parse_json(sample_json_data)
+        self.assertIsInstance(conversations, list)
+        self.assertEqual(len(conversations), 1)
+        self.assertEqual(conversations[0]['uuid'], 'uuid1')
+        self.assertEqual(conversations[0]['name'], 'Conversation 1')
+        self.assertEqual(len(conversations[0]['chat_messages']), 2)
 
 
 class TestAIMarkdownParser(unittest.TestCase):

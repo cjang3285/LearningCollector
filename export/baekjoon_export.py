@@ -58,6 +58,7 @@ class BaekjoonExporter:
             'Authorization': f'token {self.token}',
             'Accept': 'application/vnd.github.v3+json'
         }
+        logger.info(f"BaekjoonExporter 초기화: {self.username}/{self.baekjoon_repo}")
 
     def get_commits(self, since: datetime, until: datetime) -> List[Dict]:
         """
@@ -76,6 +77,7 @@ class BaekjoonExporter:
             'until': until.isoformat(),
             'per_page': 100
         }
+        logger.info(f"커밋 가져오기: url='{url}', params={params}")
 
         response = requests.get(url, headers=self.headers, params=params)
         response.raise_for_status()

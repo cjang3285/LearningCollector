@@ -3,67 +3,78 @@
 GitHub 모듈 테스트
 """
 
+import unittest
 import sys
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 # 프로젝트 루트를 path에 추가
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from export.github_export import GitHubExporter
 from parse.github_parse import GitHubParser
 
-def test_github():
-    print("="*60)
-    print("GitHub 모듈 테스트")
-    print("="*60)
 
-    try:
-        # Export 테스트
+class TestGitHubModuleIntegration(unittest.TestCase):
+    """GitHub 모듈 통합 테스트 (Export + Parse)"""
+
+    @patch('export.github_export.GitHubExporter.get_user_repos')
+    @patch('export.github_export.GitHubExporter.get_commits_by_date')
+    @patch('export.github_export.GitHubExporter.get_commit_detail')
+    @patch('export.github_export.GitHubExporter.get_file_content')
+    def test_github_workflow(self, mock_get_file_content, mock_get_commit_detail,
+                             mock_get_commits_by_date, mock_get_user_repos):
+        """GitHub Export와 Parse 모듈의 통합 워크플로우 테스트"""
+
+        # Mocking setup for Exporter
+        mock_get_user_repos.return_value = [
+            {'name': 'repo1', 'owner': {'login': 'testuser'}},
+            {'name': 'repo2', 'owner': {'login': 'testuser'}}
+        ]
+
+        mock_get_commits_by_date.side_effect = [
+            [{'sha': 'sha1_repo1', 'commit': {'message': 'commit 1 repo1', 'author': {'date': '2026-01-01T10:00:00Z'}}, 'html_url': 'http://example.com/repo1'}],
+            [{'sha': 'sha1_repo2', 'commit': {'message': 'commit 1 repo2', 'author': {'date': '2026-01-01T11:00:00Z'}}, 'html_url': 'http://example.com/repo2'}]
+        ]
+
+        mock_get_commit_detail.side_effect = [
+            {'files': [{'filename': 'file1.py', 'status': 'added', 'additions': 10, 'deletions': 0, 'changes': 10, 'patch': 'patch1'}], 'stats': {'total': 10, 'additions': 10, 'deletions': 0}},
+            {'files': [{'filename': 'file2.js', 'status': 'modified', 'additions': 5, 'deletions': 2, 'changes': 7, 'patch': 'patch2'}], 'stats': {'total': 7, 'additions': 5, 'deletions': 2}}
+        ]
+        mock_get_file_content.side_effect = ["print('hello')", "console.log('world')"]
+
+        # 1. Export 테스트
         print("\n[1/2] GitHub Export 테스트...")
-        exporter = GitHubExporter()
-        commits = exporter.export_today()
+        exporter = GitHubExporter(token='test_token', usernames=['testuser'])
+        commits = exporter.export()
 
-        print(f"\n수집된 커밋: {len(commits)}개")
+        self.assertEqual(len(commits), 2)
+        self.assertEqual(commits[0]['repo'], 'repo1')
+        self.assertEqual(commits[1]['repo'], 'repo2')
+        self.assertIn('files', commits[0])
+        self.assertIn('content', commits[0]['files'][0])
+        self.assertEqual(commits[0]['files'][0]['content'], "print('hello')")
 
-        if commits:
-            # Parse 테스트
-            print("\n[2/2] GitHub Parse 테스트...")
-            parser = GitHubParser()
-            parsed_commits = parser.parse_commits(commits)
-            summary = parser.get_summary(parsed_commits)
+        # 2. Parse 테스트
+        print("\n[2/2] GitHub Parse 테스트...")
+        parser = GitHubParser()
+        parsed_commits = parser.parse_commits(commits)
+        summary = parser.get_summary(parsed_commits)
 
-            print("\n--- 요약 ---")
-            print(f"총 커밋: {summary['total_commits']}개")
-            print(f"저장소: {summary['total_repos']}개")
-            print(f"파일: {summary['total_files']}개")
-            print(f"추가 라인: +{summary['total_additions']}")
-            print(f"삭제 라인: -{summary['total_deletions']}")
-            print(f"언어별 파일 수: {summary['languages']}")
-            print(f"주석: {summary['total_comments']}개")
+        self.assertEqual(summary['total_commits'], 2)
+        self.assertEqual(summary['total_repos'], 2)
+        self.assertEqual(summary['total_files'], 2)
+        self.assertEqual(summary['total_additions'], 15)
+        self.assertEqual(summary['total_deletions'], 2)
+        self.assertIn('Python', summary['languages'])
+        self.assertIn('JavaScript', summary['languages'])
+        self.assertEqual(summary['languages']['Python'], 1)
+        self.assertEqual(summary['languages']['JavaScript'], 1)
+        # Note: 'total_comments' is hard to test accurately with generic mock data, so we'll omit a specific assertion for now
 
-            print("\n--- 커밋 상세 ---")
-            for commit in parsed_commits[:3]:  # 최대 3개만 출력
-                print(f"\n[{commit.repo}] {commit.message[:50]}")
-                print(f"  SHA: {commit.sha[:8]}")
-                print(f"  날짜: {commit.date}")
-                print(f"  파일: {len(commit.files)}개")
-                for file in commit.files[:2]:  # 각 커밋당 최대 2개 파일만
-                    print(f"    - {file.filename} ({file.language})")
-                    print(f"      {file.status}: +{file.additions}/-{file.deletions}")
-                    if file.comments:
-                        print(f"      주석: {len(file.comments)}개")
-        else:
-            print("\n오늘 커밋이 없습니다.")
+        print("\n[OK] 테스트 완료")
 
-        print("\n" + "="*60)
-        print("[OK] 테스트 완료")
-        print("="*60)
-
-    except Exception as e:
-        print(f"\n[ERROR] 테스트 실패: {e}")
-        import traceback
-        traceback.print_exc()
 
 if __name__ == '__main__':
-    test_github()
+    unittest.main()

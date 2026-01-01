@@ -24,45 +24,47 @@ class TestGitHubExporter(unittest.TestCase):
 
     def setUp(self):
         """테스트 전 환경 설정"""
-        # 토큰 없이 초기화하면 에러 발생 예상
         pass
 
     @patch('export.github_export.GITHUB_TOKEN', None)
     def test_init_without_token_raises_error(self):
         """토큰 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
-            GitHubExporter(token=None, username='testuser')
+            GitHubExporter(token=None, usernames=['testuser'])
 
-    @patch('export.github_export.GITHUB_USERNAME', None)
+    @patch('export.github_export.GITHUB_USERNAMES', [])
     def test_init_without_username_raises_error(self):
         """유저네임 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
-            GitHubExporter(token='test_token', username=None)
+            GitHubExporter(token='test_token', usernames=[])
 
     def test_init_with_credentials(self):
         """정상적인 초기화 테스트"""
-        exporter = GitHubExporter(token='test_token', username='testuser')
+        exporter = GitHubExporter(token='test_token', usernames=['testuser', 'claude'])
 
         self.assertEqual(exporter.token, 'test_token')
         self.assertEqual(exporter.username, 'testuser')
+        self.assertEqual(exporter.usernames, ['testuser', 'claude'])
         self.assertIn('Authorization', exporter.headers)
 
-    @patch('export.github_export.requests.get')
-    def test_export_today_with_mock(self, mock_get):
+    @patch('export.github_export.GitHubExporter.get_user_repos')
+    @patch('export.github_export.GitHubExporter.get_commits_by_date')
+    def test_export_with_mock(self, mock_get_commits_by_date, mock_get_user_repos):
         """당일 커밋 수집 테스트 (모킹)"""
         # Mock 응답 설정
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = []
-        mock_get.return_value = mock_response
+        mock_get_user_repos.return_value = [{'name': 'testrepo', 'owner': {'login': 'testuser'}}]
+        mock_get_commits_by_date.return_value = [{'sha': '123', 'commit': {'message': 'test commit', 'author': {'date': '2026-01-01T10:00:00Z'}}, 'html_url': 'http://example.com'}]
 
-        exporter = GitHubExporter(token='test_token', username='testuser')
-        commits = exporter.export_today()
+        exporter = GitHubExporter(token='test_token', usernames=['testuser'])
+        commits = exporter.export()
 
         # API 호출 확인
-        self.assertTrue(mock_get.called)
+        mock_get_user_repos.assert_called_once()
+        mock_get_commits_by_date.assert_called_once()
         # 결과는 리스트여야 함
         self.assertIsInstance(commits, list)
+        self.assertEqual(len(commits), 1)
+        self.assertEqual(commits[0]['sha'], '123')
 
 
 class TestBaekjoonExporter(unittest.TestCase):

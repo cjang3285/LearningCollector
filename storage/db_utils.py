@@ -31,7 +31,7 @@ def get_last_collection_date(source_type: str) -> Optional[date]:
         마지막 수집 날짜 또는 None (데이터 없음)
     """
     db_config = get_db_config()
-
+    conn = None  # Initialize conn to None
     try:
         conn = psycopg2.connect(**db_config)
         with conn.cursor() as cur:
@@ -104,7 +104,7 @@ def has_data_for_date(source_type: str, target_date: date) -> bool:
         데이터 존재 여부
     """
     db_config = get_db_config()
-
+    conn = None  # Initialize conn to None
     try:
         conn = psycopg2.connect(**db_config)
         with conn.cursor() as cur:
