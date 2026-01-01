@@ -10,130 +10,37 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from storage.db_client import get_connection
-from datetime import date, timedelta
+import warnings
 from typing import Optional
+from datetime import date, timedelta
 import logging
 
-from config.settings import get_db_config
+from storage import repository
 
 logger = logging.getLogger(__name__)
 
 
+def _warn_deprecated():
+    warnings.warn(
+        "storage.db_utils is deprecated — use storage.repository or BaseSaver instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 def get_last_collection_date(source_type: str) -> Optional[date]:
-    """
-    특정 소스의 마지막 수집 날짜 조회
-
-    Args:
-        source_type: 소스 타입 ('github', 'baekjoon', 'ai_chat_claude' 등)
-
-    Returns:
-        마지막 수집 날짜 또는 None (데이터 없음)
-    """
-    db_config = get_db_config()
-    try:
-        conn = get_connection(db_config)
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT MAX(artifact_date)
-                FROM learning.learning_artifacts
-                WHERE source_type = %s
-            """,
-                (source_type,),
-            )
-
-            result = cur.fetchone()
-            last_date = result[0] if result else None
-
-            if last_date:
-                logger.info(f"[{source_type}] 마지막 수집 날짜: {last_date}")
-            else:
-                logger.info(f"[{source_type}] 수집 이력 없음 (첫 실행)")
-
-            return last_date
-
-    except Exception as e:
-        logger.error(f"마지막 수집 날짜 조회 실패 ({source_type}): {e}")
-        return None
-
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+    _warn_deprecated()
+    return repository.get_last_collection_date(source_type)
 
 
 def get_collection_date_range(source_type: str, default_days_back: int = 7) -> tuple[date, date]:
-    """
-    증분 수집을 위한 날짜 범위 반환
-
-    Args:
-        source_type: 소스 타입
-        default_days_back: 첫 실행 시 과거 며칠까지 수집할지 (기본: 7일)
-
-    Returns:
-        (시작 날짜, 종료 날짜) 튜플
-        - 시작 날짜: 마지막 수집 날짜 + 1일 (또는 오늘-default_days_back)
-        - 종료 날짜: 오늘
-    """
-    today = date.today()
-    last_date = get_last_collection_date(source_type)
-
-    if last_date:
-        # 마지막 수집 다음 날부터
-        start_date = last_date + timedelta(days=1)
-    else:
-        # 첫 실행: 과거 N일부터
-        start_date = today - timedelta(days=default_days_back)
-
-    # 시작 날짜가 오늘 이후면 수집할 것 없음
-    if start_date > today:
-        logger.info(f"[{source_type}] 수집할 데이터 없음 (이미 최신)")
-        return (today, today - timedelta(days=1))  # 빈 범위
-
-    logger.info(f"[{source_type}] 수집 범위: {start_date} ~ {today}")
-    return (start_date, today)
+    _warn_deprecated()
+    return repository.get_collection_date_range(source_type, default_days_back=default_days_back)
 
 
 def has_data_for_date(source_type: str, target_date: date) -> bool:
-    """
-    특정 날짜에 데이터가 이미 있는지 확인
-
-    Args:
-        source_type: 소스 타입
-        target_date: 확인할 날짜
-
-    Returns:
-        데이터 존재 여부
-    """
-    db_config = get_db_config()
-    conn = None
-    try:
-        conn = get_connection(db_config)
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM learning.learning_artifacts
-                WHERE source_type = %s AND artifact_date = %s
-            """,
-                (source_type, target_date),
-            )
-
-            count = cur.fetchone()[0]
-            return count > 0
-
-    except Exception as e:
-        logger.error(f"데이터 존재 확인 실패 ({source_type}, {target_date}): {e}")
-        return False
-
-    finally:
-        try:
-            if conn:
-                conn.close()
-        except Exception:
-            pass
+    _warn_deprecated()
+    return repository.has_data_for_date(source_type, target_date)
 
 
 if __name__ == '__main__':

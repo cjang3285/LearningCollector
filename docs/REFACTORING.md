@@ -29,3 +29,11 @@ How to run tests
 
 Status
 - All tests passed locally: 47 tests (45 passed, 2 skipped).
+
+Deprecation Notice
+- `storage/db_utils.py` is now deprecated and delegates to `storage.repository`.
+  - New code should import `storage.repository` or use `BaseSaver` for DB access.
+  - `storage/db_utils` will be removed in a future breaking release; migrate callers accordingly.
+
+CHANGELOG & PR
+- A `docs/CHANGELOG.md` entry was added and a branch pushed. Consider opening a PR with this branch.
