@@ -31,11 +31,15 @@ logger = setup_logging(get_log_file('baekjoon_collector'), __name__)
 class BaekjoonCollector(ICollector):
     """백준 데이터 수집 통합 (ICollector 구현)"""
 
-    def __init__(self):
+    def __init__(self, exporter: BaekjoonExporter = None, parser: BaekjoonParser = None, saver: BaekjoonSaver = None):
+        """
+        Dependency-injectable constructor. Accepts optional exporter/parser/saver instances.
+        If not provided, default instances are created (using config values when applicable).
+        """
         # BAEKJOON_REPO 설정을 BaekjoonExporter에 전달
-        self.exporter = BaekjoonExporter(baekjoon_repo=BAEKJOON_REPO or "Baekjoon_solutions")
-        self.parser = BaekjoonParser()
-        self.saver = BaekjoonSaver()
+        self.exporter = exporter or BaekjoonExporter(baekjoon_repo=BAEKJOON_REPO or "Baekjoon_solutions")
+        self.parser = parser or BaekjoonParser()
+        self.saver = saver or BaekjoonSaver()
 
     # ============================================
     # ICollector 인터페이스 구현

@@ -30,10 +30,14 @@ logger = setup_logging(get_log_file('github_collector'), __name__)
 class GitHubCollector(ICollector):
     """GitHub 데이터 수집 통합 (ICollector 구현)"""
 
-    def __init__(self):
-        self.exporter = GitHubExporter()
-        self.parser = GitHubParser()
-        self.saver = GitHubSaver()
+    def __init__(self, exporter: GitHubExporter = None, parser: GitHubParser = None, saver: GitHubSaver = None):
+        """
+        Dependency-injectable constructor. If dependencies are provided they are used,
+        otherwise defaults are instantiated. This reduces tight coupling and improves testability.
+        """
+        self.exporter = exporter or GitHubExporter()
+        self.parser = parser or GitHubParser()
+        self.saver = saver or GitHubSaver()
 
     # ============================================
     # ICollector 인터페이스 구현

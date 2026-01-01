@@ -38,10 +38,13 @@ logger = logging.getLogger(__name__)
 class ClaudeMigrationCollector:
     """Claude ZIP → 마크다운 → DB 마이그레이션"""
 
-    def __init__(self):
-        self.migration_parser = ClaudeMigrationParser()
-        self.markdown_parser = AIMarkdownParser()
-        self.saver = AIChatSaver()
+    def __init__(self, migration_parser: ClaudeMigrationParser = None, markdown_parser: AIMarkdownParser = None, saver: AIChatSaver = None):
+        """
+        Dependency-injectable constructor for Claude migration. Accepts optional parser/formatter/saver.
+        """
+        self.migration_parser = migration_parser or ClaudeMigrationParser()
+        self.markdown_parser = markdown_parser or AIMarkdownParser()
+        self.saver = saver or AIChatSaver()
 
     def collect(self, zip_path: str = None, target_date: date = None, all_dates: bool = False) -> Dict:
         """

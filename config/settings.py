@@ -22,7 +22,7 @@ GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 
 # GitHub Username (레포 소유자, API 인증 주체)
 # BaekjoonExporter 등에서 사용
-GITHUB_USERNAME = os.getenv('GITHUB_USERNAME')
+GITHUB_USERNAME = os.getenv('GITHUB_USERNAME') or os.getenv('GITHUB_USER') or 'unknown'
 
 # GitHub 커밋 수집 대상 (작성자 이름 기준, 쉼표로 구분)
 # GitHubExporter에서 사용
@@ -36,8 +36,8 @@ if not GITHUB_USERNAMES and GITHUB_USERNAME:
 # ============================================
 # 백준허브 연동 레포 설정
 # ============================================
-BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE')
-BAEKJOON_REPO = os.getenv('BAEKJOON_REPO')  # 백준허브와 연동된 레포지터리
+BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE') or 'unknown'
+BAEKJOON_REPO = os.getenv('BAEKJOON_REPO') or 'Baekjoon_solutions'  # 백준허브와 연동된 레포지터리
 
 # ============================================
 # 디렉토리 설정

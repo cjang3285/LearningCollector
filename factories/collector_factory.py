@@ -107,6 +107,18 @@ class CollectorFactory:
             logger.error(f"예상치 못한 오류 ({class_path}): {e}")
             return None
 
+    def _import_class_by_path(self, class_path: str):
+        """
+        Import any class by full path 'module.submodule.ClassName'. Returns the class or None.
+        """
+        try:
+            module_path, class_name = class_path.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            return getattr(module, class_name)
+        except Exception as e:
+            logger.error(f"클래스 임포트 실패 ({class_path}): {e}")
+            return None
+
     def _create_collector_impl(self, collector_name: str) -> Optional[ICollector]:
         """
         [내부] 단일 Collector 생성 구현
@@ -133,9 +145,24 @@ class CollectorFactory:
         collector_class = self._import_collector_class(class_path)
         if not collector_class:
             return None
+        # 구성에서 dependencies 매핑이 있으면 인스턴스화하여 생성자에 주입
+        dependencies_cfg = collector_config.get('dependencies', {}) or {}
+        init_kwargs = {}
 
-        # 인스턴스 생성
+        for param_name, dep_class_path in dependencies_cfg.items():
+            dep_class = self._import_class_by_path(dep_class_path)
+            if not dep_class:
+                logger.warning(f"{collector_name}: dependency import 실패: {dep_class_path}")
+                continue
+            try:
+                init_kwargs[param_name] = dep_class()
+            except Exception as e:
+                logger.error(f"{collector_name}: dependency 인스턴스화 실패: {dep_class_path}: {e}")
+
+        # 인스턴스 생성 (의존성 주입 시도)
         try:
+            if init_kwargs:
+                return collector_class(**init_kwargs)
             return collector_class()
         except Exception as e:
             logger.error(f"{collector_name} Collector 생성 실패: {e}")
