@@ -19,13 +19,13 @@ load_dotenv(PROJECT_ROOT / '.env', override=True)
 # GitHub 설정
 # ============================================
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')  # 환경변수에서만 가져오기
-GITHUB_USERNAME = os.getenv('GITHUB_USERNAME')
 
-# Claude 커밋 수집 설정
-# Claude가 작성한 커밋도 수집하려면 Claude의 author 이름을 설정
-# 예: "Claude", "Claude Code", "claude-sonnet" 등
-CLAUDE_AUTHORS = os.getenv('CLAUDE_AUTHORS', '').split(',') if os.getenv('CLAUDE_AUTHORS') else []
-CLAUDE_AUTHORS = [author.strip() for author in CLAUDE_AUTHORS if author.strip()]
+# GitHub Username(s) - 쉼표로 구분하여 여러 계정/작성자 지원
+# 예: GITHUB_USERNAME=cjang3285,Claude,another-user
+# 첫 번째 username이 primary (API 인증, 레포 소유자)로 사용됨
+_github_usernames_str = os.getenv('GITHUB_USERNAME', '')
+GITHUB_USERNAMES = [u.strip() for u in _github_usernames_str.split(',') if u.strip()]
+GITHUB_USERNAME = GITHUB_USERNAMES[0] if GITHUB_USERNAMES else None  # Primary username
 
 # ============================================
 # 백준허브 연동 레포 설정

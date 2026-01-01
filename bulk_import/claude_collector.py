@@ -69,7 +69,7 @@ class ClaudeMigrationCollector:
             zip_file = finder.find_latest_zip()
 
             if not zip_file:
-                raise ValueError("Claude ZIP 파일을 찾을 수 없습니다. 경로를 직접 지정하거나 ~/Downloads 또는 ../shared에 ZIP 파일을 배치하세요.")
+                raise ValueError("Claude ZIP 파일을 찾을 수 없습니다. 경로를 직접 지정하거나 ~/Downloads 또는 ~/shared에 ZIP 파일을 배치하세요.")
 
             zip_path = str(zip_file)
             logger.info(f"자동 감지된 ZIP 파일: {zip_path}")

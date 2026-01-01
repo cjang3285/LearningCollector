@@ -2,7 +2,7 @@
 """
 LearningETL 데몬 - 파일 감지 및 자동 수집
 
-/home/jcw/shared 폴더를 감시하여 새로운 파일이 생기면 자동으로 수집합니다.
+AI_CHAT_DOWNLOAD_DIR 또는 ~/shared 폴더를 감시하여 새로운 파일이 생기면 자동으로 수집합니다.
 
 Hot Reload:
 - 코드 변경 감지 시 자동 재시작 (개발 편의성)
@@ -115,8 +115,10 @@ class LearningFileHandler(FileSystemEventHandler):
 
 def main():
     """데몬 메인 함수"""
-    # 감시 폴더 (환경변수 또는 기본값)
-    watch_dir = os.getenv('LEARNING_WATCH_DIR', '/home/jcw/shared')
+    # 감시 폴더 (환경변수 또는 홈 디렉토리 기반)
+    from pathlib import Path
+    default_watch_dir = str(Path.home() / 'shared')
+    watch_dir = os.getenv('LEARNING_WATCH_DIR', default_watch_dir)
     hot_reload = os.getenv('HOT_RELOAD', 'true').lower() == 'true'
 
     if not Path(watch_dir).exists():

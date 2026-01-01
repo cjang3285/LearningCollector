@@ -19,8 +19,8 @@ from typing import List, Dict, Optional
 import logging
 
 from config.settings import (
-    GITHUB_TOKEN, GITHUB_USERNAME, GITHUB_API_BASE,
-    CLAUDE_AUTHORS, get_log_file
+    GITHUB_TOKEN, GITHUB_USERNAME, GITHUB_USERNAMES, GITHUB_API_BASE,
+    get_log_file
 )
 
 # 로깅 설정
@@ -38,10 +38,11 @@ logger = logging.getLogger(__name__)
 class GitHubExporter:
     """GitHub 커밋 + 코드 수집"""
 
-    def __init__(self, token: Optional[str] = None, username: Optional[str] = None, claude_authors: Optional[List[str]] = None):
+    def __init__(self, token: Optional[str] = None, usernames: Optional[List[str]] = None):
         self.token = token or GITHUB_TOKEN
-        self.username = username or GITHUB_USERNAME
-        self.claude_authors = claude_authors if claude_authors is not None else CLAUDE_AUTHORS
+        # usernames: 수집할 작성자 목록 (첫 번째가 primary)
+        self.usernames = usernames if usernames is not None else GITHUB_USERNAMES
+        self.username = self.usernames[0] if self.usernames else None  # Primary username
 
         if not self.token:
             raise ValueError("GITHUB_TOKEN 필요")
@@ -54,9 +55,9 @@ class GitHubExporter:
             'X-GitHub-Api-Version': '2022-11-28'
         }
         self.base_url = GITHUB_API_BASE
-        logger.info(f"GitHubExporter 초기화: {self.username}")
-        if self.claude_authors:
-            logger.info(f"Claude 작성자 추적: {', '.join(self.claude_authors)}")
+        logger.info(f"GitHubExporter 초기화: Primary={self.username}")
+        if len(self.usernames) > 1:
+            logger.info(f"추가 커밋 작성자: {', '.join(self.usernames[1:])}")
     
     def get_user_repos(self) -> List[Dict]:
         """사용자의 모든 저장소 가져오기"""
@@ -113,11 +114,10 @@ class GitHubExporter:
             response.raise_for_status()
             commits = response.json()
 
-            # 사용자가 관련된 커밋만 필터링
-            # 1. author가 사용자
-            # 2. committer가 사용자
-            # 3. Co-Authored-By에 사용자 포함
-            # 4. Claude가 작성한 커밋 (설정된 경우)
+            # 설정된 username들의 커밋만 필터링
+            # 1. author가 설정된 username 중 하나
+            # 2. committer가 설정된 username 중 하나
+            # 3. Co-Authored-By에 username 포함
             filtered = []
             for commit in commits:
                 commit_data = commit.get('commit', {})
@@ -125,23 +125,16 @@ class GitHubExporter:
                 committer = commit_data.get('committer', {}).get('name', '')
                 message = commit_data.get('message', '')
 
-                # 사용자 관련 커밋인지 확인
-                is_user_commit = (
-                    self.username.lower() in author.lower() or
-                    self.username.lower() in committer.lower() or
-                    f'Co-Authored-By:' in message  # Co-author 체크는 나중에 상세히
-                )
+                # 모든 username 확인
+                is_target_commit = False
+                for username in self.usernames:
+                    if (username.lower() in author.lower() or
+                        username.lower() in committer.lower() or
+                        f'Co-Authored-By: {username}' in message):
+                        is_target_commit = True
+                        break
 
-                # Claude 작성자 확인 (설정된 경우)
-                is_claude_commit = False
-                if self.claude_authors:
-                    for claude_author in self.claude_authors:
-                        if (claude_author.lower() in author.lower() or
-                            claude_author.lower() in committer.lower()):
-                            is_claude_commit = True
-                            break
-
-                if is_user_commit or is_claude_commit:
+                if is_target_commit:
                     filtered.append(commit)
 
             return filtered

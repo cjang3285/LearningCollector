@@ -25,9 +25,11 @@ class ClaudeZipFinder:
     3. DEFAULT_SEARCH_DIRS
     """
 
+    # 기본 검색 디렉토리 - 환경변수로 설정 가능
+    # CLAUDE_ZIP_SEARCH_DIRS 환경변수 사용 권장
     DEFAULT_SEARCH_DIRS = [
         "~/Downloads",
-        "../shared",  # 라즈베리파이의 공유 폴더
+        str(Path.home() / "shared"),  # 홈 디렉토리 기반
         ".",
     ]
 
