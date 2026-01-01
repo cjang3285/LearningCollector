@@ -10,7 +10,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import psycopg2
+from storage.db_client import get_connection
 from datetime import date, timedelta
 from typing import Optional
 import logging
@@ -31,15 +31,17 @@ def get_last_collection_date(source_type: str) -> Optional[date]:
         마지막 수집 날짜 또는 None (데이터 없음)
     """
     db_config = get_db_config()
-    conn = None  # Initialize conn to None
     try:
-        conn = psycopg2.connect(**db_config)
+        conn = get_connection(db_config)
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT MAX(artifact_date)
                 FROM learning.learning_artifacts
                 WHERE source_type = %s
-            """, (source_type,))
+            """,
+                (source_type,),
+            )
 
             result = cur.fetchone()
             last_date = result[0] if result else None
@@ -56,8 +58,10 @@ def get_last_collection_date(source_type: str) -> Optional[date]:
         return None
 
     finally:
-        if conn:
+        try:
             conn.close()
+        except Exception:
+            pass
 
 
 def get_collection_date_range(source_type: str, default_days_back: int = 7) -> tuple[date, date]:
@@ -104,15 +108,18 @@ def has_data_for_date(source_type: str, target_date: date) -> bool:
         데이터 존재 여부
     """
     db_config = get_db_config()
-    conn = None  # Initialize conn to None
+    conn = None
     try:
-        conn = psycopg2.connect(**db_config)
+        conn = get_connection(db_config)
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*)
                 FROM learning.learning_artifacts
                 WHERE source_type = %s AND artifact_date = %s
-            """, (source_type, target_date))
+            """,
+                (source_type, target_date),
+            )
 
             count = cur.fetchone()[0]
             return count > 0
@@ -122,8 +129,11 @@ def has_data_for_date(source_type: str, target_date: date) -> bool:
         return False
 
     finally:
-        if conn:
-            conn.close()
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

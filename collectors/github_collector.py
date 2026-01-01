@@ -18,7 +18,7 @@ import logging
 from export.github_export import GitHubExporter
 from parse.github_parse import GitHubParser
 from storage.github_saver import GitHubSaver
-from storage.db_utils import get_collection_date_range
+from storage.repository import get_collection_date_range
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file
 from config.logging_config import setup_logging

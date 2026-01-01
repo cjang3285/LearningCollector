@@ -19,7 +19,7 @@ import logging
 from export.baekjoon_export import BaekjoonExporter
 from parse.baekjoon_parse import BaekjoonParser
 from storage.baekjoon_saver import BaekjoonSaver
-from storage.db_utils import get_collection_date_range
+from storage.repository import get_collection_date_range
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file, BAEKJOON_REPO
 from config.logging_config import setup_logging

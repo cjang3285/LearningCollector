@@ -97,23 +97,18 @@ class GitHubSaver(BaseSaver, ISaver):
         Returns:
             중복이면 True, 아니면 False
         """
-        conn = self._get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT id FROM learning.github_commits
-                    WHERE sha = %s
-                    LIMIT 1
-                    """,
-                    (data.get('sha'),)
-                )
-                if cur.fetchone():
-                    logger.info(f"[중복] SHA로 감지: {data.get('sha')[:8]}")
-                    return True
-                return False
-        finally:
-            conn.close()
+        query = (
+            """
+            SELECT id FROM learning.github_commits
+            WHERE sha = %s
+            LIMIT 1
+            """
+        )
+        result = self._execute(query, (data.get('sha'),), fetchone=True)
+        if result:
+            logger.info(f"[중복] SHA로 감지: {data.get('sha')[:8]}")
+            return True
+        return False
 
     # ============================================
     # 내부 구현 메서드 (GitHub 전용)
@@ -121,47 +116,41 @@ class GitHubSaver(BaseSaver, ISaver):
 
     def save_commit(self, artifact_id: int, commit_data: Dict) -> int:
         """github_commits 테이블에 저장"""
-        conn = self._get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO learning.github_commits
-                    (artifact_id, repo, repo_owner, sha, message, commit_date, url,
-                     additions, deletions, files_changed, files, diff_path)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (sha) DO NOTHING
-                    RETURNING id
-                """,
-                    (
-                        artifact_id,
-                        commit_data.get("repo"),
-                        commit_data.get("repo_owner", commit_data.get("repo")),
-                        commit_data.get("sha"),
-                        commit_data.get("message"),
-                        commit_data.get("date"),
-                        commit_data.get("url"),
-                        commit_data.get("stats", {}).get("additions", 0),
-                        commit_data.get("stats", {}).get("deletions", 0),
-                        len(commit_data.get("files", [])),
-                        json.dumps(commit_data.get("files", [])),
-                        commit_data.get("diff_path"),
-                    ),
-                )
-                result = cur.fetchone()
-                conn.commit()
+        query = (
+            """
+            INSERT INTO learning.github_commits
+            (artifact_id, repo, repo_owner, sha, message, commit_date, url,
+             additions, deletions, files_changed, files, diff_path)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (sha) DO NOTHING
+            RETURNING id
+        """
+        )
+        params = (
+            artifact_id,
+            commit_data.get("repo"),
+            commit_data.get("repo_owner", commit_data.get("repo")),
+            commit_data.get("sha"),
+            commit_data.get("message"),
+            commit_data.get("date"),
+            commit_data.get("url"),
+            commit_data.get("stats", {}).get("additions", 0),
+            commit_data.get("stats", {}).get("deletions", 0),
+            len(commit_data.get("files", [])),
+            json.dumps(commit_data.get("files", [])),
+            commit_data.get("diff_path"),
+        )
 
-                if result:
-                    commit_id = result[0]
-                    logger.info(
-                        f"[DB] github_commits 저장: id={commit_id}, sha={commit_data.get('sha')[:8]}"
-                    )
-                    return commit_id
-                else:
-                    logger.info(f"[DB] 중복 커밋 스킵: sha={commit_data.get('sha')[:8]}")
-                    return None
-        finally:
-            conn.close()
+        result = self._execute(query, params, fetchone=True, commit=True)
+        if result:
+            commit_id = result[0]
+            logger.info(
+                f"[DB] github_commits 저장: id={commit_id}, sha={commit_data.get('sha')[:8]}"
+            )
+            return commit_id
+        else:
+            logger.info(f"[DB] 중복 커밋 스킵: sha={commit_data.get('sha')[:8]}")
+            return None
 
     def save_github_artifact(
         self, commit_data: Dict, artifact_date: date

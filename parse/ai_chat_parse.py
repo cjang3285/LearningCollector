@@ -25,6 +25,7 @@ from dataclasses import dataclass, asdict
 from config.settings import get_log_file
 from config.logging_config import setup_logging
 from interfaces import IParser, ParseError
+from parse.base_parser import BaseParser
 
 # 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr, ms 제거)
 logger = setup_logging(get_log_file('ai_chat_parse'), __name__)
@@ -51,7 +52,7 @@ class AIConversationData:
         return asdict(self)
 
 
-class AIMarkdownParser(IParser):
+class AIMarkdownParser(BaseParser, IParser):
     """
     AI 채팅 마크다운 파서 (IParser 구현)
 

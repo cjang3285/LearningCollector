@@ -18,7 +18,10 @@ import requests
 from datetime import datetime, timezone, date
 from typing import List, Dict, Optional
 
-from config.settings import GITHUB_TOKEN, GITHUB_USERNAME, get_log_file
+from config.settings import GITHUB_TOKEN, GITHUB_USERNAMES, get_log_file
+
+# provide legacy name for backwards-compatible patching/tests
+GITHUB_USERNAME = GITHUB_USERNAMES[0] if GITHUB_USERNAMES else None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,12 +49,14 @@ class BaekjoonExporter:
             username: GitHub 사용자명
             token: GitHub Personal Access Token
         """
-        self.username = username or GITHUB_USERNAME
+        # Prefer list-based config; use first username as primary if provided
+        primary = GITHUB_USERNAMES[0] if GITHUB_USERNAMES else None
+        self.username = username or primary
         self.token = token or GITHUB_TOKEN
         self.baekjoon_repo = baekjoon_repo
 
         if not self.username or not self.token:
-            raise ValueError("GITHUB_USERNAME과 GITHUB_TOKEN 환경 변수 필요")
+            raise ValueError("GITHUB 사용자(primary)와 GITHUB_TOKEN 환경 변수 필요")
 
         self.base_url = 'https://api.github.com'
         self.headers = {

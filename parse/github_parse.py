@@ -16,6 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import re
 from datetime import datetime
 from typing import List, Dict
+from parse.base_parser import BaseParser
 from dataclasses import dataclass, asdict, field
 import logging
 
@@ -83,7 +84,7 @@ class CommitData:
         }
 
 
-class GitHubParser:
+class GitHubParser(BaseParser):
     """GitHub 데이터 파서"""
 
     @staticmethod
@@ -161,6 +162,15 @@ class GitHubParser:
             content=file_data.get('content', ''),
             language=language
         )
+
+    def parse(self, item: Dict) -> Dict:
+        """Parse a single commit dict into the standard parsed dict.
+
+        This implements the abstract `parse` from BaseParser so the class
+        can be instantiated and used with generic parser helpers.
+        """
+        parsed = self.parse_commits([item])
+        return parsed[0] if parsed else {}
     
     def parse_commits(self, commits: List[Dict]) -> List[Dict]:
         """
