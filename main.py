@@ -209,6 +209,15 @@ class LearningETL:
 def main():
     """메인 함수"""
     import argparse
+    from config.settings import GITHUB_USERNAME, GITHUB_USERNAMES, BAEKJOON_HANDLE, BAEKJOON_REPO
+
+    logger.info("="*60)
+    logger.info("ETL 프로세스 시작: 환경변수 로드")
+    logger.info(f"  - GITHUB_USERNAME (Primary): {GITHUB_USERNAME}")
+    logger.info(f"  - GITHUB_USERNAMES (All): {GITHUB_USERNAMES}")
+    logger.info(f"  - BAEKJOON_HANDLE: {BAEKJOON_HANDLE}")
+    logger.info(f"  - BAEKJOON_REPO: {BAEKJOON_REPO}")
+    logger.info("="*60)
 
     parser = argparse.ArgumentParser(
         description='Learning Artifacts ETL Pipeline',

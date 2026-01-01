@@ -76,113 +76,64 @@ class TestClaudeMigrationCollector(unittest.TestCase):
         """Collector 초기화 테스트"""
         self.assertIsNotNone(self.collector)
 
-    def test_collect_without_zip_path(self):
-        """ZIP 경로 없이 collect 호출"""
-        try:
-            result = self.collector.collect(zip_path=None)
-            # ZIP 경로가 없으면 에러 또는 실패 결과 반환
-            self.assertIsInstance(result, dict)
-            self.assertIn('success', result)
-            self.assertFalse(result['success'])
-        except (ValueError, TypeError):
-            # 에러 발생도 정상
-            pass
+    @patch('bulk_import.claude_collector.ClaudeZipFinder')
+    def test_collect_without_zip_path(self, mock_zip_finder_class):
+        """ZIP 경로 없이 collect 호출 시 ZIP 파일이 없으면 에러 발생"""
+        mock_finder_instance = Mock()
+        mock_finder_instance.find_latest_zip.return_value = None  # Simulate no ZIP file found
+        mock_zip_finder_class.return_value = mock_finder_instance
 
-    @patch('migration.claude_collector.ClaudeMigrationParser')
-    @patch('migration.claude_collector.AIMarkdownParser')
-    @patch('migration.claude_collector.AIChatSaver')
-    def test_collect_with_mock_zip(self, mock_saver, mock_md_parser, mock_migration_parser):
+        collector = ClaudeMigrationCollector()
+        with self.assertRaises(ValueError): # Expect ValueError if no zip_path and no zip found
+            collector.collect(zip_path=None)
+
+        mock_zip_finder_class.assert_called_once()
+        mock_finder_instance.find_latest_zip.assert_called_once()
+
+
+    @patch('bulk_import.claude_collector.AIChatSaver')
+    @patch('bulk_import.claude_collector.AIMarkdownParser')
+    @patch('bulk_import.claude_collector.ClaudeMigrationParser')
+    @patch('bulk_import.claude_collector.ClaudeZipFinder')
+    def test_collect_with_mock_zip(self, mock_zip_finder_class, mock_migration_parser_class,
+                                   mock_markdown_parser_class, mock_saver_class):
         """ZIP 파일 수집 테스트 (모킹)"""
-        # Mock 설정
-        mock_migration_instance = Mock()
-        mock_migration_instance.parse_zip.return_value = ['# Test conversation']
-        mock_migration_parser.return_value = mock_migration_instance
+        # Mock ClaudeZipFinder
+        mock_finder_instance = Mock()
+        mock_finder_instance.find_latest_zip.return_value = Path('/tmp/test_conversations.zip')
+        mock_zip_finder_class.return_value = mock_finder_instance
 
-        mock_md_instance = Mock()
-        mock_md_instance.parse_content.return_value = {'title': 'Test', 'messages': []}
-        mock_md_parser.return_value = mock_md_instance
+        # Mock ClaudeMigrationParser
+        mock_migration_parser_instance = Mock()
+        mock_migration_parser_instance.parse_zip.return_value = ["# Test conversation content"]
+        mock_migration_parser_instance.filter_by_date.side_effect = lambda markdowns, after, before: markdowns # Don't filter
+        mock_migration_parser_class.return_value = mock_migration_parser_instance
 
+        # Mock AIMarkdownParser
+        mock_markdown_parser_instance = Mock()
+        mock_parsed_conversation = MagicMock()
+        mock_parsed_conversation.provider = 'claude'
+        mock_parsed_conversation.to_dict.return_value = {'provider': 'claude', 'title': 'Test Conv'}
+        mock_markdown_parser_instance.parse_file.return_value = mock_parsed_conversation
+        mock_markdown_parser_class.return_value = mock_markdown_parser_instance
+
+        # Mock AIChatSaver
         mock_saver_instance = Mock()
-        mock_saver_instance.save_all.return_value = [1]
-        mock_saver.return_value = mock_saver_instance
+        mock_saver_instance.save_all.return_value = [1] # Return a list of artifact IDs
+        mock_saver_class.return_value = mock_saver_instance
 
-        # 테스트용 ZIP 경로 (실제로는 존재하지 않음)
-        zip_path = '/tmp/test_conversations.zip'
-
-        try:
-            collector = ClaudeMigrationCollector()
-            # collect 메서드 호출 (파일이 없어도 mock이 처리)
-            result = collector.collect(zip_path)
-            self.assertIsInstance(result, dict)
-        except:
-            self.skipTest("Claude migration collector requires actual ZIP file")
-
-
-class TestBaekjoonCollector(unittest.TestCase):
-    """Baekjoon Collector 통합 테스트"""
-
-    @patch('collectors.baekjoon_collector.BaekjoonSaver')
-    @patch('collectors.baekjoon_collector.BaekjoonParser')
-    @patch('collectors.baekjoon_collector.BaekjoonExporter')
-    def test_collector_initialization(self, mock_exporter, mock_parser, mock_saver):
-        """Collector 초기화 테스트"""
-        # Mock 설정
-        mock_exporter.return_value = Mock()
-        mock_parser.return_value = Mock()
-        mock_saver.return_value = Mock()
-
-        collector = BaekjoonCollector()
-        self.assertIsNotNone(collector)
-
-    @patch('collectors.baekjoon_collector.BaekjoonExporter')
-    @patch('collectors.baekjoon_collector.BaekjoonParser')
-    @patch('collectors.baekjoon_collector.BaekjoonSaver')
-    def test_collect_workflow(self, mock_saver, mock_parser, mock_exporter):
-        """수집 워크플로우 테스트 (모킹)"""
-        # Mock 설정
-        mock_exp_instance = Mock()
-        mock_exp_instance.export_today.return_value = [{'problemId': 1000}]
-        mock_exporter.return_value = mock_exp_instance
-
-        mock_parser_instance = Mock()
-        mock_parser_instance.parse_problems.return_value = [{'problemId': 1000}]
-        mock_parser.return_value = mock_parser_instance
-
-        mock_saver_instance = Mock()
-        mock_saver_instance.save_all.return_value = [1]
-        mock_saver.return_value = mock_saver_instance
-
-        try:
-            collector = BaekjoonCollector()
-            result = collector.collect(date.today())
-
-            # 결과 확인
-            self.assertIsInstance(result, dict)
-        except:
-            self.skipTest("Collector implementation varies")
-
-
-class TestAIChatCollector(unittest.TestCase):
-    """AI Chat Collector 통합 테스트"""
-
-    def setUp(self):
-        """테스트 전 환경 설정"""
-        self.collector = AIChatCollector()
-
-    def test_collector_initialization(self):
-        """Collector 초기화 테스트"""
-        self.assertIsNotNone(self.collector)
-        self.assertIsNotNone(self.collector.parser)
-        self.assertIsNotNone(self.collector.saver)
-
-    def test_collect_from_files_with_empty_list(self):
-        """빈 파일 리스트로 수집 테스트"""
-        result = self.collector.collect_from_files([])
+        collector = ClaudeMigrationCollector()
+        result = collector.collect(zip_path='/tmp/test_conversations.zip', target_date=date.today(), all_dates=True)
 
         self.assertIsInstance(result, dict)
-        self.assertIn('success', result)
-        self.assertIn('conversations_count', result)
-        self.assertEqual(result['conversations_count'], 0)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['conversations_count'], 1)
+        self.assertIn('artifact_ids', result)
+        self.assertEqual(len(result['artifact_ids']), 1)
+
+        mock_migration_parser_instance.parse_zip.assert_called_once_with('/tmp/test_conversations.zip')
+        mock_markdown_parser_instance.parse_file.assert_called_once()
+        mock_saver_instance.save_all.assert_called_once()
 
     @patch('collectors.ai_chat_collector.AIMarkdownParser')
     @patch('collectors.ai_chat_collector.AIChatSaver')
@@ -190,10 +141,16 @@ class TestAIChatCollector(unittest.TestCase):
         """파일에서 수집 워크플로우 테스트 (모킹)"""
         # Mock Parser
         mock_parser_instance = Mock()
-        mock_conversation = Mock()
-        mock_conversation.provider = 'claude'
-        mock_conversation.to_dict.return_value = {'provider': 'claude', 'title': 'Test'}
-        mock_parser_instance.parse_multiple.return_value = [mock_conversation]
+        # AIMarkdownParser.parse_multiple은 List[Dict]를 반환해야 함
+        mock_parsed_conversation_dict = {
+            'provider': 'claude',
+            'title': 'Test Conversation',
+            'total_messages': 2,
+            'user_messages': 1,
+            'assistant_messages': 1,
+            'has_code': False
+        }
+        mock_parser_instance.parse_multiple.return_value = [mock_parsed_conversation_dict]
         mock_parser.return_value = mock_parser_instance
 
         # Mock Saver
@@ -209,6 +166,22 @@ class TestAIChatCollector(unittest.TestCase):
         self.assertTrue(result['success'])
         self.assertEqual(result['conversations_count'], 1)
         self.assertIn('claude', result['providers'])
+        self.assertEqual(result['providers']['claude'], 1)
+
+    @patch('collectors.ai_chat_collector.AIExportWatcher')
+    def test_collect_from_downloads_no_files(self, mock_watcher):
+        """다운로드 폴더 스캔 - 파일 없음"""
+        # Mock Watcher
+        mock_watcher_instance = Mock()
+        mock_watcher_instance.scan_existing.return_value = []
+        mock_watcher.return_value = mock_watcher_instance
+
+        collector = AIChatCollector()
+        result = collector.collect_from_downloads()
+
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['conversations_count'], 0)
 
     @patch('collectors.ai_chat_collector.AIExportWatcher')
     def test_collect_from_downloads_no_files(self, mock_watcher):

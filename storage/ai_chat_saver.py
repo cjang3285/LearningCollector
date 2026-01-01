@@ -106,46 +106,40 @@ class AIChatSaver(BaseSaver, ISaver):
         Returns:
             중복이면 True, 아니면 False
         """
-        conn = self._get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                # Link가 있으면 link로 중복 확인 (가장 확실함)
-                if data.get('link'):
-                    cur.execute(
-                        """
-                        SELECT id FROM learning.ai_chat_conversations
-                        WHERE link = %s AND link IS NOT NULL
-                        LIMIT 1
-                        """,
-                        (data.get('link'),)
-                    )
-                    if cur.fetchone():
-                        logger.info(f"[중복] 링크로 감지: {data.get('link')}")
-                        return True
+        # Link 우선 확인
+        if data.get('link'):
+            query_link = (
+                """
+                SELECT id FROM learning.ai_chat_conversations
+                WHERE link = %s AND link IS NOT NULL
+                LIMIT 1
+                """
+            )
+            if self._execute(query_link, (data.get('link'),), fetchone=True):
+                logger.info(f"[중복] 링크로 감지: {data.get('link')}")
+                return True
 
-                # Link가 없으면 provider + title + created_at으로 확인
-                cur.execute(
-                    """
-                    SELECT id FROM learning.ai_chat_conversations
-                    WHERE provider = %s
-                      AND title = %s
-                      AND (created_at = %s OR (created_at IS NULL AND %s IS NULL))
-                    LIMIT 1
-                    """,
-                    (
-                        data.get('provider'),
-                        data.get('title'),
-                        data.get('created_at'),
-                        data.get('created_at')
-                    )
-                )
-                if cur.fetchone():
-                    logger.info(f"[중복] 제목+날짜로 감지: {data.get('title')[:50]}")
-                    return True
+        # provider + title + created_at 확인
+        query = (
+            """
+            SELECT id FROM learning.ai_chat_conversations
+            WHERE provider = %s
+              AND title = %s
+              AND (created_at = %s OR (created_at IS NULL AND %s IS NULL))
+            LIMIT 1
+            """
+        )
+        params = (
+            data.get('provider'),
+            data.get('title'),
+            data.get('created_at'),
+            data.get('created_at')
+        )
+        if self._execute(query, params, fetchone=True):
+            logger.info(f"[중복] 제목+날짜로 감지: {data.get('title')[:50]}")
+            return True
 
-                return False
-        finally:
-            conn.close()
+        return False
 
     # ============================================
     # 내부 구현 메서드 (AI Chat 전용)
@@ -193,51 +187,42 @@ class AIChatSaver(BaseSaver, ISaver):
 
     def save_conversation(self, artifact_id: int, conversation_data: Dict) -> int:
         """ai_chat_conversations 테이블에 저장"""
-        conn = self._get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                # messages를 JSONB로 변환 (DB 저장용)
-                messages_json = json.dumps(conversation_data.get("messages", []))
+        messages_json = json.dumps(conversation_data.get("messages", []))
+        query = (
+            """
+            INSERT INTO learning.ai_chat_conversations
+            (artifact_id, provider, title, link, user_messages, assistant_messages,
+             has_code, conversation_path, code_languages, code_blocks_count,
+             created_at, updated_at, messages)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """
+        )
+        params = (
+            artifact_id,
+            conversation_data.get("provider"),
+            conversation_data.get("title"),
+            conversation_data.get("link"),
+            conversation_data.get("user_messages", 0),
+            conversation_data.get("assistant_messages", 0),
+            conversation_data.get("has_code", False),
+            conversation_data.get("conversation_path"),
+            conversation_data.get("code_languages", []),
+            conversation_data.get("code_blocks_count", 0),
+            conversation_data.get("created_at"),
+            conversation_data.get("updated_at"),
+            messages_json,
+        )
 
-                cur.execute(
-                    """
-                    INSERT INTO learning.ai_chat_conversations
-                    (artifact_id, provider, title, link, user_messages, assistant_messages,
-                     has_code, conversation_path, code_languages, code_blocks_count,
-                     created_at, updated_at, messages)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """,
-                    (
-                        artifact_id,
-                        conversation_data.get("provider"),
-                        conversation_data.get("title"),
-                        conversation_data.get("link"),
-                        conversation_data.get("user_messages", 0),
-                        conversation_data.get("assistant_messages", 0),
-                        conversation_data.get("has_code", False),
-                        conversation_data.get("conversation_path"),
-                        conversation_data.get("code_languages", []),
-                        conversation_data.get("code_blocks_count", 0),
-                        conversation_data.get("created_at"),
-                        conversation_data.get("updated_at"),
-                        messages_json,
-                    ),
-                )
-                result = cur.fetchone()
-                conn.commit()
-
-                if result:
-                    conv_id = result[0]
-                    logger.info(
-                        f"[DB] ai_chat_conversations 저장: id={conv_id}, provider={conversation_data.get('provider')}, title={conversation_data.get('title')[:50]}"
-                    )
-                    return conv_id
-                else:
-                    logger.info(f"[DB] 대화 저장 실패")
-                    return None
-        finally:
-            conn.close()
+        result = self._execute(query, params, fetchone=True, commit=True)
+        if result:
+            conv_id = result[0]
+            logger.info(
+                f"[DB] ai_chat_conversations 저장: id={conv_id}, provider={conversation_data.get('provider')}, title={conversation_data.get('title')[:50]}"
+            )
+            return conv_id
+        logger.info(f"[DB] 대화 저장 실패")
+        return None
 
     def save_ai_chat_artifact(
         self, conversation_data: Dict, artifact_date: date

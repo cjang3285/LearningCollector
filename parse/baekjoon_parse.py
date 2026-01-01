@@ -17,6 +17,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
+from parse.base_parser import BaseParser
 
 from config.settings import get_log_file
 
@@ -77,8 +78,49 @@ class BaekjoonProblemData:
         }
 
 
-class BaekjoonParser:
+class BaekjoonParser(BaseParser):
     """백준 README.md 파서"""
+
+    def parse(self, problem: Dict) -> Dict:
+        """
+        Parse a single exported problem dict into the saver-ready dict.
+
+        Args:
+            problem: dict returned by exporter describing file paths and commit info
+
+        Returns:
+            dict: parsed problem ready for saver
+        """
+        if not hasattr(self, 'exporter') or self.exporter is None:
+            raise ValueError("BaekjoonParser.parse requires `self.exporter` to be set")
+
+        # README 읽기
+        readme_content = self.exporter.get_file_content(
+            problem['readme_path'],
+            ref=problem['commit_sha']
+        )
+
+        if not readme_content:
+            logger.warning(f"README를 읽을 수 없음: {problem['readme_path']}")
+            return None
+
+        # 코드 읽기 (있는 경우)
+        code_content = None
+        if problem.get('code_path'):
+            code_content = self.exporter.get_file_content(
+                problem['code_path'],
+                ref=problem['commit_sha']
+            )
+
+        parsed = self.parse_problem(
+            readme_content=readme_content,
+            code_content=code_content,
+            code_path=problem.get('code_path'),
+            commit_sha=problem.get('commit_sha'),
+            commit_message=problem.get('commit_message')
+        )
+
+        return parsed.to_dict()
 
     def parse_readme(self, content: str) -> Dict:
         """
@@ -225,39 +267,15 @@ class BaekjoonParser:
         """
         parsed_problems = []
 
+        # exporter assigned to instance so parse() can use it
+        self.exporter = exporter
+
         for problem in problems:
             try:
-                # README 읽기
-                readme_content = exporter.get_file_content(
-                    problem['readme_path'],
-                    ref=problem['commit_sha']
-                )
-
-                if not readme_content:
-                    logger.warning(f"README를 읽을 수 없음: {problem['readme_path']}")
-                    continue
-
-                # 코드 읽기 (있는 경우)
-                code_content = None
-                if problem['code_path']:
-                    code_content = exporter.get_file_content(
-                        problem['code_path'],
-                        ref=problem['commit_sha']
-                    )
-
-                # 파싱
-                parsed = self.parse_problem(
-                    readme_content=readme_content,
-                    code_content=code_content,
-                    code_path=problem['code_path'],
-                    commit_sha=problem['commit_sha'],
-                    commit_message=problem['commit_message']
-                )
-
-                # IParser 인터페이스 준수: Dict 반환
-                parsed_problems.append(parsed.to_dict())
-                logger.info(f"[OK] 파싱 완료: {parsed.problem_id} - {parsed.title}")
-
+                parsed = self.parse(problem)
+                if parsed:
+                    parsed_problems.append(parsed)
+                    logger.info(f"[OK] 파싱 완료: {parsed.get('problem_id')} - {parsed.get('title')}")
             except Exception as e:
                 logger.error(f"파싱 실패 ({problem.get('problem_folder', 'unknown')}): {e}")
                 continue

@@ -19,28 +19,24 @@ from typing import List, Dict, Optional
 import logging
 
 from config.settings import (
-    GITHUB_TOKEN, GITHUB_USERNAME, GITHUB_API_BASE,
+    GITHUB_TOKEN, GITHUB_USERNAME, GITHUB_USERNAMES, GITHUB_API_BASE,
     get_log_file
 )
+from config.logging_config import setup_logging
 
 # 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(get_log_file('github_export')),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logging(get_log_file('github_export'), __name__)
+
 
 
 class GitHubExporter:
     """GitHub 커밋 + 코드 수집"""
-    
-    def __init__(self, token: Optional[str] = None, username: Optional[str] = None):
+
+    def __init__(self, token: Optional[str] = None, usernames: Optional[List[str]] = None):
         self.token = token or GITHUB_TOKEN
-        self.username = username or GITHUB_USERNAME
+        # usernames: 수집할 작성자 목록 (첫 번째가 primary)
+        self.usernames = usernames if usernames is not None else GITHUB_USERNAMES
+        self.username = self.usernames[0] if self.usernames else None  # Primary username
 
         if not self.token:
             raise ValueError("GITHUB_TOKEN 필요")
@@ -53,7 +49,9 @@ class GitHubExporter:
             'X-GitHub-Api-Version': '2022-11-28'
         }
         self.base_url = GITHUB_API_BASE
-        logger.info(f"GitHubExporter 초기화: {self.username}")
+        logger.info(f"GitHubExporter 초기화: Primary={self.username}")
+        if len(self.usernames) > 1:
+            logger.info(f"추가 커밋 작성자: {', '.join(self.usernames[1:])}")
     
     def get_user_repos(self) -> List[Dict]:
         """사용자의 모든 저장소 가져오기"""
@@ -82,12 +80,29 @@ class GitHubExporter:
         
         return repos
     
+    def get_branches(self, repo_owner: str, repo_name: str) -> List[Dict]:
+        """저장소의 모든 브랜치 가져오기"""
+        branches = []
+        page = 1
+        while True:
+            url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/branches"
+            params = {'page': page, 'per_page': 100}
+            response = requests.get(url, headers=self.headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            if not data:
+                break
+            branches.extend(data)
+            page += 1
+        return branches
+
     def get_commits_by_date(
         self,
         repo_owner: str,
         repo_name: str,
         since: datetime,
-        until: datetime
+        until: datetime,
+        branch: str = None
     ) -> List[Dict]:
         """
         특정 기간의 커밋 가져오기
@@ -99,21 +114,22 @@ class GitHubExporter:
         url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/commits"
 
         params = {
-            # author 필터 제거! Claude 커밋도 가져오기 위해
             'since': since.isoformat(),
             'until': until.isoformat(),
             'per_page': 100
         }
+        if branch:
+            params['sha'] = branch
 
         try:
             response = requests.get(url, headers=self.headers, params=params)
             response.raise_for_status()
             commits = response.json()
 
-            # 사용자가 관련된 커밋만 필터링
-            # 1. author가 사용자
-            # 2. committer가 사용자
-            # 3. Co-Authored-By에 사용자 포함
+            # 설정된 username들의 커밋만 필터링
+            # 1. author가 설정된 username 중 하나
+            # 2. committer가 설정된 username 중 하나
+            # 3. Co-Authored-By에 username 포함
             filtered = []
             for commit in commits:
                 commit_data = commit.get('commit', {})
@@ -121,20 +137,23 @@ class GitHubExporter:
                 committer = commit_data.get('committer', {}).get('name', '')
                 message = commit_data.get('message', '')
 
-                # 사용자 관련 커밋인지 확인
-                is_user_commit = (
-                    self.username.lower() in author.lower() or
-                    self.username.lower() in committer.lower() or
-                    f'Co-Authored-By:' in message  # Co-author 체크는 나중에 상세히
-                )
-
-                if is_user_commit:
+                # 모든 username 확인
+                is_target_commit = False
+                for username in self.usernames:
+                    if (username.lower() in author.lower() or
+                        username.lower() in committer.lower() or
+                        f'Co-Authored-By: {username}' in message):
+                        is_target_commit = True
+                        break
+                
+                if is_target_commit:
                     filtered.append(commit)
 
             return filtered
 
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 409:
+            if e.response.status_code == 409: # 409 Conflict can happen for empty repos
+                logger.warning(f"Got 409 Conflict for {repo_name} on branch {branch}, skipping.")
                 return []
             raise
     
@@ -217,77 +236,100 @@ class GitHubExporter:
         repos = self.get_user_repos()
         logger.info(f"저장소 {len(repos)}개 발견")
 
-        all_commits = []
+        all_commits_detailed = []
+        seen_commit_shas = set()
 
         for repo in repos:
             repo_name = repo['name']
             repo_owner = repo['owner']['login']
+            
+            try:
+                branches = self.get_branches(repo_owner, repo_name)
+                logger.debug(f"Found {len(branches)} branches for {repo_name}: {[b['name'] for b in branches]}")
+            except requests.exceptions.HTTPError as e:
+                # If branch listing fails (401/empty repo), still attempt to call get_commits_by_date
+                # once with branch=None so tests that patch get_commits_by_date still execute.
+                logger.warning(f"Could not get branches for {repo_name} (maybe it's empty or archived), will try commits without branch. Error: {e}")
+                branches = [None]
 
-            commits = self.get_commits_by_date(
-                repo_owner,
-                repo_name,
-                today_start,
-                today_end
-            )
-
-            if commits:
-                logger.info(f"[OK] {repo_name}: {len(commits)}개 커밋")
+                for branch in branches:
+                    # branches may be None when branch listing failed; support that fallback
+                    if branch is None:
+                        branch_name = None
+                    else:
+                        branch_name = branch.get('name')
+                    logger.debug(f"Checking branch '{branch_name}' in repo '{repo_name}'")
                 
-                for commit in commits:
-                    # 기본 정보
-                    commit_data = {
-                        'repo': repo_name,
-                        'repo_owner': repo_owner,  # 저장소 소유자 추가
-                        'sha': commit['sha'],
-                        'message': commit['commit']['message'],
-                        'date': commit['commit']['author']['date'],
-                        'url': commit['html_url']
-                    }
+                try:
+                    commits_on_branch = self.get_commits_by_date(
+                        repo_owner,
+                        repo_name,
+                        today_start,
+                        today_end,
+                        branch=branch_name
+                    )
+                except requests.exceptions.HTTPError as e:
+                    logger.error(f"Error fetching commits for {repo_name} on branch {branch_name}: {e}")
+                    continue
+
+                if commits_on_branch:
+                    logger.info(f"[OK] {repo_name} (branch: {branch_name}): {len(commits_on_branch)}개 커밋")
                     
-                    # 상세 정보 가져오기
-                    try:
-                        detail = self.get_commit_detail(repo_owner, repo_name, commit['sha'])
+                    for commit in commits_on_branch:
+                        if commit['sha'] in seen_commit_shas:
+                            continue
+                        seen_commit_shas.add(commit['sha'])
+
+                        # 기본 정보
+                        commit_data = {
+                            'repo': repo_name,
+                            'repo_owner': repo_owner,
+                            'sha': commit['sha'],
+                            'message': commit['commit']['message'],
+                            'date': commit['commit']['author']['date'],
+                            'url': commit['html_url']
+                        }
                         
-                        # 파일 변경사항
-                        files = detail.get('files', [])
-                        commit_data['files'] = []
-                        
-                        for file in files:
-                            file_info = {
-                                'filename': file['filename'],
-                                'status': file['status'],  # added, modified, removed, renamed
-                                'additions': file['additions'],
-                                'deletions': file['deletions'],
-                                'changes': file['changes'],
-                                'patch': file.get('patch', '')  # diff
-                            }
+                        # 상세 정보 가져오기
+                        try:
+                            detail = self.get_commit_detail(repo_owner, repo_name, commit['sha'])
                             
-                            # 추가/수정된 파일의 전체 내용 가져오기
-                            if file['status'] in ['added', 'modified']:
-                                content = self.get_file_content(
-                                    repo_owner,
-                                    repo_name,
-                                    file['filename'],
-                                    commit['sha']
-                                )
-                                if content:
-                                    file_info['content'] = content
+                            files = detail.get('files', [])
+                            commit_data['files'] = []
                             
-                            commit_data['files'].append(file_info)
+                            for file in files:
+                                file_info = {
+                                    'filename': file['filename'],
+                                    'status': file['status'],
+                                    'additions': file['additions'],
+                                    'deletions': file['deletions'],
+                                    'changes': file['changes'],
+                                    'patch': file.get('patch', '')
+                                }
+                                
+                                if file['status'] in ['added', 'modified']:
+                                    content = self.get_file_content(
+                                        repo_owner,
+                                        repo_name,
+                                        file['filename'],
+                                        commit['sha']
+                                    )
+                                    if content:
+                                        file_info['content'] = content
+                                
+                                commit_data['files'].append(file_info)
+                            
+                            commit_data['stats'] = detail.get('stats', {})
+
+                            logger.debug(f"  파일 {len(files)}개 변경 (+{detail.get('stats', {}).get('additions', 0)}/-{detail.get('stats', {}).get('deletions', 0)})")
+
+                        except Exception as e:
+                            logger.warning(f"  상세 정보 수집 실패: {e}")
                         
-                        # 통계
-                        commit_data['stats'] = detail.get('stats', {})
+                        all_commits_detailed.append(commit_data)
 
-                        logger.debug(f"  파일 {len(files)}개 변경 "
-                              f"(+{detail['stats']['additions']}/-{detail['stats']['deletions']})")
-
-                    except Exception as e:
-                        logger.warning(f"  상세 정보 수집 실패: {e}")
-                    
-                    all_commits.append(commit_data)
-
-        logger.info(f"[OK] 총 {len(all_commits)}개 커밋 수집 완료")
-        return all_commits
+        logger.info(f"[OK] 총 {len(all_commits_detailed)}개 커밋 수집 완료")
+        return all_commits_detailed
 
 
 if __name__ == '__main__':

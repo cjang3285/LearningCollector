@@ -16,6 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import re
 from datetime import datetime
 from typing import List, Dict
+from parse.base_parser import BaseParser
 from dataclasses import dataclass, asdict, field
 import logging
 
@@ -83,7 +84,7 @@ class CommitData:
         }
 
 
-class GitHubParser:
+class GitHubParser(BaseParser):
     """GitHub 데이터 파서"""
 
     @staticmethod
@@ -161,6 +162,15 @@ class GitHubParser:
             content=file_data.get('content', ''),
             language=language
         )
+
+    def parse(self, item: Dict) -> Dict:
+        """Parse a single commit dict into the standard parsed dict.
+
+        This implements the abstract `parse` from BaseParser so the class
+        can be instantiated and used with generic parser helpers.
+        """
+        parsed = self.parse_commits([item])
+        return parsed[0] if parsed else {}
     
     def parse_commits(self, commits: List[Dict]) -> List[Dict]:
         """
@@ -224,7 +234,7 @@ class GitHubParser:
         
         return grouped
     
-    def get_summary(self, commits: List[CommitData]) -> Dict:
+    def get_summary(self, commits: List[Dict]) -> Dict:
         """커밋 통계 요약"""
         if not commits:
             return {
@@ -233,28 +243,25 @@ class GitHubParser:
                 'total_additions': 0,
                 'total_deletions': 0,
                 'total_files': 0,
-                'languages': {},
-                'total_comments': 0
+                'languages': {}
             }
         
-        repos = set(c.repo for c in commits)
+        repos = set(c['repo'] for c in commits)
         total_additions = 0
         total_deletions = 0
         total_files = 0
         language_count = {}
-        total_comments = 0
         
         for commit in commits:
-            if commit.stats:
-                total_additions += commit.stats.get('additions', 0)
-                total_deletions += commit.stats.get('deletions', 0)
+            if commit.get('stats'):
+                total_additions += commit['stats'].get('additions', 0)
+                total_deletions += commit['stats'].get('deletions', 0)
             
-            for file_change in commit.files:
+            for file_change in commit.get('files', []):
                 total_files += 1
-                lang = file_change.language
+                lang = file_change['language']
                 if lang != 'Unknown':
                     language_count[lang] = language_count.get(lang, 0) + 1
-                total_comments += len(file_change.comments)
         
         return {
             'total_commits': len(commits),
@@ -263,7 +270,6 @@ class GitHubParser:
             'total_deletions': total_deletions,
             'total_files': total_files,
             'languages': language_count,
-            'total_comments': total_comments,
             'repos': list(repos)
         }
 

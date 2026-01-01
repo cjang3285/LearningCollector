@@ -30,9 +30,14 @@ logger = setup_logging(get_log_file('ai_chat_collector'), __name__)
 class AIChatCollector(ICollector):
     """AI 채팅 마크다운 수집 통합 (ICollector 구현)"""
 
-    def __init__(self):
-        self.parser = AIMarkdownParser()
-        self.saver = AIChatSaver()
+    def __init__(self, parser: AIMarkdownParser = None, saver: AIChatSaver = None, watcher=None):
+        """
+        Dependency-injectable constructor. Accepts parser, saver, and optional watcher (AIExportWatcher).
+        """
+        self.parser = parser or AIMarkdownParser()
+        self.saver = saver or AIChatSaver()
+        # watcher may be an AIExportWatcher instance or None; used by collect_from_downloads and start_watcher
+        self.watcher = watcher
 
     # ============================================
     # ICollector 인터페이스 구현
@@ -220,7 +225,7 @@ class AIChatCollector(ICollector):
 
         try:
             # Watcher로 기존 파일 스캔
-            watcher = AIExportWatcher(download_dir=download_dir)
+            watcher = self.watcher or AIExportWatcher(download_dir=download_dir)
             ai_files = watcher.scan_existing()
 
             if not ai_files:
@@ -275,7 +280,7 @@ class AIChatCollector(ICollector):
             except Exception as e:
                 logger.error(f"자동 수집 실패: {e}")
 
-        watcher = AIExportWatcher(
+        watcher = self.watcher or AIExportWatcher(
             download_dir=download_dir,
             target_dir=target_dir
         )

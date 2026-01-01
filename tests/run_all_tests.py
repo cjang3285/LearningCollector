@@ -20,7 +20,8 @@ from tests import (
     test_parse,
     test_storage,
     test_collectors,
-    test_main
+    test_main,
+    test_github
 )
 
 
@@ -43,28 +44,32 @@ def create_test_suite():
     print("="*70)
 
     # 1. Config 테스트
-    print("\n[1/6] Config 모듈 테스트 추가")
+    print("\n[1/7] Config 모듈 테스트 추가")
     suite.addTests(loader.loadTestsFromModule(test_config))
 
     # 2. Export 테스트
-    print("[2/6] Export 모듈 테스트 추가")
+    print("[2/7] Export 모듈 테스트 추가")
     suite.addTests(loader.loadTestsFromModule(test_export))
 
     # 3. Parse 테스트
-    print("[3/6] Parse 모듈 테스트 추가")
+    print("[3/7] Parse 모듈 테스트 추가")
     suite.addTests(loader.loadTestsFromModule(test_parse))
 
     # 4. Storage 테스트
-    print("[4/6] Storage 모듈 테스트 추가")
+    print("[4/7] Storage 모듈 테스트 추가")
     suite.addTests(loader.loadTestsFromModule(test_storage))
 
     # 5. Collectors 테스트
-    print("[5/6] Collectors 모듈 테스트 추가")
+    print("[5/7] Collectors 모듈 테스트 추가")
     suite.addTests(loader.loadTestsFromModule(test_collectors))
 
     # 6. Main 테스트
-    print("[6/6] Main ETL 파이프라인 테스트 추가")
+    print("[6/7] Main ETL 파이프라인 테스트 추가")
     suite.addTests(loader.loadTestsFromModule(test_main))
+
+    # 7. GitHub 통합 테스트
+    print("[7/7] GitHub 통합 테스트 추가")
+    suite.addTests(loader.loadTestsFromModule(test_github))
 
     print("\n테스트 스위트 구성 완료!")
     print(f"총 테스트 케이스 수: {suite.countTestCases()}")
@@ -135,7 +140,8 @@ def run_specific_module(module_name, verbosity=2):
         'parse': test_parse,
         'storage': test_storage,
         'collectors': test_collectors,
-        'main': test_main
+        'main': test_main,
+        'github': test_github
     }
 
     if module_name not in module_map:
@@ -158,7 +164,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Learning ETL 통합 테스트 러너')
     parser.add_argument(
         '-m', '--module',
-        choices=['config', 'export', 'parse', 'storage', 'collectors', 'main'],
+        choices=['config', 'export', 'parse', 'storage', 'collectors', 'main', 'github'],
         help='특정 모듈만 테스트 (미지정 시 전체 테스트)'
     )
     parser.add_argument(

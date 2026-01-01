@@ -35,10 +35,10 @@ echo ""
 
 if [ $# -eq 0 ]; then
     # 전체 테스트
-    python tests/run_all_tests.py
+    python run_all_tests.py
 else
     # 인자와 함께 실행
-    python tests/run_all_tests.py "$@"
+    python run_all_tests.py --module "$1"
 fi
 
 echo ""

@@ -102,25 +102,19 @@ class BaekjoonSaver(BaseSaver, ISaver):
         Returns:
             중복이면 True, 아니면 False
         """
-        conn = self._get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                # problem_id와 submission_id로 중복 체크
-                submission = data.get("submission", {})
-                cur.execute(
-                    """
-                    SELECT id FROM learning.baekjoon_solutions
-                    WHERE problem_id = %s AND submission_id = %s
-                    LIMIT 1
-                    """,
-                    (data.get('problem_id'), submission.get('submission_id'))
-                )
-                if cur.fetchone():
-                    logger.info(f"[중복] Problem ID로 감지: {data.get('problem_id')}")
-                    return True
-                return False
-        finally:
-            conn.close()
+        submission = data.get("submission", {})
+        query = (
+            """
+            SELECT id FROM learning.baekjoon_solutions
+            WHERE problem_id = %s AND submission_id = %s
+            LIMIT 1
+            """
+        )
+        result = self._execute(query, (data.get('problem_id'), submission.get('submission_id')), fetchone=True)
+        if result:
+            logger.info(f"[중복] Problem ID로 감지: {data.get('problem_id')}")
+            return True
+        return False
 
     # ============================================
     # 내부 구현 메서드 (Baekjoon 전용)
@@ -128,44 +122,42 @@ class BaekjoonSaver(BaseSaver, ISaver):
 
     def save_solution(self, artifact_id: int, solution_data: Dict) -> int:
         """baekjoon_solutions 테이블에 저장"""
-        conn = self._get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                submission = solution_data.get("submission", {})
-                code_analysis = solution_data.get("code_analysis", {})
+        submission = solution_data.get("submission", {})
+        code_analysis = solution_data.get("code_analysis", {})
 
-                cur.execute(
-                    """
-                    INSERT INTO learning.baekjoon_solutions
-                    (artifact_id, problem_id, title, tier, tags, url,
-                     submission_id, language, memory, time, code_path, code_lines, comment_lines)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """,
-                    (
-                        artifact_id,
-                        solution_data.get("problem_id"),
-                        solution_data.get("title"),
-                        solution_data.get("tier"),
-                        solution_data.get("tags", []),
-                        solution_data.get("url"),
-                        submission.get("submission_id"),
-                        submission.get("language"),
-                        submission.get("memory"),
-                        submission.get("time"),
-                        solution_data.get("code_path"),
-                        code_analysis.get("code_lines"),
-                        code_analysis.get("comment_lines"),
-                    ),
-                )
-                solution_id = cur.fetchone()[0]
-                conn.commit()
-                logger.info(
-                    f"[DB] baekjoon_solutions 저장: id={solution_id}, problem={solution_data.get('problem_id')}"
-                )
-                return solution_id
-        finally:
-            conn.close()
+        query = (
+            """
+            INSERT INTO learning.baekjoon_solutions
+            (artifact_id, problem_id, title, tier, tags, url,
+             submission_id, language, memory, time, code_path, code_lines, comment_lines)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """
+        )
+        params = (
+            artifact_id,
+            solution_data.get("problem_id"),
+            solution_data.get("title"),
+            solution_data.get("tier"),
+            solution_data.get("tags", []),
+            solution_data.get("url"),
+            submission.get("submission_id"),
+            submission.get("language"),
+            submission.get("memory"),
+            submission.get("time"),
+            solution_data.get("code_path"),
+            code_analysis.get("code_lines"),
+            code_analysis.get("comment_lines"),
+        )
+
+        result = self._execute(query, params, fetchone=True, commit=True)
+        if result:
+            solution_id = result[0]
+            logger.info(
+                f"[DB] baekjoon_solutions 저장: id={solution_id}, problem={solution_data.get('problem_id')}"
+            )
+            return solution_id
+        return None
 
     def save_baekjoon_artifact(
         self, solution_data: Dict, artifact_date: date

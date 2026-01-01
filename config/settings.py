@@ -18,14 +18,23 @@ load_dotenv(PROJECT_ROOT / '.env', override=True)
 # ============================================
 # GitHub 설정
 # ============================================
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')  # 환경변수에서만 가져오기
-GITHUB_USERNAME = os.getenv('GITHUB_USERNAME')
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+
+# GitHub 커밋 수집 대상 (작성자 이름 기준, 쉼표로 구분)
+# 프로젝트 전반에서 리스트를 표준으로 사용합니다.
+# 예: JANG CHANWOOK,Claude
+_github_authors_str = os.getenv('GITHUB_COMMIT_AUTHORS', '')
+GITHUB_USERNAMES = [u.strip() for u in _github_authors_str.split(',') if u.strip()]
+
+# 기존의 단일 변수는 하위 호환을 위해 첫 항목을 alias로 유지합니다.
+# 권장 사용법은 항상 GITHUB_USERNAMES(리스트)를 사용하는 것입니다.
+GITHUB_USERNAME = GITHUB_USERNAMES[0] if GITHUB_USERNAMES else (os.getenv('GITHUB_USERNAME') or os.getenv('GITHUB_USER') or 'unknown')
 
 # ============================================
 # 백준허브 연동 레포 설정
 # ============================================
-BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE')
-BAEKJOON_REPO = os.getenv('BAEKJOON_REPO')  # 백준허브와 연동된 레포지터리
+BAEKJOON_HANDLE = os.getenv('BAEKJOON_HANDLE') or 'unknown'
+BAEKJOON_REPO = os.getenv('BAEKJOON_REPO') or 'Baekjoon_solutions'  # 백준허브와 연동된 레포지터리
 
 # ============================================
 # 디렉토리 설정
@@ -93,8 +102,8 @@ def validate_config():
     if COLLECT_GITHUB and not GITHUB_TOKEN:
         errors.append("GITHUB_TOKEN이 설정되지 않았습니다.")
 
-    if COLLECT_GITHUB and not GITHUB_USERNAME:
-        errors.append("GITHUB_USERNAME이 설정되지 않았습니다.")
+    if COLLECT_GITHUB and not (GITHUB_USERNAMES or GITHUB_USERNAME):
+        errors.append("GITHUB_USERNAMES(또는 GITHUB_COMMIT_AUTHORS)이 설정되지 않았습니다.")
 
     if COLLECT_BAEKJOON and not BAEKJOON_HANDLE:
         errors.append("BAEKJOON_HANDLE이 설정되지 않았습니다.")

@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import json
-import psycopg2
+from storage.db_client import get_connection
 from datetime import date
 from typing import Dict, Optional
 import logging
@@ -26,17 +26,29 @@ class BaseSaver:
 
     def __init__(self, db_config: Optional[Dict] = None):
         self.db_config = db_config or get_db_config()
-        # 라즈베리파이 경로로 변경
-        if os.path.exists('/home/jcw/learning-etl'):
-            self.artifacts_dir = Path('/home/jcw/learning-etl/learning_artifacts')
-        else:
-            # 로컬 개발 환경
-            from config.settings import ARTIFACTS_DIR
-            self.artifacts_dir = ARTIFACTS_DIR
+        # PROJECT_ROOT 기반 경로 사용 (하드코딩 제거)
+        from config.settings import ARTIFACTS_DIR
+        self.artifacts_dir = ARTIFACTS_DIR
 
     def _get_db_connection(self):
         """PostgreSQL 연결"""
-        return psycopg2.connect(**self.db_config)
+        return get_connection(self.db_config)
+
+    def _execute(self, query: str, params: tuple = (), fetchone: bool = False, commit: bool = False):
+        """Execute a query against the DB and optionally fetch one row.
+
+        This centralizes connection handling to reduce repetitive try/finally blocks.
+        """
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                result = cur.fetchone() if fetchone else None
+                if commit:
+                    conn.commit()
+                return result
+        finally:
+            conn.close()
 
     def _ensure_directory(self, artifact_date: date, source_type: str) -> Path:
         """날짜/소스별 디렉토리 생성"""

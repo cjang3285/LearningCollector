@@ -13,6 +13,10 @@ collectors:
     config_key: COLLECT_GITHUB                              # .env 설정 키
     description: "GitHub 커밋 수집"
     class_path: "collectors.github_collector.GitHubCollector"
+    dependencies:
+      exporter: "export.github_export.GitHubExporter"
+      parser: "parse.github_parse.GitHubParser"
+      saver: "storage.github_saver.GitHubSaver"
     priority: 10                                            # 실행 우선순위 (낮을수록 먼저)
 
   # 백준 문제 풀이 수집
@@ -21,6 +25,10 @@ collectors:
     config_key: COLLECT_BAEKJOON                            # .env 설정 키
     description: "백준 문제 풀이 수집"
     class_path: "collectors.baekjoon_collector.BaekjoonCollector"
+    dependencies:
+      exporter: "export.baekjoon_export.BaekjoonExporter"
+      parser: "parse.baekjoon_parse.BaekjoonParser"
+      saver: "storage.baekjoon_saver.BaekjoonSaver"
     priority: 20
 
   # AI 채팅 마크다운 수집 (Claude, ChatGPT, Gemini)
@@ -29,6 +37,9 @@ collectors:
     config_key: null                                        # 환경변수 제어 없음
     description: "AI 채팅 마크다운 수집 (Claude, ChatGPT, Gemini)"
     class_path: "collectors.ai_chat_collector.AIChatCollector"
+    dependencies:
+      parser: "parse.ai_chat_parse.AIMarkdownParser"
+      saver: "storage.ai_chat_saver.AIChatSaver"
     priority: 30
 
   # Claude ZIP 마이그레이션 (첫 이용 시)
@@ -36,7 +47,11 @@ collectors:
     enabled: false                                          # 수동 실행만 (CLI --claude-zip)
     config_key: null
     description: "Claude ZIP 마이그레이션 (첫 이용 시)"
-    class_path: "migration.claude_collector.ClaudeMigrationCollector"
+    class_path: "bulk_import.claude_collector.ClaudeMigrationCollector"
+    dependencies:
+      migration_parser: "bulk_import.claude_parse.ClaudeMigrationParser"
+      markdown_parser: "parse.ai_chat_parse.AIMarkdownParser"
+      saver: "storage.ai_chat_saver.AIChatSaver"
     priority: 5                                             # 가장 먼저 실행
 
 # 전역 설정

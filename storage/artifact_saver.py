@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Any
 import logging
 
 from config.settings import ARTIFACTS_DIR, get_log_file
+from storage.base_saver import BaseSaver
 
 # 로깅 설정
 logging.basicConfig(
@@ -33,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ArtifactSaver:
+class ArtifactSaver(BaseSaver):
     """학습 아티팩트 저장 (파일 + DB)"""
 
     def __init__(self, db_config: Optional[Dict] = None):
@@ -48,14 +49,7 @@ class ArtifactSaver:
                     'password': 'postgres'
                 }
         """
-        self.db_config = db_config or {
-            'host': 'localhost',
-            'port': 5432,
-            'database': 'my_blog',
-            'user': 'postgres',
-            'password': 'postgres'
-        }
-        self.artifacts_dir = ARTIFACTS_DIR
+        super().__init__(db_config)
         logger.info(f"ArtifactSaver 초기화: {self.artifacts_dir}")
 
     def _get_db_connection(self):
