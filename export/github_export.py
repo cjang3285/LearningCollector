@@ -20,7 +20,7 @@ import logging
 
 from config.settings import (
     GITHUB_TOKEN, GITHUB_USERNAME, GITHUB_API_BASE,
-    get_log_file
+    CLAUDE_AUTHORS, get_log_file
 )
 
 # 로깅 설정
@@ -37,10 +37,11 @@ logger = logging.getLogger(__name__)
 
 class GitHubExporter:
     """GitHub 커밋 + 코드 수집"""
-    
-    def __init__(self, token: Optional[str] = None, username: Optional[str] = None):
+
+    def __init__(self, token: Optional[str] = None, username: Optional[str] = None, claude_authors: Optional[List[str]] = None):
         self.token = token or GITHUB_TOKEN
         self.username = username or GITHUB_USERNAME
+        self.claude_authors = claude_authors if claude_authors is not None else CLAUDE_AUTHORS
 
         if not self.token:
             raise ValueError("GITHUB_TOKEN 필요")
@@ -54,6 +55,8 @@ class GitHubExporter:
         }
         self.base_url = GITHUB_API_BASE
         logger.info(f"GitHubExporter 초기화: {self.username}")
+        if self.claude_authors:
+            logger.info(f"Claude 작성자 추적: {', '.join(self.claude_authors)}")
     
     def get_user_repos(self) -> List[Dict]:
         """사용자의 모든 저장소 가져오기"""
@@ -114,6 +117,7 @@ class GitHubExporter:
             # 1. author가 사용자
             # 2. committer가 사용자
             # 3. Co-Authored-By에 사용자 포함
+            # 4. Claude가 작성한 커밋 (설정된 경우)
             filtered = []
             for commit in commits:
                 commit_data = commit.get('commit', {})
@@ -128,7 +132,16 @@ class GitHubExporter:
                     f'Co-Authored-By:' in message  # Co-author 체크는 나중에 상세히
                 )
 
-                if is_user_commit:
+                # Claude 작성자 확인 (설정된 경우)
+                is_claude_commit = False
+                if self.claude_authors:
+                    for claude_author in self.claude_authors:
+                        if (claude_author.lower() in author.lower() or
+                            claude_author.lower() in committer.lower()):
+                            is_claude_commit = True
+                            break
+
+                if is_user_commit or is_claude_commit:
                     filtered.append(commit)
 
             return filtered

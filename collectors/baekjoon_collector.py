@@ -21,7 +21,7 @@ from parse.baekjoon_parse import BaekjoonParser
 from storage.baekjoon_saver import BaekjoonSaver
 from storage.db_utils import get_collection_date_range
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
-from config.settings import get_log_file
+from config.settings import get_log_file, BAEKJOON_REPO
 from config.logging_config import setup_logging
 
 # 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
@@ -32,7 +32,8 @@ class BaekjoonCollector(ICollector):
     """백준 데이터 수집 통합 (ICollector 구현)"""
 
     def __init__(self):
-        self.exporter = BaekjoonExporter()
+        # BAEKJOON_REPO 설정을 BaekjoonExporter에 전달
+        self.exporter = BaekjoonExporter(baekjoon_repo=BAEKJOON_REPO or "Baekjoon_solutions")
         self.parser = BaekjoonParser()
         self.saver = BaekjoonSaver()
 

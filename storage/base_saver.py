@@ -26,13 +26,9 @@ class BaseSaver:
 
     def __init__(self, db_config: Optional[Dict] = None):
         self.db_config = db_config or get_db_config()
-        # 라즈베리파이 경로로 변경
-        if os.path.exists('/home/jcw/learning-etl'):
-            self.artifacts_dir = Path('/home/jcw/learning-etl/learning_artifacts')
-        else:
-            # 로컬 개발 환경
-            from config.settings import ARTIFACTS_DIR
-            self.artifacts_dir = ARTIFACTS_DIR
+        # PROJECT_ROOT 기반 경로 사용 (하드코딩 제거)
+        from config.settings import ARTIFACTS_DIR
+        self.artifacts_dir = ARTIFACTS_DIR
 
     def _get_db_connection(self):
         """PostgreSQL 연결"""
