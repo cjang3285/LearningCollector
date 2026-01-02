@@ -1,77 +1,88 @@
-## learningetl.*이 아니라 learningetl-daily.timer/.service 가 항시 돌고 있다
-### timer -> service -> daily-collect.sh -> python main.py 실행 순서
-그냥 learningetl은 실행 후 종료되므로 -daily를 확인할 것.
-그리고 git pull 하여 main.py의 실행 로직이 변경되면 이미 pull만으로 반영된 것이다. 
-자정에는 pull된 코드가 실행되기 때문이다.
+markdown# LearningETL 시스템 동작 구조
 
-(venv) jcw@jcw: **/etc/systemd/system** $ cat **learningetl-daily.timer** 
+## 핵심 개념
+`learningetl.service`가 아닌 **`learningetl-daily.timer/.service`**가 실제 운영 중인 유닛이다.
+
+## 실행 흐름
+```
+learningetl-daily.timer 
+  → learningetl-daily.service 
+    → daily-collect.sh 
+      → python main.py
+```
+
+## 코드 업데이트 반영 메커니즘
+- `git pull`로 `main.py` 변경사항을 pull하면 **즉시 반영 완료**
+- 별도 재시작 불필요 - 자정에 실행되는 타이머가 pull된 코드를 실행
+- `learningetl.service`는 oneshot 타입으로 실행 후 종료되므로 상시 active 상태가 아님
+
+---
+
+## systemd 유닛 구성
+
+### 1. Timer Unit
+**파일**: `/etc/systemd/system/learningetl-daily.timer`
+```ini
 [Unit]
 Description=LearningETL Daily Scan Timer
 Requires=learningetl-daily.service
 
 [Timer]
-# 매일 자정 (00:00) 실행
-OnCalendar=daily
-
-# 시스템 재부팅 시 놓친 작업 실행
-Persistent=true
+OnCalendar=daily              # 매일 00:00 실행
+Persistent=true               # 재부팅 시 놓친 작업 실행
 
 [Install]
 WantedBy=timers.target
-(venv) jcw@jcw:/etc/systemd/system$ cat **learningetl-daily.service** 
+```
+
+### 2. Service Unit
+**파일**: `/etc/systemd/system/learningetl-daily.service`
+```ini
 [Unit]
 Description=LearningETL Daily Scan
 After=network.target postgresql.service
 
 [Service]
-Type=oneshot
+Type=oneshot                  # 작업 완료 후 종료
 User=jcw
 WorkingDirectory=/home/jcw/LearningETL
-ExecStart=/home/jcw/LearningETL/scripts/runtime/**daily-collect.sh**
+ExecStart=/home/jcw/LearningETL/scripts/runtime/daily-collect.sh
 
 [Install]
 WantedBy=multi-user.target
-(venv) jcw@jcw:/etc/systemd/system$ cat /home/jcw/LearningETL/scripts/runtime/**daily-collect.sh**
-#!/bin/bash
-# LearningETL 일일 수집 스크립트
-# 용도: systemd timer에서 매일 실행하여 데이터 수집
+```
 
+### 3. Shell Script
+**파일**: `/home/jcw/LearningETL/scripts/runtime/daily-collect.sh`
+```bash
+#!/bin/bash
 set -e  # 에러 발생 시 중단
 
-# 프로젝트 루트 디렉토리 (이 스크립트 위치 기준)
+# 경로 설정
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
-# 가상환경 활성화
-if [ -d "$PROJECT_ROOT/venv" ]; then
-    source "$PROJECT_ROOT/venv/bin/**activate**"
-else
-    echo "가상환경을 찾을 수 없습니다: $PROJECT_ROOT/venv"
-    exit 1
-fi
+# venv 활성화
+source "$PROJECT_ROOT/venv/bin/activate"
 
-# 로그 파일 설정
+# 로그 설정
 LOG_DIR="$PROJECT_ROOT/logs"
 DATE=$(date +%Y-%m-%d)
 LOG_FILE="$LOG_DIR/cron_$DATE.log"
-
-# 로그 디렉토리 생성
 mkdir -p "$LOG_DIR"
 
-# 타임스탬프 함수
+# 로그 함수
 log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# 실행
 log_message "=========================================="
 log_message "LearningETL 일일 수집 시작"
-log_message "=========================================="
-
-# main.py 실행
-cd "$PROJECT_ROOT"
 log_message "작업 디렉토리: $PROJECT_ROOT"
 
-if **python main.py** >> "$LOG_FILE" 2>&1; then
+cd "$PROJECT_ROOT"
+if python main.py >> "$LOG_FILE" 2>&1; then
     log_message "[SUCCESS] 수집 성공"
     EXIT_CODE=0
 else
@@ -79,29 +90,37 @@ else
     EXIT_CODE=1
 fi
 
-log_message "=========================================="
 log_message "LearningETL 일일 수집 완료"
 log_message "=========================================="
-log_message ""
-
 exit $EXIT_CODE
+```
 
+---
 
-(venv) jcw@jcw:/etc/systemd/system$ sudo systemctl list-units --type=service,timer | grep -i learningetl
-  learningetl-daily.timer                                  loaded active waiting LearningETL Daily Scan Timer
-(venv) jcw@jcw:/etc/systemd/system$ sudo systemctl list-timers | grep learningetl
-Fri 2026-01-02 00:00:00 KST       8h Thu 2026-01-01 00:00:00 KST      15h ago learningetl-daily.timer        learningetl-daily.service
-(venv) jcw@jcw:/etc/systemd/system$ sudo journalctl -u learningetl-daily.service --since today
-Jan 01 00:00:00 jcw systemd[1]: Starting learningetl-daily.service - LearningETL Daily Scan...
-Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] ==========================================
-Jan 01 00:00:00 jcw daily-collect.sh[64760]: [2026-01-01 00:00:00] LearningETL 일일 수집 시작
-Jan 01 00:00:00 jcw daily-collect.sh[64763]: [2026-01-01 00:00:00] ==========================================
+## 운영 상태 확인
+
+### 타이머 상태
+```bash
+$ sudo systemctl list-timers | grep learningetl
+Fri 2026-01-02 00:00:00 KST  8h    Thu 2026-01-01 00:00:00 KST  15h ago  learningetl-daily.timer
+```
+- **다음 실행**: 2026-01-02 00:00:00
+- **마지막 실행**: 2026-01-01 00:00:00 (15시간 전)
+
+### 서비스 로그
+```bash
+$ sudo journalctl -u learningetl-daily.service --since today
+Jan 01 00:00:00 jcw systemd[1]: Starting learningetl-daily.service...
+Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] LearningETL 일일 수집 시작
 Jan 01 00:00:01 jcw daily-collect.sh[64766]: [2026-01-01 00:00:00] 작업 디렉토리: /home/jcw/LearningETL
 Jan 01 00:00:09 jcw daily-collect.sh[64789]: [2026-01-01 00:00:09] [SUCCESS] 수집 성공
-Jan 01 00:00:09 jcw daily-collect.sh[64792]: [2026-01-01 00:00:09] ==========================================
-Jan 01 00:00:09 jcw daily-collect.sh[64795]: [2026-01-01 00:00:09] LearningETL 일일 수집 완료
-Jan 01 00:00:09 jcw daily-collect.sh[64798]: [2026-01-01 00:00:09] ==========================================
-Jan 01 00:00:09 jcw daily-collect.sh[64801]: [2026-01-01 00:00:09]
-Jan 01 00:00:09 jcw systemd[1]: learningetl-daily.service: Deactivated successfully.
-Jan 01 00:00:09 jcw systemd[1]: Finished learningetl-daily.service - LearningETL Daily Scan.
-Jan 01 00:00:09 jcw systemd[1]: learningetl-daily.service: Consumed 3.937s CPU time.
+```
+
+---
+
+## 주요 특징
+- **Type=oneshot**: 작업 완료 후 서비스 종료, 타이머가 주기적으로 재실행
+- **Persistent=true**: 시스템 다운타임 동안 놓친 작업을 부팅 후 실행
+- **로그 분리**: 일자별 로그 파일 (`logs/cron_YYYY-MM-DD.log`)
+- **가상환경 자동 활성화**: 스크립트 내에서 venv 관리
+- **에러 핸들링**: `set -e`로 중간 실패 시 즉시 중단, exit code 로깅
