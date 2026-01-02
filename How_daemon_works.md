@@ -1,4 +1,4 @@
-markdown# LearningETL 시스템 동작 구조
+# LearningETL 시스템 동작 구조
 
 ## 핵심 개념
 `learningetl.service`가 아닌 **`learningetl-daily.timer/.service`**가 실제 운영 중인 유닛이다.
