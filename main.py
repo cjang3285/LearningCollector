@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Learning Artifacts ETL Pipeline - Main Entry Point
+개인 학습 정보 수집 자동화 도구 - Main Entry Point
 
 모든 학습 활동을 수집하여 DB에 저장하는 메인 프로그램
 CollectorFactory 적용 (SOLID - OCP)
@@ -28,7 +28,7 @@ logger = setup_logging(get_log_file('main'), __name__)
 
 class LearningETL:
     """
-    학습 아티팩트 ETL 메인 클래스 (OCP 적용)
+    개인 학습 정보 수집 자동화 도구 메인 클래스 (OCP 적용)
 
     CollectorFactory를 사용하여 설정 기반으로 Collector 생성
     새로운 Collector 추가 시 이 클래스 수정 불필요!
@@ -53,7 +53,7 @@ class LearningETL:
         skip_ai_chat: bool = False
     ) -> Dict:
         """
-        전체 ETL 프로세스 실행
+        전체 수집 프로세스 실행
 
         Args:
             target_date: 수집 대상 날짜 (기본값: 오늘)
@@ -79,7 +79,7 @@ class LearningETL:
         target_date = target_date or date.today()
 
         logger.info("="*60)
-        logger.info(f"Learning Artifacts ETL - {target_date}")
+        logger.info(f"개인 학습 정보 수집 자동화 도구 - {target_date}")
         logger.info("="*60)
 
         results = {
@@ -212,7 +212,7 @@ def main():
     from config.settings import GITHUB_USERNAME, GITHUB_USERNAMES, BAEKJOON_HANDLE, BAEKJOON_REPO
 
     logger.info("="*60)
-    logger.info("ETL 프로세스 시작: 환경변수 로드")
+    logger.info("수집 프로세스 시작: 환경변수 로드")
     logger.info(f"  - GITHUB_USERNAME (Primary): {GITHUB_USERNAME}")
     logger.info(f"  - GITHUB_USERNAMES (All): {GITHUB_USERNAMES}")
     logger.info(f"  - BAEKJOON_HANDLE: {BAEKJOON_HANDLE}")
@@ -220,7 +220,7 @@ def main():
     logger.info("="*60)
 
     parser = argparse.ArgumentParser(
-        description='Learning Artifacts ETL Pipeline',
+        description='개인 학습 정보 수집 자동화 도구',
         epilog='''
 사용 예시:
   # 기본 실행 (GitHub + Baekjoon + AI Chat 자동 스캔)
@@ -300,7 +300,7 @@ def main():
 
     # 결과를 JSON 파일로도 저장
     import json
-    output_file = PROJECT_ROOT / 'logs' / f'etl_result_{date.today()}.json'
+    output_file = PROJECT_ROOT / 'logs' / f'collection_result_{date.today()}.json'
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2, default=str)
 

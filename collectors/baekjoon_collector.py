@@ -19,7 +19,7 @@ import logging
 from load.baekjoon_load import BaekjoonLoader
 from parse.baekjoon_parse import BaekjoonParser
 from storage.baekjoon_saver import BaekjoonSaver
-from storage.repository import get_collection_date_range
+from storage.repository import get_collection_date_range, update_collection_run
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file, BAEKJOON_REPO
 from config.logging_config import setup_logging
@@ -89,6 +89,14 @@ class BaekjoonCollector(ICollector):
                 if result_dict['success']:
                     total_solutions += result_dict['solutions_count']
                     all_artifact_ids.extend(result_dict['artifact_ids'])
+
+                # 수집 실행 기록 (문제 0개여도 기록하여 다음 실행 시 올바른 날짜 범위 계산)
+                update_collection_run(
+                    source_type='baekjoon',
+                    run_date=current_date,
+                    items_count=result_dict['solutions_count'],
+                    success=result_dict['success']
+                )
 
                 current_date += timedelta(days=1)
 
@@ -160,7 +168,7 @@ class BaekjoonCollector(ICollector):
         logger.info(f"백준 데이터 수집 시작: {target_date}")
 
         try:
-            # 1. Export - 백준허브 연동 레포에서 특정 날짜 제출 문제 수집
+            # 1. Load - 백준허브 연동 레포에서 특정 날짜 제출 문제 수집
             logger.info("[1/3] 백준허브 연동 레포에서 백준 제출 수집...")
             problems = self.loader.load(target_date)
 
@@ -175,7 +183,7 @@ class BaekjoonCollector(ICollector):
 
             # 2. Parse - README.md 및 코드 파일 파싱
             logger.info(f"[2/3] {len(problems)}개 문제 파싱...")
-            parsed_problems = self.parser.parse_problems(problems, self.exporter)
+            parsed_problems = self.parser.parse_problems(problems, self.loader)
 
             if not parsed_problems:
                 logger.warning("파싱된 문제가 없습니다.")
@@ -186,7 +194,7 @@ class BaekjoonCollector(ICollector):
                     'artifact_ids': []
                 }
 
-            # 3. Save - DB 저장 (파싱 결과 전달 - Export에는 problem_id 등 없음)
+            # 3. Save - DB 저장 (파싱 결과 전달 - Load에는 problem_id 등 없음)
             logger.info("[3/3] DB에 저장...")
             artifact_ids = self.saver.save_all(parsed_problems, target_date)
 
