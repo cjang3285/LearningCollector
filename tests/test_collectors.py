@@ -26,26 +26,26 @@ class TestGitHubCollector(unittest.TestCase):
 
     @patch('collectors.github_collector.GitHubSaver')
     @patch('collectors.github_collector.GitHubParser')
-    @patch('collectors.github_collector.GitHubExporter')
-    def test_collector_initialization(self, mock_exporter, mock_parser, mock_saver):
+    @patch('collectors.github_collector.GitHubLoader')
+    def test_collector_initialization(self, mock_loader, mock_parser, mock_saver):
         """Collector 초기화 테스트"""
         # Mock 설정
-        mock_exporter.return_value = Mock()
+        mock_loader.return_value = Mock()
         mock_parser.return_value = Mock()
         mock_saver.return_value = Mock()
 
         collector = GitHubCollector()
         self.assertIsNotNone(collector)
 
-    @patch('collectors.github_collector.GitHubExporter')
+    @patch('collectors.github_collector.GitHubLoader')
     @patch('collectors.github_collector.GitHubParser')
     @patch('collectors.github_collector.GitHubSaver')
-    def test_collect_workflow(self, mock_saver, mock_parser, mock_exporter):
+    def test_collect_workflow(self, mock_saver, mock_parser, mock_loader):
         """수집 워크플로우 테스트 (모킹)"""
         # Mock 설정
-        mock_exp_instance = Mock()
-        mock_exp_instance.export_today.return_value = [{'sha': 'abc123'}]
-        mock_exporter.return_value = mock_exp_instance
+        mock_loader_instance = Mock()
+        mock_loader_instance.load.return_value = [{'sha': 'abc123'}]
+        mock_loader.return_value = mock_loader_instance
 
         mock_parser_instance = Mock()
         mock_parser_instance.parse_commits.return_value = [{'sha': 'abc123'}]
@@ -168,7 +168,7 @@ class TestClaudeMigrationCollector(unittest.TestCase):
         self.assertIn('claude', result['providers'])
         self.assertEqual(result['providers']['claude'], 1)
 
-    @patch('collectors.ai_chat_collector.AIExportWatcher')
+    @patch('collectors.ai_chat_collector.AILoadWatcher')
     def test_collect_from_downloads_no_files(self, mock_watcher):
         """다운로드 폴더 스캔 - 파일 없음"""
         # Mock Watcher
@@ -183,7 +183,7 @@ class TestClaudeMigrationCollector(unittest.TestCase):
         self.assertTrue(result['success'])
         self.assertEqual(result['conversations_count'], 0)
 
-    @patch('collectors.ai_chat_collector.AIExportWatcher')
+    @patch('collectors.ai_chat_collector.AILoadWatcher')
     def test_collect_from_downloads_no_files(self, mock_watcher):
         """다운로드 폴더 스캔 - 파일 없음"""
         # Mock Watcher

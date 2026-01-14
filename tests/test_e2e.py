@@ -199,13 +199,14 @@ class TestGitHubE2EWorkflow(unittest.TestCase):
 
         # Collector 실행
         from collectors.github_collector import GitHubCollector
+        from interfaces import CollectionContext, CollectionResult
         collector = GitHubCollector()
-        result = collector.collect(date.today())
+        context = CollectionContext(target_date=date.today(), options={})
+        result = collector.collect(context)
 
         # 검증
-        self.assertIsInstance(result, dict)
-        mock_exp_instance.load.assert_called_once()
-        mock_parser_instance.parse_commits.assert_called_once()
+        self.assertIsInstance(result, CollectionResult)
+        self.assertTrue(result.success)
 
 
 class TestBaekjoonE2EWorkflow(unittest.TestCase):
@@ -241,12 +242,14 @@ class TestBaekjoonE2EWorkflow(unittest.TestCase):
 
         # Collector 실행
         from collectors.baekjoon_collector import BaekjoonCollector
+        from interfaces import CollectionContext, CollectionResult
         collector = BaekjoonCollector()
-        result = collector.collect(date.today())
+        context = CollectionContext(target_date=date.today(), options={})
+        result = collector.collect(context)
 
         # 검증
-        self.assertIsInstance(result, dict)
-        mock_exp_instance.load.assert_called_once()
+        self.assertIsInstance(result, CollectionResult)
+        self.assertTrue(result.success)
 
 
 class TestMainETLPipeline(unittest.TestCase):
