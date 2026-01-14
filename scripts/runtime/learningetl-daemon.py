@@ -57,7 +57,7 @@ class LearningFileHandler(FileSystemEventHandler):
 
     def __init__(self, watch_dir: str):
         self.watch_dir = Path(watch_dir)
-        self.etl = LearningCollector()
+        self.collector = LearningCollector()
         self.processed_files = set()  # 중복 처리 방지
         self.last_run = None
         logger.info(f"[Daemon] 감시 폴더: {self.watch_dir}")
@@ -82,7 +82,7 @@ class LearningFileHandler(FileSystemEventHandler):
 
             # AI 채팅 수집
             logger.info(f"[Daemon] 처리 중: {file_path.name}")
-            result = self.etl.run(
+            result = self.collector.run(
                 ai_chat_scan=True,
                 ai_chat_download_dir=str(self.watch_dir),
                 target_date=date.today()
@@ -102,7 +102,7 @@ class LearningFileHandler(FileSystemEventHandler):
         if self.last_run is None or (now - self.last_run).seconds > 3600:
             logger.info("[Daemon] 주기적 전체 스캔 시작...")
             try:
-                result = self.etl.run(
+                result = self.collector.run(
                     ai_chat_scan=True,
                     ai_chat_download_dir=str(self.watch_dir),
                     target_date=date.today()

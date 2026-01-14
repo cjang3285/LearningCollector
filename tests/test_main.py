@@ -25,8 +25,8 @@ class TestLearningCollector(unittest.TestCase):
     def test_init_without_collectors(self, mock_create_all_collectors):
         """Collector 없이 초기화 테스트"""
         mock_create_all_collectors.return_value = {}
-        etl = LearningCollector()
-        self.assertEqual(len(etl.collectors), 0)
+        collector = LearningCollector()
+        self.assertEqual(len(collector.collectors), 0)
         mock_create_all_collectors.assert_called_once_with(enabled_only=True)
 
     @patch('main.CollectorFactory.create_all_collectors')
@@ -44,13 +44,13 @@ class TestLearningCollector(unittest.TestCase):
             'ai_chat': mock_ai_chat_collector
         }
 
-        etl = LearningCollector()
+        collector = LearningCollector()
 
-        self.assertIn('github', etl.collectors)
-        self.assertIn('claude_migration', etl.collectors)
-        self.assertIn('baekjoon', etl.collectors)
-        self.assertIn('ai_chat', etl.collectors)
-        self.assertEqual(etl.collectors['github'], mock_github_collector)
+        self.assertIn('github', collector.collectors)
+        self.assertIn('claude_migration', collector.collectors)
+        self.assertIn('baekjoon', collector.collectors)
+        self.assertIn('ai_chat', collector.collectors)
+        self.assertEqual(collector.collectors['github'], mock_github_collector)
         mock_create_all_collectors.assert_called_once_with(enabled_only=True)
 
     @patch('main.CollectorFactory.create_all_collectors')
@@ -58,8 +58,8 @@ class TestLearningCollector(unittest.TestCase):
         """Collector 없이 실행 테스트"""
         mock_create_all_collectors.return_value = {} # No collectors created
 
-        etl = LearningCollector()
-        result = etl.run(
+        collector = LearningCollector()
+        result = collector.run(
             target_date=date.today(),
             skip_github=True,
             skip_baekjoon=True,
@@ -93,8 +93,8 @@ class TestLearningCollector(unittest.TestCase):
             'github': mock_github_collector
         }
 
-        etl = LearningCollector()
-        result = etl.run(
+        collector = LearningCollector()
+        result = collector.run(
             target_date=date.today(),
             skip_github=False,
             skip_baekjoon=True,
@@ -121,8 +121,8 @@ class TestLearningCollector(unittest.TestCase):
         }
         mock_claude_migration_collector_class.return_value = mock_claude_instance
 
-        etl = LearningCollector()
-        result = etl.run(
+        collector = LearningCollector()
+        result = collector.run(
             target_date=date.today(),
             import_zip=True
         )
@@ -157,8 +157,8 @@ class TestLearningCollector(unittest.TestCase):
             'ai_chat': mock_ai_chat_collector
         }
 
-        etl = LearningCollector()
-        result = etl.run(
+        collector = LearningCollector()
+        result = collector.run(
             target_date=date.today(),
             skip_github=False,
             skip_baekjoon=False,
