@@ -179,9 +179,9 @@ class AIChatSaver(BaseSaver, ISaver):
 
         # 3. fallback_date 또는 오늘
         result = fallback_date or date.today()
-        logger.warning(
-            f"대화 날짜를 파싱할 수 없음 (title={conversation.get('title', 'Untitled')[:50]}), "
-            f"fallback 사용: {result}"
+        logger.debug(
+            f"대화 날짜 메타데이터 없음, fallback 사용: {result} "
+            f"(title={conversation.get('title', 'Untitled')[:50]})"
         )
         return result
 
