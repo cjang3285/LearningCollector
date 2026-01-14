@@ -1,10 +1,10 @@
 #!/bin/bash
-# LearningETL 매일 자정 실행 systemd timer 설정
+# 개인 학습 정보 수집 자동화 도구 - 매일 자정 실행 systemd timer 설정
 
 set -e
 
 echo "=========================================="
-echo "LearningETL 매일 자정 실행 Timer 설정"
+echo "개인 학습 정보 수집 자동화 도구 - 매일 자정 실행 Timer 설정"
 echo "=========================================="
 echo ""
 

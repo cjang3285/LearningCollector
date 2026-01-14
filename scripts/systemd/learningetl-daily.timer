@@ -1,5 +1,5 @@
 [Unit]
-Description=LearningETL Daily Scan Timer
+Description=개인 학습 정보 수집 자동화 도구 - 일일 실행 타이머
 Requires=learningetl-daily.service
 
 [Timer]

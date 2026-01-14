@@ -1,4 +1,4 @@
-# LearningETL 시스템 동작 구조
+# 개인 학습 정보 수집 자동화 시스템 동작 구조
 
 ## 핵심 개념
 `learningetl.service`가 아닌 **`learningetl-daily.timer/.service`**가 실제 운영 중인 유닛이다.
@@ -24,7 +24,7 @@ learningetl-daily.timer
 **파일**: `/etc/systemd/system/learningetl-daily.timer`
 ```ini
 [Unit]
-Description=LearningETL Daily Scan Timer
+Description=개인 학습 정보 수집 자동화 도구 - 일일 실행 타이머
 Requires=learningetl-daily.service
 
 [Timer]
@@ -39,7 +39,7 @@ WantedBy=timers.target
 **파일**: `/etc/systemd/system/learningetl-daily.service`
 ```ini
 [Unit]
-Description=LearningETL Daily Scan
+Description=개인 학습 정보 수집 자동화 도구 - 일일 수집
 After=network.target postgresql.service
 
 [Service]
@@ -78,7 +78,7 @@ log_message() {
 
 # 실행
 log_message "=========================================="
-log_message "LearningETL 일일 수집 시작"
+log_message "개인 학습 정보 수집 자동화 도구 - 일일 수집 시작"
 log_message "작업 디렉토리: $PROJECT_ROOT"
 
 cd "$PROJECT_ROOT"
@@ -90,7 +90,7 @@ else
     EXIT_CODE=1
 fi
 
-log_message "LearningETL 일일 수집 완료"
+log_message "개인 학습 정보 수집 자동화 도구 - 일일 수집 완료"
 log_message "=========================================="
 exit $EXIT_CODE
 ```
@@ -111,8 +111,8 @@ Fri 2026-01-02 00:00:00 KST  8h    Thu 2026-01-01 00:00:00 KST  15h ago  learnin
 ```bash
 $ sudo journalctl -u learningetl-daily.service --since today
 Jan 01 00:00:00 jcw systemd[1]: Starting learningetl-daily.service...
-Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] LearningETL 일일 수집 시작
-Jan 01 00:00:01 jcw daily-collect.sh[64766]: [2026-01-01 00:00:00] 작업 디렉토리: /home/jcw/LearningETL
+Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] 개인 학습 정보 수집 자동화 도구 - 일일 수집 시작
+Jan 01 00:00:01 jcw daily-collect.sh[64766]: [2026-01-01 00:00:00] 작업 디렉토리: /home/jcw/LearningCollector
 Jan 01 00:00:09 jcw daily-collect.sh[64789]: [2026-01-01 00:00:09] [SUCCESS] 수집 성공
 ```
 
