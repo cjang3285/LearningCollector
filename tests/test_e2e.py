@@ -24,6 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from load.ai_chat_load import AILoadWatcher, AIMarkdownHandler
 from collectors.ai_chat_collector import AIChatCollector
 from parse.ai_chat_parse import AIMarkdownParser
+from interfaces import CollectionResult
 
 
 class TestAILoadWatcherRealFileSystem(unittest.TestCase):
@@ -253,29 +254,40 @@ class TestBaekjoonE2EWorkflow(unittest.TestCase):
 
 
 class TestMainETLPipeline(unittest.TestCase):
-    """메인 ETL 파이프라인 통합 테스트"""
+    """메인 수집 파이프라인 통합 테스트"""
 
-    @patch('main.BaekjoonCollector')
-    @patch('main.AIChatCollector')
-    @patch('main.ClaudeMigrationCollector')
-    @patch('main.GitHubCollector')
-    def test_main_etl_run_all_collectors(self, mock_github, mock_claude, mock_ai_chat, mock_baekjoon):
-        """메인 ETL 실행 - 모든 Collector 동작"""
-        # Mock 설정
-        for mock_collector_class in [mock_github, mock_claude, mock_ai_chat, mock_baekjoon]:
-            mock_instance = Mock()
-            mock_instance.collect.return_value = {
-                'success': True,
-                'commits_count': 5,
-                'conversations_count': 3,
-                'solutions_count': 2
-            }
-            mock_collector_class.return_value = mock_instance
+    @patch('main.CollectorFactory.create_all_collectors')
+    def test_main_etl_run_all_collectors(self, mock_factory):
+        """메인 Collector 실행 - CollectorFactory 사용"""
+        # Mock Collector 인스턴스 생성
+        mock_github = Mock()
+        mock_github.collect.return_value = CollectionResult(
+            success=True,
+            date=date.today(),
+            items_count=5,
+            artifact_ids=[1, 2, 3],
+            metadata={'commits_count': 5}
+        )
+
+        mock_baekjoon = Mock()
+        mock_baekjoon.collect.return_value = CollectionResult(
+            success=True,
+            date=date.today(),
+            items_count=2,
+            artifact_ids=[4, 5],
+            metadata={'solutions_count': 2}
+        )
+
+        # Factory가 모킹된 Collector들 반환하도록 설정
+        mock_factory.return_value = {
+            'github': mock_github,
+            'baekjoon': mock_baekjoon
+        }
 
         # Collector 실행
         from main import LearningCollector
-        etl = LearningCollector()
-        result = etl.run(date.today())
+        collector = LearningCollector()
+        result = collector.run(date.today())
 
         # 검증
         self.assertIsInstance(result, dict)
