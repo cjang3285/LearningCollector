@@ -82,7 +82,7 @@ log_message "LearningCollector - 일일 수집 시작"
 log_message "작업 디렉토리: $PROJECT_ROOT"
 
 cd "$PROJECT_ROOT"
-if python main.py >> "$LOG_FILE" 2>&1; then
+if "$PROJECT_ROOT/venv/bin/python" main.py >> "$LOG_FILE" 2>&1; then
     log_message "[SUCCESS] 수집 성공"
     EXIT_CODE=0
 else
