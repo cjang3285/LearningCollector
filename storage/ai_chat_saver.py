@@ -145,6 +145,40 @@ class AIChatSaver(BaseSaver, ISaver):
     # 내부 구현 메서드 (AI Chat 전용)
     # ============================================
 
+    def _parse_date_string(self, date_str: str) -> Optional[date]:
+        """
+        다양한 날짜 형식 파싱 시도
+
+        지원 형식:
+        - ISO 8601: "2024-01-01T12:00:00.000Z"
+        - ChatGPT/Claude Exporter: "1/13/2026 21:08:26"
+        """
+        if not date_str:
+            return None
+
+        # ISO 8601 형식 시도
+        try:
+            dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return dt.date()
+        except:
+            pass
+
+        # M/D/YYYY H:M:S 형식 시도 (ChatGPT/Claude Exporter)
+        try:
+            dt = datetime.strptime(date_str, '%m/%d/%Y %H:%M:%S')
+            return dt.date()
+        except:
+            pass
+
+        # M/D/YYYY 형식 시도
+        try:
+            dt = datetime.strptime(date_str, '%m/%d/%Y')
+            return dt.date()
+        except:
+            pass
+
+        return None
+
     def _parse_conversation_date(self, conversation: Dict, fallback_date: date = None) -> date:
         """
         대화의 실제 생성 날짜 추출.
@@ -159,23 +193,20 @@ class AIChatSaver(BaseSaver, ISaver):
         # 1. created_at 파싱 시도
         created_at = conversation.get('created_at')
         if created_at:
-            try:
-                # ISO 8601 형식 파싱 (예: "2024-01-01T12:00:00.000Z" 또는 "2024-01-01T12:00:00+00:00")
-                dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                logger.debug(f"대화 생성일 파싱: {dt.date()} (created_at={created_at})")
-                return dt.date()
-            except Exception as e:
-                logger.debug(f"created_at 파싱 실패 ({created_at}): {e}")
+            parsed = self._parse_date_string(created_at)
+            if parsed:
+                logger.debug(f"대화 생성일 파싱: {parsed} (created_at={created_at})")
+                return parsed
+            logger.debug(f"created_at 파싱 실패 ({created_at})")
 
         # 2. updated_at 파싱 시도
         updated_at = conversation.get('updated_at')
         if updated_at:
-            try:
-                dt = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
-                logger.debug(f"대화 수정일 사용: {dt.date()} (updated_at={updated_at})")
-                return dt.date()
-            except Exception as e:
-                logger.debug(f"updated_at 파싱 실패 ({updated_at}): {e}")
+            parsed = self._parse_date_string(updated_at)
+            if parsed:
+                logger.debug(f"대화 수정일 사용: {parsed} (updated_at={updated_at})")
+                return parsed
+            logger.debug(f"updated_at 파싱 실패 ({updated_at})")
 
         # 3. fallback_date 또는 오늘
         result = fallback_date or date.today()
