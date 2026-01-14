@@ -27,14 +27,14 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(get_log_file('baekjoon_export')),
+        logging.FileHandler(get_log_file('baekjoon_load')),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
 
-class BaekjoonExporter:
+class BaekjoonLoader:
     """백준허브 연동 레포 기반 문제 풀이 수집"""
 
     def __init__(
@@ -63,7 +63,7 @@ class BaekjoonExporter:
             'Authorization': f'token {self.token}',
             'Accept': 'application/vnd.github.v3+json'
         }
-        logger.info(f"BaekjoonExporter 초기화: {self.username}/{self.baekjoon_repo}")
+        logger.info(f"BaekjoonLoader 초기화: {self.username}/{self.baekjoon_repo}")
 
     def get_commits(self, since: datetime, until: datetime) -> List[Dict]:
         """
@@ -213,7 +213,7 @@ class BaekjoonExporter:
 
         return None
 
-    def export(self, target_date: datetime = None) -> List[Dict]:
+    def load(self, target_date: datetime = None) -> List[Dict]:
         """
         특정 날짜에 제출된 백준 문제 수집
 
@@ -291,10 +291,10 @@ class BaekjoonExporter:
 if __name__ == '__main__':
     from datetime import date
 
-    exporter = BaekjoonExporter()
+    loader = BaekjoonLoader()
 
     # 오늘 문제 수집
-    problems = exporter.export_today()
+    problems = loader.load()
 
     print(f"\n총 {len(problems)}개 문제 수집됨:")
     for p in problems:

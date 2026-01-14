@@ -21,13 +21,13 @@ from unittest.mock import Mock, patch, MagicMock
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from export.ai_chat_export import AIExportWatcher, AIMarkdownHandler
+from load.ai_chat_load import AILoadWatcher, AIMarkdownHandler
 from collectors.ai_chat_collector import AIChatCollector
 from parse.ai_chat_parse import AIMarkdownParser
 
 
-class TestAIExportWatcherRealFileSystem(unittest.TestCase):
-    """AIExportWatcher 실제 파일 시스템 테스트"""
+class TestAILoadWatcherRealFileSystem(unittest.TestCase):
+    """AILoadWatcher 실제 파일 시스템 테스트"""
 
     def setUp(self):
         """테스트 전 임시 디렉토리 설정"""
@@ -54,7 +54,7 @@ class TestAIExportWatcherRealFileSystem(unittest.TestCase):
             file_path.write_text(f"# Test {filename}\n\nTest content")
 
         # Watcher 생성 및 스캔
-        watcher = AIExportWatcher(
+        watcher = AILoadWatcher(
             download_dir=self.temp_download_dir,
             target_dir=self.temp_target_dir
         )
@@ -79,7 +79,7 @@ class TestAIExportWatcherRealFileSystem(unittest.TestCase):
         callback_mock = Mock()
 
         # Watcher 생성 및 수집
-        watcher = AIExportWatcher(
+        watcher = AILoadWatcher(
             download_dir=self.temp_download_dir,
             target_dir=self.temp_target_dir
         )
@@ -168,12 +168,12 @@ class TestGitHubE2EWorkflow(unittest.TestCase):
 
     @patch('collectors.github_collector.GitHubSaver')
     @patch('collectors.github_collector.GitHubParser')
-    @patch('collectors.github_collector.GitHubExporter')
+    @patch('collectors.github_collector.GitHubLoader')
     def test_github_export_parse_save_pipeline(self, mock_exporter, mock_parser, mock_saver):
         """GitHub Export → Parse → Save 파이프라인"""
         # Mock 설정
         mock_exp_instance = Mock()
-        mock_exp_instance.export_today.return_value = [
+        mock_exp_instance.load.return_value = [
             {
                 'repo': 'test-repo',
                 'sha': 'abc123',
@@ -204,7 +204,7 @@ class TestGitHubE2EWorkflow(unittest.TestCase):
 
         # 검증
         self.assertIsInstance(result, dict)
-        mock_exp_instance.export_today.assert_called_once()
+        mock_exp_instance.load.assert_called_once()
         mock_parser_instance.parse_commits.assert_called_once()
 
 
@@ -213,12 +213,12 @@ class TestBaekjoonE2EWorkflow(unittest.TestCase):
 
     @patch('collectors.baekjoon_collector.BaekjoonSaver')
     @patch('collectors.baekjoon_collector.BaekjoonParser')
-    @patch('collectors.baekjoon_collector.BaekjoonExporter')
+    @patch('collectors.baekjoon_collector.BaekjoonLoader')
     def test_baekjoon_export_parse_save_pipeline(self, mock_exporter, mock_parser, mock_saver):
         """백준 Export → Parse → Save 파이프라인"""
         # Mock 설정
         mock_exp_instance = Mock()
-        mock_exp_instance.export_today.return_value = [
+        mock_exp_instance.load.return_value = [
             {
                 'readme_path': '백준/Silver/1000. A+B/README.md',
                 'code_path': '백준/Silver/1000. A+B/A+B.py',
@@ -246,7 +246,7 @@ class TestBaekjoonE2EWorkflow(unittest.TestCase):
 
         # 검증
         self.assertIsInstance(result, dict)
-        mock_exp_instance.export_today.assert_called_once()
+        mock_exp_instance.load.assert_called_once()
 
 
 class TestMainETLPipeline(unittest.TestCase):

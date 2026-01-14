@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Base exporter utilities: HTTP request wrapper, pagination, error handling.
+Base loader utilities: HTTP request wrapper, pagination, error handling.
 
-Provide a small base class exporters can inherit to share request, paging,
+Provide a small base class loaders can inherit to share request, paging,
 and error handling logic. Keeps code DRY and easier to test.
 """
 from typing import Optional, Dict, Any, List
@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class BaseExporter:
+class BaseLoader:
     def __init__(self, token: Optional[str] = None, base_url: str = '', headers: Optional[Dict[str, str]] = None, session: Optional[requests.Session] = None):
         self.base_url = base_url.rstrip('/') if base_url else ''
         self.token = token

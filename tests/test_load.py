@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Export 모듈 테스트
+Load 모듈 테스트
 
-GitHub 및 Baekjoon export 모듈을 테스트합니다.
+GitHub 및 Baekjoon load 모듈을 테스트합니다.
 """
 
 import unittest
@@ -15,48 +15,48 @@ from unittest.mock import Mock, patch
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from export.github_export import GitHubExporter
-from export.baekjoon_export import BaekjoonExporter
+from load.github_load import GitHubLoader
+from load.baekjoon_load import BaekjoonLoader
 
 
-class TestGitHubExporter(unittest.TestCase):
-    """GitHub Exporter 테스트"""
+class TestGitHubLoader(unittest.TestCase):
+    """GitHub Loader 테스트"""
 
     def setUp(self):
         """테스트 전 환경 설정"""
         pass
 
-    @patch('export.github_export.GITHUB_TOKEN', None)
+    @patch('load.github_load.GITHUB_TOKEN', None)
     def test_init_without_token_raises_error(self):
         """토큰 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
-            GitHubExporter(token=None, usernames=['testuser'])
+            GitHubLoader(token=None, usernames=['testuser'])
 
-    @patch('export.github_export.GITHUB_USERNAMES', [])
+    @patch('load.github_load.GITHUB_USERNAMES', [])
     def test_init_without_username_raises_error(self):
         """유저네임 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
-            GitHubExporter(token='test_token', usernames=[])
+            GitHubLoader(token='test_token', usernames=[])
 
     def test_init_with_credentials(self):
         """정상적인 초기화 테스트"""
-        exporter = GitHubExporter(token='test_token', usernames=['testuser', 'claude'])
+        loader = GitHubLoader(token='test_token', usernames=['testuser', 'claude'])
 
-        self.assertEqual(exporter.token, 'test_token')
-        self.assertEqual(exporter.username, 'testuser')
-        self.assertEqual(exporter.usernames, ['testuser', 'claude'])
-        self.assertIn('Authorization', exporter.headers)
+        self.assertEqual(loader.token, 'test_token')
+        self.assertEqual(loader.username, 'testuser')
+        self.assertEqual(loader.usernames, ['testuser', 'claude'])
+        self.assertIn('Authorization', loader.headers)
 
-    @patch('export.github_export.GitHubExporter.get_user_repos')
-    @patch('export.github_export.GitHubExporter.get_commits_by_date')
-    def test_export_with_mock(self, mock_get_commits_by_date, mock_get_user_repos):
+    @patch('load.github_load.GitHubLoader.get_user_repos')
+    @patch('load.github_load.GitHubLoader.get_commits_by_date')
+    def test_load_with_mock(self, mock_get_commits_by_date, mock_get_user_repos):
         """당일 커밋 수집 테스트 (모킹)"""
         # Mock 응답 설정
         mock_get_user_repos.return_value = [{'name': 'testrepo', 'owner': {'login': 'testuser'}}]
         mock_get_commits_by_date.return_value = [{'sha': '123', 'commit': {'message': 'test commit', 'author': {'date': '2026-01-01T10:00:00Z'}}, 'html_url': 'http://example.com'}]
 
-        exporter = GitHubExporter(token='test_token', usernames=['testuser'])
-        commits = exporter.export()
+        loader = GitHubLoader(token='test_token', usernames=['testuser'])
+        commits = loader.load()
 
         # API 호출 확인
         mock_get_user_repos.assert_called_once()
@@ -67,29 +67,29 @@ class TestGitHubExporter(unittest.TestCase):
         self.assertEqual(commits[0]['sha'], '123')
 
 
-class TestBaekjoonExporter(unittest.TestCase):
-    """Baekjoon Exporter 테스트"""
+class TestBaekjoonLoader(unittest.TestCase):
+    """Baekjoon Loader 테스트"""
 
-    @patch('export.baekjoon_export.GITHUB_TOKEN', None)
-    @patch('export.baekjoon_export.GITHUB_USERNAME', None)
+    @patch('load.baekjoon_load.GITHUB_TOKEN', None)
+    @patch('load.baekjoon_load.GITHUB_USERNAME', None)
     def test_init_without_credentials_raises_error(self):
         """GitHub 인증 정보 없이 초기화하면 에러 발생"""
         with self.assertRaises(ValueError):
-            BaekjoonExporter(username=None, token=None)
+            BaekjoonLoader(username=None, token=None)
 
     def test_init_with_credentials(self):
         """정상적인 초기화 테스트"""
-        exporter = BaekjoonExporter(
+        loader = BaekjoonLoader(
             baekjoon_repo='Baekjoon_solutions',
             username='testuser',
             token='test_token'
         )
 
-        self.assertEqual(exporter.baekjoon_repo, 'Baekjoon_solutions')
-        self.assertEqual(exporter.username, 'testuser')
-        self.assertEqual(exporter.token, 'test_token')
+        self.assertEqual(loader.baekjoon_repo, 'Baekjoon_solutions')
+        self.assertEqual(loader.username, 'testuser')
+        self.assertEqual(loader.token, 'test_token')
 
-    @patch('export.baekjoon_export.requests.get')
+    @patch('load.baekjoon_load.requests.get')
     def test_get_commits_with_mock(self, mock_get):
         """커밋 조회 테스트 (모킹)"""
         # Mock 응답 설정
@@ -98,7 +98,7 @@ class TestBaekjoonExporter(unittest.TestCase):
         mock_response.json.return_value = []
         mock_get.return_value = mock_response
 
-        exporter = BaekjoonExporter(
+        loader = BaekjoonLoader(
             username='testuser',
             token='test_token'
         )
@@ -106,7 +106,7 @@ class TestBaekjoonExporter(unittest.TestCase):
         from datetime import datetime, timezone
         since = datetime.now(timezone.utc)
         until = datetime.now(timezone.utc)
-        commits = exporter.get_commits(since, until)
+        commits = loader.get_commits(since, until)
 
         # API 호출 확인
         self.assertTrue(mock_get.called)

@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from typing import List, Dict
 import logging
 
-from export.baekjoon_export import BaekjoonExporter
+from load.baekjoon_load import BaekjoonLoader
 from parse.baekjoon_parse import BaekjoonParser
 from storage.baekjoon_saver import BaekjoonSaver
 from storage.repository import get_collection_date_range
@@ -31,13 +31,13 @@ logger = setup_logging(get_log_file('baekjoon_collector'), __name__)
 class BaekjoonCollector(ICollector):
     """백준 데이터 수집 통합 (ICollector 구현)"""
 
-    def __init__(self, exporter: BaekjoonExporter = None, parser: BaekjoonParser = None, saver: BaekjoonSaver = None):
+    def __init__(self, loader: BaekjoonLoader = None, parser: BaekjoonParser = None, saver: BaekjoonSaver = None):
         """
-        Dependency-injectable constructor. Accepts optional exporter/parser/saver instances.
+        Dependency-injectable constructor. Accepts optional loader/parser/saver instances.
         If not provided, default instances are created (using config values when applicable).
         """
-        # BAEKJOON_REPO 설정을 BaekjoonExporter에 전달
-        self.exporter = exporter or BaekjoonExporter(baekjoon_repo=BAEKJOON_REPO or "Baekjoon_solutions")
+        # BAEKJOON_REPO 설정을 BaekjoonLoader에 전달
+        self.loader = loader or BaekjoonLoader(baekjoon_repo=BAEKJOON_REPO or "Baekjoon_solutions")
         self.parser = parser or BaekjoonParser()
         self.saver = saver or BaekjoonSaver()
 
@@ -162,7 +162,7 @@ class BaekjoonCollector(ICollector):
         try:
             # 1. Export - 백준허브 연동 레포에서 특정 날짜 제출 문제 수집
             logger.info("[1/3] 백준허브 연동 레포에서 백준 제출 수집...")
-            problems = self.exporter.export(target_date)
+            problems = self.loader.load(target_date)
 
             if not problems:
                 logger.info("당일 제출된 문제가 없습니다.")

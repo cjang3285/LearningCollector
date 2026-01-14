@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from typing import List, Dict
 import logging
 
-from export.github_export import GitHubExporter
+from load.github_load import GitHubLoader
 from parse.github_parse import GitHubParser
 from storage.github_saver import GitHubSaver
 from storage.repository import get_collection_date_range
@@ -30,12 +30,12 @@ logger = setup_logging(get_log_file('github_collector'), __name__)
 class GitHubCollector(ICollector):
     """GitHub 데이터 수집 통합 (ICollector 구현)"""
 
-    def __init__(self, exporter: GitHubExporter = None, parser: GitHubParser = None, saver: GitHubSaver = None):
+    def __init__(self, loader: GitHubLoader = None, parser: GitHubParser = None, saver: GitHubSaver = None):
         """
         Dependency-injectable constructor. If dependencies are provided they are used,
         otherwise defaults are instantiated. This reduces tight coupling and improves testability.
         """
-        self.exporter = exporter or GitHubExporter()
+        self.loader = loader or GitHubLoader()
         self.parser = parser or GitHubParser()
         self.saver = saver or GitHubSaver()
 
@@ -158,9 +158,9 @@ class GitHubCollector(ICollector):
         logger.info(f"GitHub 데이터 수집 시작: {target_date}")
 
         try:
-            # 1. Export - GitHub API로 커밋 수집
+            # 1. Load - GitHub API로 커밋 수집
             logger.info("[1/3] GitHub API에서 커밋 수집...")
-            commits = self.exporter.export(target_date)
+            commits = self.loader.load(target_date)
 
             if not commits:
                 logger.info("수집된 커밋이 없습니다.")
