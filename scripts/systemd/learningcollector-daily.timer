@@ -1,6 +1,6 @@
 [Unit]
-Description=LearningETL Daily Scan Timer
-Requires=learningetl-daily.service
+Description=LearningCollector - Daily Collection Timer
+Requires=learningcollector-daily.service
 
 [Timer]
 # 매일 자정 (00:00) 실행

@@ -12,22 +12,22 @@ from unittest.mock import Mock, patch
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from export.github_export import GitHubExporter
+from load.github_load import GitHubLoader
 from parse.github_parse import GitHubParser
 
 
 class TestGitHubModuleIntegration(unittest.TestCase):
-    """GitHub 모듈 통합 테스트 (Export + Parse)"""
+    """GitHub 모듈 통합 테스트 (Load + Parse)"""
 
-    @patch('export.github_export.GitHubExporter.get_user_repos')
-    @patch('export.github_export.GitHubExporter.get_commits_by_date')
-    @patch('export.github_export.GitHubExporter.get_commit_detail')
-    @patch('export.github_export.GitHubExporter.get_file_content')
+    @patch('load.github_load.GitHubLoader.get_user_repos')
+    @patch('load.github_load.GitHubLoader.get_commits_by_date')
+    @patch('load.github_load.GitHubLoader.get_commit_detail')
+    @patch('load.github_load.GitHubLoader.get_file_content')
     def test_github_workflow(self, mock_get_file_content, mock_get_commit_detail,
                              mock_get_commits_by_date, mock_get_user_repos):
-        """GitHub Export와 Parse 모듈의 통합 워크플로우 테스트"""
+        """GitHub Load와 Parse 모듈의 통합 워크플로우 테스트"""
 
-        # Mocking setup for Exporter
+        # Mocking setup for Loader
         mock_get_user_repos.return_value = [
             {'name': 'repo1', 'owner': {'login': 'testuser'}},
             {'name': 'repo2', 'owner': {'login': 'testuser'}}
@@ -44,10 +44,10 @@ class TestGitHubModuleIntegration(unittest.TestCase):
         ]
         mock_get_file_content.side_effect = ["print('hello')", "console.log('world')"]
 
-        # 1. Export 테스트
-        print("\n[1/2] GitHub Export 테스트...")
-        exporter = GitHubExporter(token='test_token', usernames=['testuser'])
-        commits = exporter.export()
+        # 1. Load 테스트
+        print("\n[1/2] GitHub Load 테스트...")
+        loader = GitHubLoader(token='test_token', usernames=['testuser'])
+        commits = loader.load()
 
         self.assertEqual(len(commits), 2)
         self.assertEqual(commits[0]['repo'], 'repo1')

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LearningETL CLI - 데이터 조회 도구
+개인 학습 정보 수집 CLI - 데이터 조회 도구
 
 사용법:
     python cli.py stats                    # 전체 통계
@@ -27,7 +27,7 @@ from config.settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 class LearningCLI:
-    """LearningETL CLI"""
+    """개인 학습 정보 수집 CLI"""
 
     def __init__(self):
         self.conn = None
@@ -55,7 +55,7 @@ class LearningCLI:
     def stats(self):
         """전체 통계"""
         print("="*60)
-        print("LearningETL 통계")
+        print("개인 학습 정보 수집 통계")
         print("="*60)
         print()
 
@@ -453,7 +453,7 @@ class LearningCLI:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='LearningETL CLI')
+    parser = argparse.ArgumentParser(description='개인 학습 정보 수집 CLI')
     subparsers = parser.add_subparsers(dest='command', help='명령어')
 
     # stats

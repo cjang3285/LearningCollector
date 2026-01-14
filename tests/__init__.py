@@ -7,7 +7,7 @@ Tests 패키지
 
 # 각 테스트 모듈을 import하여 패키지로 만듦
 from . import test_config
-from . import test_export
+from . import test_load
 from . import test_parse
 from . import test_storage
 from . import test_collectors
@@ -15,7 +15,7 @@ from . import test_main
 
 __all__ = [
     'test_config',
-    'test_export',
+    'test_load',
     'test_parse',
     'test_storage',
     'test_collectors',

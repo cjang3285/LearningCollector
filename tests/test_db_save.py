@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from storage.artifact_saver import ArtifactSaver
-from export.github_export import GitHubExporter
+from load.github_load import GitHubLoader
 from parse.github_parse import GitHubParser
 
 def test_remote_db():
@@ -42,8 +42,8 @@ def test_remote_db():
 
         # 2. GitHub 데이터 수집
         print("\n[2/4] GitHub 데이터 수집...")
-        exporter = GitHubExporter()
-        commits = exporter.export_today()
+        loader = GitHubLoader()
+        commits = loader.load()
 
         if not commits:
             print("\n오늘 커밋이 없습니다. 테스트 데이터 사용...")

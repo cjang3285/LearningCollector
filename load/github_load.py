@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GitHub Export - 당일 커밋 + diff + 코드 수집
+GitHub Load - 당일 커밋 + diff + 코드 수집
 
 GitHub REST API를 사용하여 사용자의 당일 커밋과 변경 코드를 수집합니다.
 """
@@ -25,11 +25,11 @@ from config.settings import (
 from config.logging_config import setup_logging
 
 # 로깅 설정
-logger = setup_logging(get_log_file('github_export'), __name__)
+logger = setup_logging(get_log_file('github_load'), __name__)
 
 
 
-class GitHubExporter:
+class GitHubLoader:
     """GitHub 커밋 + 코드 수집"""
 
     def __init__(self, token: Optional[str] = None, usernames: Optional[List[str]] = None):
@@ -49,7 +49,7 @@ class GitHubExporter:
             'X-GitHub-Api-Version': '2022-11-28'
         }
         self.base_url = GITHUB_API_BASE
-        logger.info(f"GitHubExporter 초기화: Primary={self.username}")
+        logger.info(f"GitHubLoader 초기화: Primary={self.username}")
         if len(self.usernames) > 1:
             logger.info(f"추가 커밋 작성자: {', '.join(self.usernames[1:])}")
     
@@ -212,7 +212,7 @@ class GitHubExporter:
             logger.warning(f"파일 읽기 실패: {e}")
             return ""
     
-    def export(self, target_date=None) -> List[Dict]:
+    def load(self, target_date=None) -> List[Dict]:
         """
         특정 날짜의 커밋 + 상세 정보 수집
 
@@ -333,8 +333,8 @@ class GitHubExporter:
 
 
 if __name__ == '__main__':
-    exporter = GitHubExporter()
-    commits = exporter.export()
+    loader = GitHubLoader()
+    commits = loader.load()
     
     for commit in commits:
         print(f"\n[{commit['repo']}] {commit['message']}")

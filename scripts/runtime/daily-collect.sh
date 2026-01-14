@@ -1,5 +1,5 @@
 #!/bin/bash
-# LearningETL 일일 수집 스크립트
+# LearningCollector - 일일 수집 스크립트
 # 용도: systemd timer에서 매일 실행하여 데이터 수집
 
 set -e  # 에러 발생 시 중단
@@ -30,14 +30,14 @@ log_message() {
 }
 
 log_message "=========================================="
-log_message "LearningETL 일일 수집 시작"
+log_message "LearningCollector - 일일 수집 시작"
 log_message "=========================================="
 
 # main.py 실행
 cd "$PROJECT_ROOT"
 log_message "작업 디렉토리: $PROJECT_ROOT"
 
-if python main.py >> "$LOG_FILE" 2>&1; then
+if "$PROJECT_ROOT/venv/bin/python" main.py >> "$LOG_FILE" 2>&1; then
     log_message "[SUCCESS] 수집 성공"
     EXIT_CODE=0
 else
@@ -46,7 +46,7 @@ else
 fi
 
 log_message "=========================================="
-log_message "LearningETL 일일 수집 완료"
+log_message "LearningCollector - 일일 수집 완료"
 log_message "=========================================="
 log_message ""
 

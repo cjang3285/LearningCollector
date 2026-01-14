@@ -18,7 +18,7 @@ import logging
 
 from parse.ai_chat_parse import AIMarkdownParser
 from storage.ai_chat_saver import AIChatSaver
-from export.ai_chat_export import AIExportWatcher
+from load.ai_chat_load import AILoadWatcher
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file
 from config.logging_config import setup_logging
@@ -32,11 +32,11 @@ class AIChatCollector(ICollector):
 
     def __init__(self, parser: AIMarkdownParser = None, saver: AIChatSaver = None, watcher=None):
         """
-        Dependency-injectable constructor. Accepts parser, saver, and optional watcher (AIExportWatcher).
+        Dependency-injectable constructor. Accepts parser, saver, and optional watcher (AILoadWatcher).
         """
         self.parser = parser or AIMarkdownParser()
         self.saver = saver or AIChatSaver()
-        # watcher may be an AIExportWatcher instance or None; used by collect_from_downloads and start_watcher
+        # watcher may be an AILoadWatcher instance or None; used by collect_from_downloads and start_watcher
         self.watcher = watcher
 
     # ============================================
@@ -225,7 +225,7 @@ class AIChatCollector(ICollector):
 
         try:
             # Watcher로 기존 파일 스캔
-            watcher = self.watcher or AIExportWatcher(download_dir=download_dir)
+            watcher = self.watcher or AILoadWatcher(download_dir=download_dir)
             ai_files = watcher.scan_existing()
 
             if not ai_files:
@@ -280,7 +280,7 @@ class AIChatCollector(ICollector):
             except Exception as e:
                 logger.error(f"자동 수집 실패: {e}")
 
-        watcher = self.watcher or AIExportWatcher(
+        watcher = self.watcher or AILoadWatcher(
             download_dir=download_dir,
             target_dir=target_dir
         )

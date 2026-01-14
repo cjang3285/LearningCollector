@@ -21,13 +21,14 @@ from unittest.mock import Mock, patch, MagicMock
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from export.ai_chat_export import AIExportWatcher, AIMarkdownHandler
+from load.ai_chat_load import AILoadWatcher, AIMarkdownHandler
 from collectors.ai_chat_collector import AIChatCollector
 from parse.ai_chat_parse import AIMarkdownParser
+from interfaces import CollectionResult
 
 
-class TestAIExportWatcherRealFileSystem(unittest.TestCase):
-    """AIExportWatcher 실제 파일 시스템 테스트"""
+class TestAILoadWatcherRealFileSystem(unittest.TestCase):
+    """AILoadWatcher 실제 파일 시스템 테스트"""
 
     def setUp(self):
         """테스트 전 임시 디렉토리 설정"""
@@ -54,7 +55,7 @@ class TestAIExportWatcherRealFileSystem(unittest.TestCase):
             file_path.write_text(f"# Test {filename}\n\nTest content")
 
         # Watcher 생성 및 스캔
-        watcher = AIExportWatcher(
+        watcher = AILoadWatcher(
             download_dir=self.temp_download_dir,
             target_dir=self.temp_target_dir
         )
@@ -79,7 +80,7 @@ class TestAIExportWatcherRealFileSystem(unittest.TestCase):
         callback_mock = Mock()
 
         # Watcher 생성 및 수집
-        watcher = AIExportWatcher(
+        watcher = AILoadWatcher(
             download_dir=self.temp_download_dir,
             target_dir=self.temp_target_dir
         )
@@ -168,12 +169,12 @@ class TestGitHubE2EWorkflow(unittest.TestCase):
 
     @patch('collectors.github_collector.GitHubSaver')
     @patch('collectors.github_collector.GitHubParser')
-    @patch('collectors.github_collector.GitHubExporter')
+    @patch('collectors.github_collector.GitHubLoader')
     def test_github_export_parse_save_pipeline(self, mock_exporter, mock_parser, mock_saver):
         """GitHub Export → Parse → Save 파이프라인"""
         # Mock 설정
         mock_exp_instance = Mock()
-        mock_exp_instance.export_today.return_value = [
+        mock_exp_instance.load.return_value = [
             {
                 'repo': 'test-repo',
                 'sha': 'abc123',
@@ -199,13 +200,14 @@ class TestGitHubE2EWorkflow(unittest.TestCase):
 
         # Collector 실행
         from collectors.github_collector import GitHubCollector
+        from interfaces import CollectionContext, CollectionResult
         collector = GitHubCollector()
-        result = collector.collect(date.today())
+        context = CollectionContext(target_date=date.today(), options={})
+        result = collector.collect(context)
 
         # 검증
-        self.assertIsInstance(result, dict)
-        mock_exp_instance.export_today.assert_called_once()
-        mock_parser_instance.parse_commits.assert_called_once()
+        self.assertIsInstance(result, CollectionResult)
+        self.assertTrue(result.success)
 
 
 class TestBaekjoonE2EWorkflow(unittest.TestCase):
@@ -213,12 +215,12 @@ class TestBaekjoonE2EWorkflow(unittest.TestCase):
 
     @patch('collectors.baekjoon_collector.BaekjoonSaver')
     @patch('collectors.baekjoon_collector.BaekjoonParser')
-    @patch('collectors.baekjoon_collector.BaekjoonExporter')
+    @patch('collectors.baekjoon_collector.BaekjoonLoader')
     def test_baekjoon_export_parse_save_pipeline(self, mock_exporter, mock_parser, mock_saver):
         """백준 Export → Parse → Save 파이프라인"""
         # Mock 설정
         mock_exp_instance = Mock()
-        mock_exp_instance.export_today.return_value = [
+        mock_exp_instance.load.return_value = [
             {
                 'readme_path': '백준/Silver/1000. A+B/README.md',
                 'code_path': '백준/Silver/1000. A+B/A+B.py',
@@ -241,38 +243,51 @@ class TestBaekjoonE2EWorkflow(unittest.TestCase):
 
         # Collector 실행
         from collectors.baekjoon_collector import BaekjoonCollector
+        from interfaces import CollectionContext, CollectionResult
         collector = BaekjoonCollector()
-        result = collector.collect(date.today())
+        context = CollectionContext(target_date=date.today(), options={})
+        result = collector.collect(context)
 
         # 검증
-        self.assertIsInstance(result, dict)
-        mock_exp_instance.export_today.assert_called_once()
+        self.assertIsInstance(result, CollectionResult)
+        self.assertTrue(result.success)
 
 
 class TestMainETLPipeline(unittest.TestCase):
-    """메인 ETL 파이프라인 통합 테스트"""
+    """메인 수집 파이프라인 통합 테스트"""
 
-    @patch('main.BaekjoonCollector')
-    @patch('main.AIChatCollector')
-    @patch('main.ClaudeMigrationCollector')
-    @patch('main.GitHubCollector')
-    def test_main_etl_run_all_collectors(self, mock_github, mock_claude, mock_ai_chat, mock_baekjoon):
-        """메인 ETL 실행 - 모든 Collector 동작"""
-        # Mock 설정
-        for mock_collector_class in [mock_github, mock_claude, mock_ai_chat, mock_baekjoon]:
-            mock_instance = Mock()
-            mock_instance.collect.return_value = {
-                'success': True,
-                'commits_count': 5,
-                'conversations_count': 3,
-                'solutions_count': 2
-            }
-            mock_collector_class.return_value = mock_instance
+    @patch('main.CollectorFactory.create_all_collectors')
+    def test_main_etl_run_all_collectors(self, mock_factory):
+        """메인 Collector 실행 - CollectorFactory 사용"""
+        # Mock Collector 인스턴스 생성
+        mock_github = Mock()
+        mock_github.collect.return_value = CollectionResult(
+            success=True,
+            date=date.today(),
+            items_count=5,
+            artifact_ids=[1, 2, 3],
+            metadata={'commits_count': 5}
+        )
 
-        # ETL 실행
-        from main import LearningETL
-        etl = LearningETL()
-        result = etl.run(date.today())
+        mock_baekjoon = Mock()
+        mock_baekjoon.collect.return_value = CollectionResult(
+            success=True,
+            date=date.today(),
+            items_count=2,
+            artifact_ids=[4, 5],
+            metadata={'solutions_count': 2}
+        )
+
+        # Factory가 모킹된 Collector들 반환하도록 설정
+        mock_factory.return_value = {
+            'github': mock_github,
+            'baekjoon': mock_baekjoon
+        }
+
+        # Collector 실행
+        from main import LearningCollector
+        collector = LearningCollector()
+        result = collector.run(date.today())
 
         # 검증
         self.assertIsInstance(result, dict)

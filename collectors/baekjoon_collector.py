@@ -16,10 +16,10 @@ from datetime import date, timedelta
 from typing import List, Dict
 import logging
 
-from export.baekjoon_export import BaekjoonExporter
+from load.baekjoon_load import BaekjoonLoader
 from parse.baekjoon_parse import BaekjoonParser
 from storage.baekjoon_saver import BaekjoonSaver
-from storage.repository import get_collection_date_range
+from storage.collection_tracker import get_collection_date_range
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file, BAEKJOON_REPO
 from config.logging_config import setup_logging
@@ -31,13 +31,13 @@ logger = setup_logging(get_log_file('baekjoon_collector'), __name__)
 class BaekjoonCollector(ICollector):
     """백준 데이터 수집 통합 (ICollector 구현)"""
 
-    def __init__(self, exporter: BaekjoonExporter = None, parser: BaekjoonParser = None, saver: BaekjoonSaver = None):
+    def __init__(self, loader: BaekjoonLoader = None, parser: BaekjoonParser = None, saver: BaekjoonSaver = None):
         """
-        Dependency-injectable constructor. Accepts optional exporter/parser/saver instances.
+        Dependency-injectable constructor. Accepts optional loader/parser/saver instances.
         If not provided, default instances are created (using config values when applicable).
         """
-        # BAEKJOON_REPO 설정을 BaekjoonExporter에 전달
-        self.exporter = exporter or BaekjoonExporter(baekjoon_repo=BAEKJOON_REPO or "Baekjoon_solutions")
+        # BAEKJOON_REPO 설정을 BaekjoonLoader에 전달
+        self.loader = loader or BaekjoonLoader(baekjoon_repo=BAEKJOON_REPO or "Baekjoon_solutions")
         self.parser = parser or BaekjoonParser()
         self.saver = saver or BaekjoonSaver()
 
@@ -160,9 +160,9 @@ class BaekjoonCollector(ICollector):
         logger.info(f"백준 데이터 수집 시작: {target_date}")
 
         try:
-            # 1. Export - 백준허브 연동 레포에서 특정 날짜 제출 문제 수집
+            # 1. Load - 백준허브 연동 레포에서 특정 날짜 제출 문제 수집
             logger.info("[1/3] 백준허브 연동 레포에서 백준 제출 수집...")
-            problems = self.exporter.export(target_date)
+            problems = self.loader.load(target_date)
 
             if not problems:
                 logger.info("당일 제출된 문제가 없습니다.")
@@ -175,7 +175,7 @@ class BaekjoonCollector(ICollector):
 
             # 2. Parse - README.md 및 코드 파일 파싱
             logger.info(f"[2/3] {len(problems)}개 문제 파싱...")
-            parsed_problems = self.parser.parse_problems(problems, self.exporter)
+            parsed_problems = self.parser.parse_problems(problems, self.loader)
 
             if not parsed_problems:
                 logger.warning("파싱된 문제가 없습니다.")
@@ -186,7 +186,7 @@ class BaekjoonCollector(ICollector):
                     'artifact_ids': []
                 }
 
-            # 3. Save - DB 저장 (파싱 결과 전달 - Export에는 problem_id 등 없음)
+            # 3. Save - DB 저장 (파싱 결과 전달 - Load에는 problem_id 등 없음)
             logger.info("[3/3] DB에 저장...")
             artifact_ids = self.saver.save_all(parsed_problems, target_date)
 

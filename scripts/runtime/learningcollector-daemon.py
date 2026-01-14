@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LearningETL 데몬 - 파일 감지 및 자동 수집
+LearningCollector Daemon - 파일 감지 및 자동 수집
 
 AI_CHAT_DOWNLOAD_DIR 또는 ~/shared 폴더를 감시하여 새로운 파일이 생기면 자동으로 수집합니다.
 
@@ -25,7 +25,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.settings import get_log_file
 from config.logging_config import setup_logging
-from main import LearningETL
+from main import LearningCollector
 
 # 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr)
 logger = setup_logging(get_log_file('daemon'), __name__)
@@ -57,7 +57,7 @@ class LearningFileHandler(FileSystemEventHandler):
 
     def __init__(self, watch_dir: str):
         self.watch_dir = Path(watch_dir)
-        self.etl = LearningETL()
+        self.collector = LearningCollector()
         self.processed_files = set()  # 중복 처리 방지
         self.last_run = None
         logger.info(f"[Daemon] 감시 폴더: {self.watch_dir}")
@@ -82,7 +82,7 @@ class LearningFileHandler(FileSystemEventHandler):
 
             # AI 채팅 수집
             logger.info(f"[Daemon] 처리 중: {file_path.name}")
-            result = self.etl.run(
+            result = self.collector.run(
                 ai_chat_scan=True,
                 ai_chat_download_dir=str(self.watch_dir),
                 target_date=date.today()
@@ -102,7 +102,7 @@ class LearningFileHandler(FileSystemEventHandler):
         if self.last_run is None or (now - self.last_run).seconds > 3600:
             logger.info("[Daemon] 주기적 전체 스캔 시작...")
             try:
-                result = self.etl.run(
+                result = self.collector.run(
                     ai_chat_scan=True,
                     ai_chat_download_dir=str(self.watch_dir),
                     target_date=date.today()
@@ -126,7 +126,7 @@ def main():
         sys.exit(1)
 
     logger.info("=" * 60)
-    logger.info("[Daemon] LearningETL 데몬 시작")
+    logger.info("[Daemon] LearningCollector Daemon 시작")
     logger.info("=" * 60)
     if hot_reload:
         logger.info("[Daemon] Hot Reload: 활성화 (코드 변경 시 자동 재시작)")
@@ -180,7 +180,7 @@ def main():
     observer.join()
     if code_observer:
         code_observer.join()
-    logger.info("[Daemon] LearningETL 데몬 종료됨")
+    logger.info("[Daemon] LearningCollector Daemon 종료됨")
 
 
 if __name__ == "__main__":

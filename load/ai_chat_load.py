@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-AI Chat Export - 다운로드 폴더 모니터링
+AI Chat Load - 다운로드 폴더 모니터링
 
 AI 채팅 마크다운 파일 자동 감지 및 수집:
-- Claude Exporter
-- ChatGPT Exporter
-- Gemini Exporter
+- Claude Loader
+- ChatGPT Loader
+- Gemini Loader
 """
 
 import os
@@ -29,7 +29,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(get_log_file('ai_chat_export')),
+        logging.FileHandler(get_log_file('ai_chat_load')),
         logging.StreamHandler()
     ]
 )
@@ -111,8 +111,8 @@ class AIMarkdownHandler(FileSystemEventHandler):
             pass
 
 
-class AIExportWatcher:
-    """AI 채팅 내보내기 감시자"""
+class AILoadWatcher:
+    """AI 채팅 로드 감시자"""
 
     def __init__(
         self,
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    watcher = AIExportWatcher(
+    watcher = AILoadWatcher(
         download_dir=args.download_dir,
         target_dir=args.target_dir
     )
