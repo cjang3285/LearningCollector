@@ -35,8 +35,8 @@ SOLID 원칙 기반 확장 가능한 학습 데이터 수집 파이프라인.
 
 ```bash
 # 클론
-git clone https://github.com/cjang3285/LearningETL.git
-cd LearningETL
+git clone https://github.com/cjang3285/LearningCollector.git
+cd LearningCollector
 
 # 의존성 설치
 pip install -r requirements.txt
@@ -103,7 +103,7 @@ python -m cli show ai-chat 1
 ## 프로젝트 구조
 
 ```
-LearningETL/
+LearningCollector/
 ├── main.py                     # 메인 실행 파일 (Factory 사용)
 │
 ├── interfaces/                 # 인터페이스 계층 (SOLID - DIP, ISP)
@@ -131,10 +131,10 @@ LearningETL/
 │   ├── baekjoon_saver.py
 │   └── ai_chat_saver.py
 │
-├── export/                     # 데이터 수집
-│   ├── github_export.py
-│   ├── baekjoon_export.py
-│   └── ai_chat_export.py
+├── load/                     # 데이터 수집
+│   ├── github_load.py
+│   ├── baekjoon_load.py
+│   └── ai_chat_load.py
 │
 ├── config/                     # 설정 관리
 │   ├── settings.py
@@ -218,10 +218,10 @@ AI 채팅 파일 자동 수집 (파일 감지 즉시 처리)
 bash scripts/installation/install-daemon.sh
 
 # 시작
-sudo systemctl start learningetl
+sudo systemctl start learningcollector
 
 # 상태 확인
-sudo systemctl status learningetl
+sudo systemctl status learningcollector
 ```
 
 ### 매일 자정 전체 스캔 (systemd timer 권장)
@@ -231,10 +231,10 @@ sudo systemctl status learningetl
 bash scripts/installation/setup-daily-timer.sh
 
 # 상태 확인
-systemctl list-timers learningetl-daily.timer
+systemctl list-timers learningcollector-daily.timer
 
 # 로그 확인
-journalctl -u learningetl-daily.service -f
+journalctl -u learningcollector-daily.service -f
 ```
 
 장점:
