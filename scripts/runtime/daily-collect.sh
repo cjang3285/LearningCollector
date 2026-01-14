@@ -1,5 +1,5 @@
 #!/bin/bash
-# 개인 학습 정보 수집 자동화 도구 - 일일 수집 스크립트
+# LearningCollector - 일일 수집 스크립트
 # 용도: systemd timer에서 매일 실행하여 데이터 수집
 
 set -e  # 에러 발생 시 중단
@@ -30,7 +30,7 @@ log_message() {
 }
 
 log_message "=========================================="
-log_message "개인 학습 정보 수집 자동화 도구 - 일일 수집 시작"
+log_message "LearningCollector - 일일 수집 시작"
 log_message "=========================================="
 
 # main.py 실행
@@ -46,7 +46,7 @@ else
 fi
 
 log_message "=========================================="
-log_message "개인 학습 정보 수집 자동화 도구 - 일일 수집 완료"
+log_message "LearningCollector - 일일 수집 완료"
 log_message "=========================================="
 log_message ""
 

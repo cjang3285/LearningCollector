@@ -1,31 +1,31 @@
-# 개인 학습 정보 수집 자동화 시스템 동작 구조
+# LearningCollector 시스템 동작 구조
 
 ## 핵심 개념
-`learningetl.service`가 아닌 **`learningetl-daily.timer/.service`**가 실제 운영 중인 유닛이다.
+**`learningcollector-daily.timer/.service`**가 실제 운영 중인 유닛이다.
 
 ## 실행 흐름
 ```
-learningetl-daily.timer 
-  → learningetl-daily.service 
-    → daily-collect.sh 
+learningcollector-daily.timer
+  → learningcollector-daily.service
+    → daily-collect.sh
       → python main.py
 ```
 
 ## 코드 업데이트 반영 메커니즘
 - `git pull`로 `main.py` 변경사항을 pull하면 **즉시 반영 완료**
 - 별도 재시작 불필요 - 자정에 실행되는 타이머가 pull된 코드를 실행
-- `learningetl.service`는 oneshot 타입으로 실행 후 종료되므로 상시 active 상태가 아님
+- `learningcollector-daily.service`는 oneshot 타입으로 실행 후 종료되므로 상시 active 상태가 아님
 
 ---
 
 ## systemd 유닛 구성
 
 ### 1. Timer Unit
-**파일**: `/etc/systemd/system/learningetl-daily.timer`
+**파일**: `/etc/systemd/system/learningcollector-daily.timer`
 ```ini
 [Unit]
-Description=개인 학습 정보 수집 자동화 도구 - 일일 실행 타이머
-Requires=learningetl-daily.service
+Description=LearningCollector - Daily Collection Timer
+Requires=learningcollector-daily.service
 
 [Timer]
 OnCalendar=daily              # 매일 00:00 실행
@@ -36,24 +36,24 @@ WantedBy=timers.target
 ```
 
 ### 2. Service Unit
-**파일**: `/etc/systemd/system/learningetl-daily.service`
+**파일**: `/etc/systemd/system/learningcollector-daily.service`
 ```ini
 [Unit]
-Description=개인 학습 정보 수집 자동화 도구 - 일일 수집
+Description=LearningCollector - Daily Collection Service
 After=network.target postgresql.service
 
 [Service]
 Type=oneshot                  # 작업 완료 후 종료
 User=jcw
-WorkingDirectory=/home/jcw/LearningETL
-ExecStart=/home/jcw/LearningETL/scripts/runtime/daily-collect.sh
+WorkingDirectory=/home/jcw/LearningCollector
+ExecStart=/home/jcw/LearningCollector/scripts/runtime/daily-collect.sh
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 ### 3. Shell Script
-**파일**: `/home/jcw/LearningETL/scripts/runtime/daily-collect.sh`
+**파일**: `/home/jcw/LearningCollector/scripts/runtime/daily-collect.sh`
 ```bash
 #!/bin/bash
 set -e  # 에러 발생 시 중단
@@ -78,7 +78,7 @@ log_message() {
 
 # 실행
 log_message "=========================================="
-log_message "개인 학습 정보 수집 자동화 도구 - 일일 수집 시작"
+log_message "LearningCollector - 일일 수집 시작"
 log_message "작업 디렉토리: $PROJECT_ROOT"
 
 cd "$PROJECT_ROOT"
@@ -90,7 +90,7 @@ else
     EXIT_CODE=1
 fi
 
-log_message "개인 학습 정보 수집 자동화 도구 - 일일 수집 완료"
+log_message "LearningCollector - 일일 수집 완료"
 log_message "=========================================="
 exit $EXIT_CODE
 ```
@@ -101,17 +101,17 @@ exit $EXIT_CODE
 
 ### 타이머 상태
 ```bash
-$ sudo systemctl list-timers | grep learningetl
-Fri 2026-01-02 00:00:00 KST  8h    Thu 2026-01-01 00:00:00 KST  15h ago  learningetl-daily.timer
+$ sudo systemctl list-timers | grep learningcollector
+Fri 2026-01-02 00:00:00 KST  8h    Thu 2026-01-01 00:00:00 KST  15h ago  learningcollector-daily.timer
 ```
 - **다음 실행**: 2026-01-02 00:00:00
 - **마지막 실행**: 2026-01-01 00:00:00 (15시간 전)
 
 ### 서비스 로그
 ```bash
-$ sudo journalctl -u learningetl-daily.service --since today
-Jan 01 00:00:00 jcw systemd[1]: Starting learningetl-daily.service...
-Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] 개인 학습 정보 수집 자동화 도구 - 일일 수집 시작
+$ sudo journalctl -u learningcollector-daily.service --since today
+Jan 01 00:00:00 jcw systemd[1]: Starting learningcollector-daily.service...
+Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] LearningCollector - 일일 수집 시작
 Jan 01 00:00:01 jcw daily-collect.sh[64766]: [2026-01-01 00:00:00] 작업 디렉토리: /home/jcw/LearningCollector
 Jan 01 00:00:09 jcw daily-collect.sh[64789]: [2026-01-01 00:00:09] [SUCCESS] 수집 성공
 ```

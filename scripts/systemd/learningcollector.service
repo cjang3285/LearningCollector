@@ -1,5 +1,5 @@
 [Unit]
-Description=LearningETL Daemon - AI Chat Auto Collector
+Description=LearningCollector - Daemon Service
 After=network.target postgresql.service
 
 [Service]
@@ -12,7 +12,7 @@ WorkingDirectory={{PROJECT_ROOT}}
 EnvironmentFile={{PROJECT_ROOT}}/.env
 
 # 실행 명령
-ExecStart={{PROJECT_ROOT}}/venv/bin/python {{PROJECT_ROOT}}/scripts/runtime/learningetl-daemon.py
+ExecStart={{PROJECT_ROOT}}/venv/bin/python {{PROJECT_ROOT}}/scripts/runtime/learningcollector-daemon.py
 
 # 자동 재시작
 Restart=always

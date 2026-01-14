@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-개인 학습 정보 수집 데몬 - 파일 감지 및 자동 수집
+LearningCollector Daemon - 파일 감지 및 자동 수집
 
 AI_CHAT_DOWNLOAD_DIR 또는 ~/shared 폴더를 감시하여 새로운 파일이 생기면 자동으로 수집합니다.
 
@@ -126,7 +126,7 @@ def main():
         sys.exit(1)
 
     logger.info("=" * 60)
-    logger.info("[Daemon] 개인 학습 정보 수집 데몬 시작")
+    logger.info("[Daemon] LearningCollector Daemon 시작")
     logger.info("=" * 60)
     if hot_reload:
         logger.info("[Daemon] Hot Reload: 활성화 (코드 변경 시 자동 재시작)")
@@ -180,7 +180,7 @@ def main():
     observer.join()
     if code_observer:
         code_observer.join()
-    logger.info("[Daemon] 개인 학습 정보 수집 데몬 종료됨")
+    logger.info("[Daemon] LearningCollector Daemon 종료됨")
 
 
 if __name__ == "__main__":
