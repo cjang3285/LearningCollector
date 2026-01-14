@@ -82,7 +82,7 @@ class BaekjoonLoader:
             'until': until.isoformat(),
             'per_page': 100
         }
-        logger.info(f"커밋 가져오기: url='{url}', params={params}")
+        logger.debug(f"커밋 가져오기: url='{url}', params={params}")
 
         response = requests.get(url, headers=self.headers, params=params)
         response.raise_for_status()

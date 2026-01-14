@@ -1,4 +1,4 @@
-# Learning Artifacts ETL Pipeline
+# 개인 학습 정보 수집 자동화 도구
 
 SOLID 원칙 기반 확장 가능한 학습 데이터 수집 파이프라인.
 
@@ -115,7 +115,7 @@ LearningETL/
 │   ├── __init__.py
 │   └── collector_factory.py    # 동적 Collector 생성
 │
-├── collectors/                 # ETL 오케스트레이터 (ICollector 구현)
+├── collectors/                 # 수집 오케스트레이터 (ICollector 구현)
 │   ├── github_collector.py     # Export → Parse → Save 조율
 │   ├── baekjoon_collector.py
 │   └── ai_chat_collector.py
