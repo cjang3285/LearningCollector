@@ -18,7 +18,7 @@ import logging
 from load.github_load import GitHubLoader
 from parse.github_parse import GitHubParser
 from storage.github_saver import GitHubSaver
-from storage.repository import get_collection_date_range, update_collection_run
+from storage.collection_tracker import get_collection_date_range
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file
 from config.logging_config import setup_logging
@@ -87,14 +87,6 @@ class GitHubCollector(ICollector):
                 if result_dict['success']:
                     total_commits += result_dict['commits_count']
                     all_artifact_ids.extend(result_dict['artifact_ids'])
-
-                # 수집 실행 기록 (커밋 0개여도 기록하여 다음 실행 시 올바른 날짜 범위 계산)
-                update_collection_run(
-                    source_type='github',
-                    run_date=current_date,
-                    items_count=result_dict['commits_count'],
-                    success=result_dict['success']
-                )
 
                 current_date += timedelta(days=1)
 

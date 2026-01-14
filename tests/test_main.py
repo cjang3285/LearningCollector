@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Main ETL Pipeline 테스트
+Main Collection Pipeline 테스트
 
-LearningETL 메인 클래스 및 전체 파이프라인을 테스트합니다.
+LearningCollector 메인 클래스 및 전체 파이프라인을 테스트합니다.
 """
 
 import unittest
@@ -15,17 +15,17 @@ from unittest.mock import Mock, patch, MagicMock, ANY
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from main import LearningETL
+from main import LearningCollector
 
 
-class TestLearningETL(unittest.TestCase):
-    """LearningETL 메인 클래스 테스트"""
+class TestLearningCollector(unittest.TestCase):
+    """LearningCollector 메인 클래스 테스트"""
 
     @patch('main.CollectorFactory.create_all_collectors')
     def test_init_without_collectors(self, mock_create_all_collectors):
         """Collector 없이 초기화 테스트"""
         mock_create_all_collectors.return_value = {}
-        etl = LearningETL()
+        etl = LearningCollector()
         self.assertEqual(len(etl.collectors), 0)
         mock_create_all_collectors.assert_called_once_with(enabled_only=True)
 
@@ -44,7 +44,7 @@ class TestLearningETL(unittest.TestCase):
             'ai_chat': mock_ai_chat_collector
         }
 
-        etl = LearningETL()
+        etl = LearningCollector()
 
         self.assertIn('github', etl.collectors)
         self.assertIn('claude_migration', etl.collectors)
@@ -58,7 +58,7 @@ class TestLearningETL(unittest.TestCase):
         """Collector 없이 실행 테스트"""
         mock_create_all_collectors.return_value = {} # No collectors created
 
-        etl = LearningETL()
+        etl = LearningCollector()
         result = etl.run(
             target_date=date.today(),
             skip_github=True,
@@ -93,7 +93,7 @@ class TestLearningETL(unittest.TestCase):
             'github': mock_github_collector
         }
 
-        etl = LearningETL()
+        etl = LearningCollector()
         result = etl.run(
             target_date=date.today(),
             skip_github=False,
@@ -121,7 +121,7 @@ class TestLearningETL(unittest.TestCase):
         }
         mock_claude_migration_collector_class.return_value = mock_claude_instance
 
-        etl = LearningETL()
+        etl = LearningCollector()
         result = etl.run(
             target_date=date.today(),
             import_zip=True
@@ -157,7 +157,7 @@ class TestLearningETL(unittest.TestCase):
             'ai_chat': mock_ai_chat_collector
         }
 
-        etl = LearningETL()
+        etl = LearningCollector()
         result = etl.run(
             target_date=date.today(),
             skip_github=False,

@@ -26,7 +26,7 @@ from config.logging_config import setup_logging
 logger = setup_logging(get_log_file('main'), __name__)
 
 
-class LearningETL:
+class LearningCollector:
     """
     개인 학습 정보 수집 자동화 도구 메인 클래스 (OCP 적용)
 
@@ -285,8 +285,8 @@ def main():
     # AI Chat 기본 실행: --ai-chat 파일 지정 없고, --skip-ai-chat 없으면 자동 스캔
     ai_chat_scan = not args.skip_ai_chat and not args.ai_chat
 
-    etl = LearningETL()
-    results = etl.run(
+    collector = LearningCollector()
+    results = collector.run(
         target_date=target_date,
         import_zip=args.import_zip,
         ai_chat_files=args.ai_chat,
@@ -300,7 +300,7 @@ def main():
 
     # 결과를 JSON 파일로도 저장
     import json
-    output_file = PROJECT_ROOT / 'logs' / f'collection_result_{date.today()}.json'
+    output_file = PROJECT_ROOT / 'logs' / f'collect_result_{date.today()}.json'
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2, default=str)
 

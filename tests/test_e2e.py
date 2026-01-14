@@ -272,9 +272,9 @@ class TestMainETLPipeline(unittest.TestCase):
             }
             mock_collector_class.return_value = mock_instance
 
-        # ETL 실행
-        from main import LearningETL
-        etl = LearningETL()
+        # Collector 실행
+        from main import LearningCollector
+        etl = LearningCollector()
         result = etl.run(date.today())
 
         # 검증

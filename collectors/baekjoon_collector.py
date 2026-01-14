@@ -19,7 +19,7 @@ import logging
 from load.baekjoon_load import BaekjoonLoader
 from parse.baekjoon_parse import BaekjoonParser
 from storage.baekjoon_saver import BaekjoonSaver
-from storage.repository import get_collection_date_range, update_collection_run
+from storage.collection_tracker import get_collection_date_range
 from interfaces import ICollector, CollectionContext, CollectionResult, CollectionError
 from config.settings import get_log_file, BAEKJOON_REPO
 from config.logging_config import setup_logging
@@ -89,14 +89,6 @@ class BaekjoonCollector(ICollector):
                 if result_dict['success']:
                     total_solutions += result_dict['solutions_count']
                     all_artifact_ids.extend(result_dict['artifact_ids'])
-
-                # 수집 실행 기록 (문제 0개여도 기록하여 다음 실행 시 올바른 날짜 범위 계산)
-                update_collection_run(
-                    source_type='baekjoon',
-                    run_date=current_date,
-                    items_count=result_dict['solutions_count'],
-                    success=result_dict['success']
-                )
 
                 current_date += timedelta(days=1)
 
