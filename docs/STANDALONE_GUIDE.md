@@ -49,14 +49,14 @@ python main.py --skip-github
 bash scripts/setup-daily-timer.sh
 
 # Timer 활성화
-sudo systemctl enable learningetl-daily.timer
-sudo systemctl start learningetl-daily.timer
+sudo systemctl enable learningcollector-daily.timer
+sudo systemctl start learningcollector-daily.timer
 
 # 상태 확인
-systemctl list-timers learningetl-daily.timer
+systemctl list-timers learningcollector-daily.timer
 
 # 로그 확인
-journalctl -u learningetl-daily.service -f
+journalctl -u learningcollector-daily.service -f
 ```
 
 ---

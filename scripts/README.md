@@ -1,6 +1,6 @@
 # Scripts 디렉토리
 
-LearningETL 프로젝트의 스크립트 모음입니다. 용도별로 폴더가 구분되어 있습니다.
+LearningCollector 프로젝트의 스크립트 모음입니다. 용도별로 폴더가 구분되어 있습니다.
 
 ## 폴더 구조
 
@@ -60,8 +60,8 @@ bash scripts/installation/setup-daily-timer.sh
 ```
 
 **동작**:
-1. learningetl-daily.service 복사 (/etc/systemd/system/)
-2. learningetl-daily.timer 복사 (/etc/systemd/system/)
+1. learningcollector-daily.service 복사 (/etc/systemd/system/)
+2. learningcollector-daily.timer 복사 (/etc/systemd/system/)
 3. Timer 활성화 및 시작
 4. 다음 실행 시각 출력
 
@@ -76,7 +76,7 @@ bash scripts/installation/install-daemon.sh
 ```
 
 **동작**:
-1. learningetl.service 복사 (/etc/systemd/system/)
+1. learningcollector.service 복사 (/etc/systemd/system/)
 2. Daemon 활성화 및 시작
 3. watchdog로 Downloads 폴더 모니터링
 
@@ -121,13 +121,13 @@ bash scripts/runtime/daily-collect.sh
 
 ---
 
-### learningetl-daemon.py
+### learningcollector-daemon.py
 **용도**: 실시간 파일 감지 daemon (watchdog 사용)
 **실행 시점**: systemd service로 백그라운드 실행
 
 ```bash
 # 수동 실행 (테스트용)
-python scripts/runtime/learningetl-daemon.py
+python scripts/runtime/learningcollector-daemon.py
 ```
 
 **동작**:
@@ -142,20 +142,20 @@ python scripts/runtime/learningetl-daemon.py
 
 systemd 서비스 및 timer 정의 파일
 
-### learningetl-daily.service
+### learningcollector-daily.service
 **용도**: 일일 수집 서비스 정의
-**설치 위치**: `/etc/systemd/system/learningetl-daily.service`
+**설치 위치**: `/etc/systemd/system/learningcollector-daily.service`
 
 ```ini
 [Unit]
-Description=LearningETL Daily Scan
+Description=LearningCollector Daily Scan
 After=postgresql.service
 
 [Service]
 Type=oneshot
 User=your_user
-WorkingDirectory=/home/your_user/LearningETL
-ExecStart=/home/your_user/LearningETL/scripts/runtime/daily-collect.sh
+WorkingDirectory=/home/your_user/LearningCollector
+ExecStart=/home/your_user/LearningCollector/scripts/runtime/daily-collect.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -163,13 +163,13 @@ WantedBy=multi-user.target
 
 ---
 
-### learningetl-daily.timer
+### learningcollector-daily.timer
 **용도**: 일일 수집 타이머 정의 (매일 자정 실행)
-**설치 위치**: `/etc/systemd/system/learningetl-daily.timer`
+**설치 위치**: `/etc/systemd/system/learningcollector-daily.timer`
 
 ```ini
 [Unit]
-Description=LearningETL Daily Timer
+Description=LearningCollector Daily Timer
 
 [Timer]
 OnCalendar=daily
@@ -181,20 +181,20 @@ WantedBy=timers.target
 
 ---
 
-### learningetl.service
+### learningcollector.service
 **용도**: 실시간 daemon 서비스 정의
-**설치 위치**: `/etc/systemd/system/learningetl.service`
+**설치 위치**: `/etc/systemd/system/learningcollector.service`
 
 ```ini
 [Unit]
-Description=LearningETL Daemon
+Description=LearningCollector Daemon
 After=network.target postgresql.service
 
 [Service]
 Type=simple
 User=your_user
-WorkingDirectory=/home/your_user/LearningETL
-ExecStart=/home/your_user/LearningETL/venv/bin/python /home/your_user/LearningETL/scripts/runtime/learningetl-daemon.py
+WorkingDirectory=/home/your_user/LearningCollector
+ExecStart=/home/your_user/LearningCollector/venv/bin/python /home/your_user/LearningCollector/scripts/runtime/learningcollector-daemon.py
 Restart=always
 
 [Install]
@@ -281,7 +281,7 @@ bash scripts/maintenance/test-installation.sh
 ```bash
 # 아무것도 하지 않아도 매일 자정 자동 수집
 # 상태 확인만 하면 됨
-systemctl list-timers learningetl-daily.timer
+systemctl list-timers learningcollector-daily.timer
 ```
 
 **수동 수집**:
@@ -300,7 +300,7 @@ python scripts/maintenance/healthcheck.py
 bash scripts/maintenance/test-installation.sh
 
 # 3. 로그 확인
-journalctl -u learningetl-daily.service -n 20
+journalctl -u learningcollector-daily.service -n 20
 ```
 
 ---
@@ -317,12 +317,12 @@ scripts/installation/setup-daily-timer.sh
 
 # 런타임 스크립트
 scripts/runtime/daily-collect.sh
-scripts/runtime/learningetl-daemon.py
+scripts/runtime/learningcollector-daemon.py
 
 # systemd 파일
-scripts/systemd/learningetl-daily.service
-scripts/systemd/learningetl-daily.timer
-scripts/systemd/learningetl.service
+scripts/systemd/learningcollector-daily.service
+scripts/systemd/learningcollector-daily.timer
+scripts/systemd/learningcollector.service
 
 # 유지보수
 scripts/maintenance/backup.sh

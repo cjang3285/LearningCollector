@@ -150,7 +150,7 @@ python tests/test_main.py
 - **파일**: `test_main.py`
 - **테스트 대상**: `main.py`
 - **테스트 내용**:
-  - LearningETL 클래스 초기화
+  - LearningCollector 초기화
   - 전체 ETL 파이프라인 실행
   - 각 Collector 활성화/비활성화
   - 결과 요약 생성

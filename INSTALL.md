@@ -1,6 +1,6 @@
 # 설치 가이드
 
-LearningETL 파이프라인의 전체 설치 과정을 단계별로 안내합니다.
+LearningCollector 파이프라인의 전체 설치 과정을 단계별로 안내합니다.
 
 ---
 
@@ -70,8 +70,8 @@ psql -h localhost -U your_user -d my_db
 
 ```bash
 # 1. 레포지토리 클론
-git clone https://github.com/cjang3285/LearningETL.git
-cd LearningETL
+git clone https://github.com/cjang3285/LearningCollector.git
+cd LearningCollector
 
 # 2. Python 가상환경 생성
 python3 -m venv venv
@@ -178,14 +178,14 @@ AI 채팅 파일 다운로드 즉시 처리
 bash scripts/installation/install-daemon.sh
 
 # 2. 서비스 시작
-sudo systemctl start learningetl
-sudo systemctl enable learningetl  # 부팅 시 자동 시작
+sudo systemctl start learningcollector
+sudo systemctl enable learningcollector  # 부팅 시 자동 시작
 
 # 3. 상태 확인
-sudo systemctl status learningetl
+sudo systemctl status learningcollector
 
 # 4. 로그 확인
-tail -f ~/LearningETL/logs/daemon.log
+tail -f ~/LearningCollector/logs/daemon.log
 ```
 
 ---
@@ -197,17 +197,17 @@ tail -f ~/LearningETL/logs/daemon.log
 bash scripts/installation/setup-daily-timer.sh
 
 # 2. Timer 활성화
-sudo systemctl enable learningetl-daily.timer
-sudo systemctl start learningetl-daily.timer
+sudo systemctl enable learningcollector-daily.timer
+sudo systemctl start learningcollector-daily.timer
 
 # 3. 다음 실행 시각 확인
-systemctl list-timers learningetl-daily.timer
+systemctl list-timers learningcollector-daily.timer
 
 # 4. 수동 실행 테스트
-sudo systemctl start learningetl-daily.service
+sudo systemctl start learningcollector-daily.service
 
 # 5. 로그 확인
-journalctl -u learningetl-daily.service -f
+journalctl -u learningcollector-daily.service -f
 ```
 
 **systemd timer 장점**:
@@ -328,11 +328,11 @@ pip install psycopg2-binary requests python-dotenv watchdog PyYAML
 
 ```bash
 # Timer가 활성화되어 있는지 확인
-systemctl list-timers learningetl-daily.timer
+systemctl list-timers learningcollector-daily.timer
 
 # 출력 예시 (정상):
 # NEXT                         LEFT          LAST                         PASSED  UNIT                       ACTIVATES
-# Wed 2025-12-31 00:00:00 KST  5h 23min left Tue 2025-12-30 00:00:05 KST  18h ago learningetl-daily.timer    learningetl-daily.service
+# Wed 2025-12-31 00:00:00 KST  5h 23min left Tue 2025-12-30 00:00:05 KST  18h ago learningcollector-daily.timer    learningcollector-daily.service
 
 # 위와 같이 NEXT, LAST가 표시되면 정상
 # 아무것도 표시되지 않으면 timer가 비활성화됨
@@ -342,24 +342,24 @@ systemctl list-timers learningetl-daily.timer
 
 ```bash
 # Timer 활성화
-sudo systemctl enable learningetl-daily.timer
-sudo systemctl start learningetl-daily.timer
+sudo systemctl enable learningcollector-daily.timer
+sudo systemctl start learningcollector-daily.timer
 
 # 다시 확인
-systemctl list-timers learningetl-daily.timer
+systemctl list-timers learningcollector-daily.timer
 ```
 
 #### 5.2 마지막 실행 로그 확인
 
 ```bash
 # 최근 10개 로그 확인
-journalctl -u learningetl-daily.service -n 10
+journalctl -u learningcollector-daily.service -n 10
 
 # 오늘 로그만 확인
-journalctl -u learningetl-daily.service --since today
+journalctl -u learningcollector-daily.service --since today
 
 # 실시간 로그 모니터링
-journalctl -u learningetl-daily.service -f
+journalctl -u learningcollector-daily.service -f
 ```
 
 **로그에서 확인할 사항**:
@@ -371,21 +371,21 @@ journalctl -u learningetl-daily.service -f
 
 ```bash
 # systemd service 수동 실행
-sudo systemctl start learningetl-daily.service
+sudo systemctl start learningcollector-daily.service
 
 # 실행 상태 확인
-sudo systemctl status learningetl-daily.service
+sudo systemctl status learningcollector-daily.service
 
 # 로그 확인
-journalctl -u learningetl-daily.service -f
+journalctl -u learningcollector-daily.service -f
 ```
 
 **성공 시 출력**:
 ```
 [날짜 시각] ==========================================
-[날짜 시각] LearningETL 일일 수집 시작
+[날짜 시각] LearningCollector 일일 수집 시작
 [날짜 시각] ==========================================
-[날짜 시각] 작업 디렉토리: /home/user/LearningETL
+[날짜 시각] 작업 디렉토리: /home/user/LearningCollector
 ...
 [날짜 시각] [SUCCESS] 수집 성공
 ```
@@ -423,29 +423,29 @@ python -m cli list github --limit 5
 **원인 1: 가상환경 경로 문제**
 
 ```bash
-# learningetl-daily.service 파일 확인
-sudo systemctl cat learningetl-daily.service
+# learningcollector-daily.service 파일 확인
+sudo systemctl cat learningcollector-daily.service
 
 # ExecStart 경로가 올바른지 확인
 # 출력 예시:
-# ExecStart=/home/user/LearningETL/scripts/runtime/daily-collect.sh
+# ExecStart=/home/user/LearningCollector/scripts/runtime/daily-collect.sh
 
 # 스크립트 내부 가상환경 경로 확인
-cat /home/user/LearningETL/scripts/runtime/daily-collect.sh | grep venv
+cat /home/user/LearningCollector/scripts/runtime/daily-collect.sh | grep venv
 
 # 경로가 틀렸다면 수정
-nano /home/user/LearningETL/scripts/runtime/daily-collect.sh
+nano /home/user/LearningCollector/scripts/runtime/daily-collect.sh
 ```
 
 **원인 2: 환경 변수 미설정**
 
 ```bash
 # .env 파일이 있는지 확인
-ls -la /home/user/LearningETL/.env
+ls -la /home/user/LearningCollector/.env
 
 # 없으면 생성
-cp /home/user/LearningETL/.env.example /home/user/LearningETL/.env
-nano /home/user/LearningETL/.env
+cp /home/user/LearningCollector/.env.example /home/user/LearningCollector/.env
+nano /home/user/LearningCollector/.env
 ```
 
 **원인 3: PostgreSQL 서비스 미실행**
@@ -470,7 +470,7 @@ sudo systemctl enable postgresql
 crontab -e
 
 # 다음 줄 추가 (매일 자정 실행)
-0 0 * * * /home/user/LearningETL/scripts/runtime/daily-collect.sh
+0 0 * * * /home/user/LearningCollector/scripts/runtime/daily-collect.sh
 
 # crontab 확인
 crontab -l
@@ -483,7 +483,7 @@ grep CRON /var/log/syslog | tail -20
 
 ```bash
 # 매일 아침 직접 실행
-cd /home/user/LearningETL
+cd /home/user/LearningCollector
 source venv/bin/activate
 python main.py
 ```
@@ -541,7 +541,7 @@ python main.py --ai-chat ~/Downloads/Claude-*.md ~/Downloads/ChatGPT-*.md
 3. 즉시 사용 가능 (코드 수정 불필요)
 
 **문제 발생 시**:
-- [Issues](https://github.com/cjang3285/LearningETL/issues) - 버그 리포트
+- [Issues](https://github.com/cjang3285/LearningCollector/issues) - 버그 리포트
 - [Documentation](docs/) - 전체 문서
 
 ---

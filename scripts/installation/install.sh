@@ -1,10 +1,10 @@
 #!/bin/bash
-# LearningETL Standalone Mode 설치 스크립트
+# LearningCollector Standalone Mode 설치 스크립트
 
 set -e
 
 echo "=========================================="
-echo "LearningETL 설치 시작"
+echo "LearningCollector 설치 시작"
 echo "=========================================="
 echo ""
 
@@ -99,7 +99,7 @@ echo ""
 echo "다음 단계:"
 echo "  1. 테스트 실행: python main.py"
 echo "  2. systemd timer가 매일 자동으로 수집합니다"
-echo "  3. 로그 확인: journalctl -u learningetl-daily.service -f"
+echo "  3. 로그 확인: journalctl -u learningcollector-daily.service -f"
 echo ""
 echo "문서:"
 echo "  - README.md"

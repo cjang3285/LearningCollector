@@ -1,4 +1,4 @@
-# LearningETL 데이터베이스 가이드
+# LearningCollector 데이터베이스 가이드
 
 ## 스키마 설계
 
@@ -60,7 +60,7 @@ PostgreSQL 서버 → my_db
 ├── blog (스키마)
 │   ├── posts
 │   └── projects
-└── learning (LearningETL 스키마)
+└── learning (LearningCollector 스키마)
     ├── learning_artifacts
     └── github_commits
     └── baekjoon_solutions

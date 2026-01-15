@@ -1,10 +1,10 @@
 #!/bin/bash
-# LearningETL 설치 테스트 스크립트
+# LearningCollector 설치 테스트 스크립트
 
 set -e
 
 echo "=========================================="
-echo "🧪 LearningETL 설치 테스트"
+echo "🧪 LearningCollector 설치 테스트"
 echo "=========================================="
 echo ""
 
@@ -190,7 +190,7 @@ echo ""
 if [ $FAIL -eq 0 ]; then
     echo "✅ 모든 테스트 통과!"
     echo ""
-    echo "이제 LearningETL을 실행할 수 있습니다:"
+    echo "이제 LearningCollector을 실행할 수 있습니다:"
     echo "  python main.py"
     exit 0
 else

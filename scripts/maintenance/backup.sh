@@ -1,10 +1,10 @@
 #!/bin/bash
-# LearningETL 백업 스크립트
+# LearningCollector 백업 스크립트
 
 set -e
 
 echo "=========================================="
-echo "💾 LearningETL 백업"
+echo "💾 LearningCollector 백업"
 echo "=========================================="
 echo ""
 
@@ -16,7 +16,7 @@ cd "$PROJECT_ROOT"
 # 백업 디렉토리
 BACKUP_DIR="${BACKUP_DIR:-$PROJECT_ROOT/backups}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_NAME="learningetl_backup_$TIMESTAMP"
+BACKUP_NAME="learningcollector_backup_$TIMESTAMP"
 BACKUP_PATH="$BACKUP_DIR/$BACKUP_NAME"
 
 mkdir -p "$BACKUP_PATH"
@@ -82,7 +82,7 @@ echo ""
 
 # 5. 백업 정보 저장
 cat > "$BACKUP_PATH/backup_info.txt" << EOF
-LearningETL 백업 정보
+LearningCollector 백업 정보
 ========================================
 백업 날짜: $(date)
 백업 이름: $BACKUP_NAME
@@ -104,7 +104,7 @@ LearningETL 백업 정보
    tar -xzf logs.tar.gz
 
 4. .env 파일 복원:
-   cp .env /path/to/LearningETL/
+   cp .env /path/to/LearningCollector/
 ========================================
 EOF
 
@@ -125,7 +125,7 @@ echo ""
 echo "6️⃣ 오래된 백업 정리..."
 read -p "30일 이상 된 백업을 삭제하시겠습니까? (y/N): " CLEANUP
 if [[ $CLEANUP =~ ^[Yy]$ ]]; then
-    find "$BACKUP_DIR" -name "learningetl_backup_*.tar.gz" -mtime +30 -delete
+    find "$BACKUP_DIR" -name "learningcollector_backup_*.tar.gz" -mtime +30 -delete
     echo "  ✅ 오래된 백업 삭제 완료"
 else
     echo "  ⏭️  백업 정리 건너뜀"

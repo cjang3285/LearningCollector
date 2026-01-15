@@ -346,6 +346,6 @@ MIT License
 
 Made with SOLID principles
 
-[Documentation](docs/) | [Report Bug](https://github.com/cjang3285/LearningETL/issues) | [Request Feature](https://github.com/cjang3285/LearningETL/issues)
+[Documentation](docs/) | [Report Bug](https://github.com/cjang3285/LearningCollector/issues) | [Request Feature](https://github.com/cjang3285/LearningCollector/issues)
 
 </div>

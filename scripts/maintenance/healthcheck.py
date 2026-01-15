@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LearningETL 헬스 체크 스크립트
+LearningCollector 헬스 체크 스크립트
 
 - GitHub API Rate Limit 확인
 - DB 연결 확인
@@ -206,7 +206,7 @@ def check_logs():
 
 def main():
     print("="*60)
-    print("🏥 LearningETL 헬스 체크")
+    print("🏥 LearningCollector 헬스 체크")
     print("="*60)
     print(f"시간: {datetime.now()}")
     print()

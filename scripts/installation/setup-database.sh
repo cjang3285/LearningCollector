@@ -1,10 +1,10 @@
 #!/bin/bash
-# LearningETL 데이터베이스 초기 설정 스크립트
+# LearningCollector 데이터베이스 초기 설정 스크립트
 
 set -e
 
 echo "=========================================="
-echo "LearningETL 데이터베이스 설정"
+echo "LearningCollector 데이터베이스 설정"
 echo "=========================================="
 echo ""
 
@@ -131,6 +131,6 @@ echo ""
 echo "테이블 확인:"
 PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "\dt learning.*"
 echo ""
-echo "이제 LearningETL을 실행할 수 있습니다:"
+echo "이제 LearningCollector을 실행할 수 있습니다:"
 echo "  python main.py"
 echo ""
