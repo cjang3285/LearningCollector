@@ -76,25 +76,6 @@ COLLECT_AI_CHAT = os.getenv('COLLECT_AI_CHAT', 'true').lower() == 'true'
 # Claude 마이그레이션 (첫 이용 시에만 사용, 이후 AI_CHAT 사용)
 ENABLE_CLAUDE_MIGRATION = os.getenv('ENABLE_CLAUDE_MIGRATION', 'false').lower() == 'true'
 
-# ============================================
-# PostgreSQL 설정 (블로그 DB)
-# ============================================
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_PORT = int(os.getenv('DB_PORT', '5432'))
-DB_NAME = os.getenv('DB_NAME', 'my_blog')
-DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
-
-def get_db_config():
-    """DB 연결 설정 반환"""
-    return {
-        'host': DB_HOST,
-        'port': DB_PORT,
-        'database': DB_NAME,
-        'user': DB_USER,
-        'password': DB_PASSWORD
-    }
-
 def validate_config():
     """필수 설정값 검증"""
     errors = []

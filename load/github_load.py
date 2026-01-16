@@ -186,32 +186,6 @@ class GitHubLoader:
         response.raise_for_status()
         return response.text
     
-    def get_file_content(
-        self,
-        repo_owner: str,
-        repo_name: str,
-        file_path: str,
-        ref: str = 'main'
-    ) -> str:
-        """파일 내용 가져오기"""
-        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/contents/{file_path}"
-        
-        params = {'ref': ref}
-        
-        try:
-            response = requests.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # Base64 디코딩
-            import base64
-            content = base64.b64decode(data['content']).decode('utf-8')
-            return content
-        except Exception as e:
-            logger.warning(f"파일 읽기 실패: {e}")
-            return ""
-    
     def load(self, target_date=None) -> List[Dict]:
         """
         특정 날짜의 커밋 + 상세 정보 수집

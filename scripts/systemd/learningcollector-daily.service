@@ -1,6 +1,6 @@
 [Unit]
 Description=LearningCollector - Daily Collection Service
-After=network.target postgresql.service
+After=network.target
 
 [Service]
 Type=oneshot

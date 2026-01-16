@@ -33,15 +33,24 @@ log_message "=========================================="
 log_message "LearningCollector - 일일 수집 시작"
 log_message "=========================================="
 
-# main.py 실행
+# main.py 실행 (데이터 수집)
 cd "$PROJECT_ROOT"
 log_message "작업 디렉토리: $PROJECT_ROOT"
 
 if "$PROJECT_ROOT/venv/bin/python" main.py >> "$LOG_FILE" 2>&1; then
-    log_message "[SUCCESS] 수집 성공"
-    EXIT_CODE=0
+    log_message "[SUCCESS] 데이터 수집 성공"
+
+    # 블로그 초안 생성
+    log_message "블로그 초안 생성 중..."
+    if "$PROJECT_ROOT/venv/bin/python" generate_post_draft.py >> "$LOG_FILE" 2>&1; then
+        log_message "[SUCCESS] 블로그 초안 생성 성공"
+        EXIT_CODE=0
+    else
+        log_message "[WARNING] 블로그 초안 생성 실패 (exit code: $?)"
+        EXIT_CODE=0  # 데이터 수집은 성공했으므로 0 반환
+    fi
 else
-    log_message "[ERROR] 수집 실패 (exit code: $?)"
+    log_message "[ERROR] 데이터 수집 실패 (exit code: $?)"
     EXIT_CODE=1
 fi
 

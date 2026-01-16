@@ -24,47 +24,38 @@ from dataclasses import dataclass, asdict
 
 from config.settings import get_log_file
 from config.logging_config import setup_logging
-from interfaces import IParser, ParseError
 from parse.base_parser import BaseParser
 
 # 로깅 설정 (INFO/WARNING → stdout, ERROR → stderr, ms 제거)
 logger = setup_logging(get_log_file('ai_chat_parse'), __name__)
 
 
+class ParseError(Exception):
+    """파싱 에러"""
+    pass
+
+
 @dataclass
 class AIConversationData:
-    """파싱된 AI 대화 데이터"""
+    """파싱된 AI 대화 데이터 (간소화)"""
     provider: str  # claude, chatgpt, gemini
-    title: str
-    created_at: Optional[str]
-    updated_at: Optional[str]
-    link: Optional[str]
-    user: Optional[str]
-    total_messages: int
-    user_messages: int
-    assistant_messages: int
-    total_chars: int
-    has_code: bool
-    code_blocks: List[Dict]
     messages: List[Dict]
+    code_blocks: List[Dict]
 
     def to_dict(self):
         return asdict(self)
 
 
-class AIMarkdownParser(BaseParser, IParser):
+class AIMarkdownParser(BaseParser):
     """
-    AI 채팅 마크다운 파서 (IParser 구현)
+    AI 채팅 마크다운 파서 (간소화)
 
-    SOLID 원칙:
-    - DIP: IParser 인터페이스에 의존
-    - SRP: 파싱 책임만 담당
+    책임: AI Chat 마크다운 파일 파싱
     """
 
-    def detect_provider(self, filename: str, content: str) -> str:
-        """파일명과 내용에서 AI 제공자 감지"""
+    def detect_provider(self, filename: str) -> str:
+        """파일명에서 AI 제공자 감지 (간소화)"""
         name_lower = filename.lower()
-        content_lower = content.lower()
 
         # 파일명으로 감지
         if 'claude' in name_lower:
@@ -74,54 +65,7 @@ class AIMarkdownParser(BaseParser, IParser):
         elif 'gemini' in name_lower:
             return 'gemini'
 
-        # 내용으로 감지 (footer 확인)
-        if 'powered by claude exporter' in content_lower:
-            return 'claude'
-        elif 'powered by chatgpt exporter' in content_lower:
-            return 'chatgpt'
-        elif 'powered by gemini exporter' in content_lower:
-            return 'gemini'
-
         return 'unknown'
-
-    def extract_metadata(self, content: str, provider: str) -> Dict:
-        """메타데이터 추출"""
-        metadata = {}
-
-        # 제목 추출 (첫 번째 # 헤더)
-        title_match = re.search(r'^#\s+(.+?)$', content, re.MULTILINE)
-        metadata['title'] = title_match.group(1).strip() if title_match else 'Untitled'
-
-        # Claude 메타데이터
-        if provider == 'claude':
-            created_match = re.search(r'\*\*Created:\*\*\s+(.+?)(?:\n|$)', content)
-            updated_match = re.search(r'\*\*Updated:\*\*\s+(.+?)(?:\n|$)', content)
-            link_match = re.search(r'\*\*Link:\*\*\s+\[.+?\]\((.+?)\)', content)
-
-            metadata['created_at'] = created_match.group(1).strip() if created_match else None
-            metadata['updated_at'] = updated_match.group(1).strip() if updated_match else None
-            metadata['link'] = link_match.group(1).strip() if link_match else None
-
-        # ChatGPT 메타데이터
-        elif provider == 'chatgpt':
-            created_match = re.search(r'\*\*Created:\*\*\s+(.+?)(?:\n|$)', content)
-            updated_match = re.search(r'\*\*Updated:\*\*\s+(.+?)(?:\n|$)', content)
-            link_match = re.search(r'\*\*Link:\*\*\s+\[.+?\]\((.+?)\)', content)
-            user_match = re.search(r'\*\*User:\*\*\s+(.+?)(?:\n|$)', content)
-
-            metadata['created_at'] = created_match.group(1).strip() if created_match else None
-            metadata['updated_at'] = updated_match.group(1).strip() if updated_match else None
-            metadata['link'] = link_match.group(1).strip() if link_match else None
-            metadata['user'] = user_match.group(1).strip() if user_match else None
-
-        # Gemini 메타데이터 (간단한 구조)
-        elif provider == 'gemini':
-            # Gemini는 메타데이터가 적음, 파일명에서 날짜 추출 시도
-            metadata['created_at'] = None
-            metadata['updated_at'] = None
-            metadata['link'] = None
-
-        return metadata
 
     def extract_messages(self, content: str) -> List[Dict]:
         """Prompt/Response 쌍 추출"""
@@ -185,12 +129,9 @@ class AIMarkdownParser(BaseParser, IParser):
         # 유니코드 정규화 (NFD → NFC 변환으로 한글 자모 분리 문제 해결)
         content = unicodedata.normalize('NFC', content)
 
-        # 제공자 감지
-        provider = self.detect_provider(file_path.name, content)
+        # 제공자 감지 (파일명만 사용)
+        provider = self.detect_provider(file_path.name)
         logger.info(f"감지된 제공자: {provider}")
-
-        # 메타데이터 추출
-        metadata = self.extract_metadata(content, provider)
 
         # 메시지 추출
         messages = self.extract_messages(content)
@@ -198,26 +139,10 @@ class AIMarkdownParser(BaseParser, IParser):
         # 코드 블록 추출
         code_blocks = self.extract_code_blocks(content)
 
-        # 통계 계산
-        user_msgs = sum(1 for msg in messages if msg['role'] == 'user')
-        assistant_msgs = sum(1 for msg in messages if msg['role'] == 'assistant')
-        total_chars = sum(len(msg['content']) for msg in messages)
-        has_code = len(code_blocks) > 0
-
         return AIConversationData(
             provider=provider,
-            title=metadata['title'],
-            created_at=metadata.get('created_at'),
-            updated_at=metadata.get('updated_at'),
-            link=metadata.get('link'),
-            user=metadata.get('user'),
-            total_messages=len(messages),
-            user_messages=user_msgs,
-            assistant_messages=assistant_msgs,
-            total_chars=total_chars,
-            has_code=has_code,
-            code_blocks=code_blocks,
-            messages=messages
+            messages=messages,
+            code_blocks=code_blocks
         )
 
     # ========================================
@@ -277,7 +202,7 @@ class AIMarkdownParser(BaseParser, IParser):
 
     def validate(self, data: Dict) -> bool:
         """
-        파싱된 데이터 유효성 검증 (IParser 인터페이스 구현)
+        파싱된 데이터 유효성 검증 (간소화)
 
         Args:
             data: 파싱된 데이터
@@ -285,10 +210,7 @@ class AIMarkdownParser(BaseParser, IParser):
         Returns:
             bool: 유효하면 True, 아니면 False
         """
-        required_fields = [
-            'provider', 'title', 'total_messages', 'user_messages',
-            'assistant_messages', 'messages'
-        ]
+        required_fields = ['provider', 'messages', 'code_blocks']
 
         # 필수 필드 확인
         for field in required_fields:
@@ -296,15 +218,10 @@ class AIMarkdownParser(BaseParser, IParser):
                 logger.warning(f"필수 필드 누락: {field}")
                 return False
 
-        # 메시지 개수 검증
-        if data['total_messages'] <= 0:
-            logger.warning("메시지가 없습니다")
-            return False
-
         # 메시지 리스트 검증
         messages = data.get('messages', [])
-        if not isinstance(messages, list):
-            logger.warning("messages가 리스트가 아닙니다")
+        if not isinstance(messages, list) or len(messages) == 0:
+            logger.warning("메시지가 없거나 리스트가 아닙니다")
             return False
 
         # 각 메시지 검증
@@ -327,10 +244,7 @@ if __name__ == '__main__':
     result = parser.parse_file(sys.argv[1])
 
     print(f"\n제공자: {result.provider}")
-    print(f"제목: {result.title}")
-    print(f"생성일: {result.created_at}")
-    print(f"수정일: {result.updated_at}")
-    print(f"메시지: {result.total_messages}개 (사용자: {result.user_messages}, AI: {result.assistant_messages})")
+    print(f"메시지: {len(result.messages)}개")
     print(f"코드 블록: {len(result.code_blocks)}개")
     print(f"\n첫 메시지 미리보기:")
     if result.messages:
