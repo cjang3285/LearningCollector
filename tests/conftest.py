@@ -75,6 +75,12 @@ def chatgpt_markdown():
 
 
 @pytest.fixture
+def gemini_markdown():
+    """Gemini 마크다운 샘플 파일"""
+    return FIXTURES_DIR / 'ai_chat' / 'gemini_sample.md'
+
+
+@pytest.fixture
 def claude_markdown_content(claude_markdown):
     """Claude 마크다운 내용"""
     return claude_markdown.read_text(encoding='utf-8')
@@ -84,6 +90,12 @@ def claude_markdown_content(claude_markdown):
 def chatgpt_markdown_content(chatgpt_markdown):
     """ChatGPT 마크다운 내용"""
     return chatgpt_markdown.read_text(encoding='utf-8')
+
+
+@pytest.fixture
+def gemini_markdown_content(gemini_markdown):
+    """Gemini 마크다운 내용"""
+    return gemini_markdown.read_text(encoding='utf-8')
 
 
 # ============================================

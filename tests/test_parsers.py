@@ -25,6 +25,13 @@ class TestAIMarkdownParser:
         assert parser.detect_provider('chatgpt_export.md') == 'chatgpt'
         assert parser.detect_provider('ChatGPT_20240115.md') == 'chatgpt'
 
+    def test_detect_provider_gemini(self):
+        """Gemini 제공자 감지"""
+        parser = AIMarkdownParser()
+
+        assert parser.detect_provider('gemini_conversation.md') == 'gemini'
+        assert parser.detect_provider('Gemini_Export_20250115.md') == 'gemini'
+
     def test_parse_claude_markdown(self, claude_markdown):
         """Claude 마크다운 파싱"""
         parser = AIMarkdownParser()
@@ -33,6 +40,16 @@ class TestAIMarkdownParser:
         assert result is not None
         assert isinstance(result, dict)
         assert result['provider'] == 'claude'
+        assert result['exchange_count'] >= 2
+
+    def test_parse_gemini_markdown(self, gemini_markdown):
+        """Gemini 마크다운 파싱"""
+        parser = AIMarkdownParser()
+        result = parser.parse(str(gemini_markdown))
+
+        assert result is not None
+        assert isinstance(result, dict)
+        assert result['provider'] == 'gemini'
         assert result['exchange_count'] >= 2
 
 
