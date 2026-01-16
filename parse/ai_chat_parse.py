@@ -41,6 +41,7 @@ class AIConversationData:
     provider: str  # claude, chatgpt, gemini
     messages: List[Dict]
     code_blocks: List[Dict]
+    exchange_count: int = 0  # 메시지 교환 횟수 (user+assistant 쌍)
 
     def to_dict(self):
         return asdict(self)
@@ -68,30 +69,64 @@ class AIMarkdownParser(BaseParser):
         return 'unknown'
 
     def extract_messages(self, content: str) -> List[Dict]:
-        """Prompt/Response 쌍 추출"""
+        """Prompt/Response 쌍 추출 (ChatGPT, Claude 형식 모두 지원)"""
         messages = []
 
-        # ## Prompt: / ## Response: 패턴으로 분리
-        # re.split으로 구분자도 함께 캡처
+        # ChatGPT 형식: ## Prompt: / ## Response:
         sections = re.split(r'## (Prompt|Response):\s*\n', content)
+        if len(sections) > 1:
+            # sections[0]은 헤더 부분이므로 제외
+            # sections[1:]부터 (Prompt/Response, 내용) 쌍으로 처리
+            i = 1
+            while i < len(sections) - 1:
+                msg_type = sections[i].lower()  # 'prompt' or 'response'
+                msg_content = sections[i + 1].strip()
 
-        # sections[0]은 헤더 부분이므로 제외
-        # sections[1:]부터 (Prompt/Response, 내용) 쌍으로 처리
-        i = 1
-        while i < len(sections) - 1:
-            msg_type = sections[i].lower()  # 'prompt' or 'response'
-            msg_content = sections[i + 1].strip()
+                role = 'user' if msg_type == 'prompt' else 'assistant'
+                messages.append({
+                    'role': role,
+                    'content': msg_content
+                })
 
-            # 다음 섹션 시작 전까지가 내용
-            # 이미 split으로 분리되었으므로 그대로 사용
+                i += 2
+            return messages
 
-            role = 'user' if msg_type == 'prompt' else 'assistant'
+        # Claude 형식: **Human:** / **Assistant:**
+        # 줄 단위로 처리
+        lines = content.split('\n')
+        current_role = None
+        current_content = []
+
+        for line in lines:
+            if line.startswith('**Human:**'):
+                # 이전 메시지 저장
+                if current_role and current_content:
+                    messages.append({
+                        'role': current_role,
+                        'content': '\n'.join(current_content).strip()
+                    })
+                current_role = 'user'
+                current_content = [line.replace('**Human:**', '').strip()]
+            elif line.startswith('**Assistant:**'):
+                # 이전 메시지 저장
+                if current_role and current_content:
+                    messages.append({
+                        'role': current_role,
+                        'content': '\n'.join(current_content).strip()
+                    })
+                current_role = 'assistant'
+                current_content = [line.replace('**Assistant:**', '').strip()]
+            else:
+                # 현재 메시지에 라인 추가
+                if current_role:
+                    current_content.append(line)
+
+        # 마지막 메시지 저장
+        if current_role and current_content:
             messages.append({
-                'role': role,
-                'content': msg_content
+                'role': current_role,
+                'content': '\n'.join(current_content).strip()
             })
-
-            i += 2
 
         return messages
 
@@ -139,10 +174,17 @@ class AIMarkdownParser(BaseParser):
         # 코드 블록 추출
         code_blocks = self.extract_code_blocks(content)
 
+        # 교환 횟수 계산 (user+assistant 쌍의 개수)
+        # 보통 user 메시지 개수와 assistant 메시지 개수 중 작은 값
+        user_count = sum(1 for msg in messages if msg['role'] == 'user')
+        assistant_count = sum(1 for msg in messages if msg['role'] == 'assistant')
+        exchange_count = min(user_count, assistant_count)
+
         return AIConversationData(
             provider=provider,
             messages=messages,
-            code_blocks=code_blocks
+            code_blocks=code_blocks,
+            exchange_count=exchange_count
         )
 
     # ========================================
