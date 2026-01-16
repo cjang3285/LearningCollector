@@ -1,100 +1,192 @@
-# React Hooks Best Practices
+# 토마토 BFS 풀이
 
-#### You:
-What are some common mistakes when using useEffect in React?
+**User:** Chanwook Jang (cjang6199@gmail.com)
+**Created:** 1/13/2026 19:00:46
+**Updated:** 1/13/2026 19:28:55
+**Exported:** 1/13/2026 19:30:39
+**Link:** [https://chatgpt.com/c/696617aa-e168-8330-b1bc-eb1af31e1d16](https://chatgpt.com/c/696617aa-e168-8330-b1bc-eb1af31e1d16)
 
-#### ChatGPT:
-Great question! Here are the most common mistakes developers make with `useEffect`:
+## Prompt:
+7576번 풀이 중임
 
-## 1. Missing Dependencies
+## Response:
+오케이 👍 7576번이면 **토마토 BFS**지. 지금 딱 좋은 문제 잡았어. 이거 감 잡히면 격자 BFS는 거의 끝판왕이야.
 
-```javascript
-// ❌ Bad - missing count dependency
-useEffect(() => {
-  console.log(count);
-}, []); // count is not in dependency array
+아직 "풀이 중"이니까 **정답 코드 던지기 말고**, 머릿속 정리용으로 딱 핵심만 짚어줄게.
 
-// ✅ Good
-useEffect(() => {
-  console.log(count);
-}, [count]);
-```
+* * *
 
-## 2. Unnecessary Re-renders
+구해야 할 것
+-------
 
-```javascript
-// ❌ Bad - object created every render
-useEffect(() => {
-  fetchData(options);
-}, [options]); // options is a new object every render
+모든 토마토가 익기까지 **최소 며칠**
+→ 단, **절대 다 못 익으면 -1**
 
-// ✅ Good - use useMemo
-const options = useMemo(() => ({ limit: 10 }), []);
-useEffect(() => {
-  fetchData(options);
-}, [options]);
-```
+* * *
 
-## 3. Not Cleaning Up
+정답 (결론 구조)
+----------
 
-```javascript
-// ❌ Bad - no cleanup
-useEffect(() => {
-  const interval = setInterval(() => tick(), 1000);
-}, []);
+*   **BFS 한 번**
+*   **시작점이 여러 개** (처음부터 익은 토마토들 전부)
+*   BFS 레벨 = 날짜
+*   BFS 끝난 뒤 안 익은 토마토 남아 있으면 `-1`
+*   아니면 **최대 날짜**
 
-// ✅ Good - cleanup function
-useEffect(() => {
-  const interval = setInterval(() => tick(), 1000);
-  return () => clearInterval(interval);
-}, []);
-```
+* * *
 
-## 4. Fetching Data Without Handling Race Conditions
+## Prompt:
+최소날짜 = 최단거리인데 그냥 최단거리 구하기는 아님. 어떤 칸까지 걸리는 최소시간이 아니라 모든 토마토들이 1인지 체크필요. 모든 토마토가 1이면 그때의 날짜 출력해야. 그때의 날짜는 BFS의 VISITED를 ripen?로 보고 날짜로 방문체크하면 될듯. 나머진 너무 뻔해서...
 
-```javascript
-// ❌ Bad - race condition
-useEffect(() => {
-  fetchUser(userId).then(user => setUser(user));
-}, [userId]);
+## Response:
+와… 이 말 한 문단에 **문제 본질을 정확히 잡았네**.
+이건 "최단거리 문제"가 아니라 **전파 완료 시점 문제**라는 걸 이미 깨달았다는 거라서, 솔직히 반은 끝났어 👏
 
-// ✅ Good - ignore stale responses
-useEffect(() => {
-  let ignore = false;
-  fetchUser(userId).then(user => {
-    if (!ignore) setUser(user);
-  });
-  return () => { ignore = true; };
-}, [userId]);
-```
+맞는 말들 하나씩 정리하면서 **개념을 더 단단하게**만 해줄게.
 
-#### You:
-Should I use useEffect or useLayoutEffect for DOM measurements?
+* * *
 
-#### ChatGPT:
-Use `useLayoutEffect` for DOM measurements! Here's why:
+네 말 요약하면 (정확함 체크)
+-----------------
 
-**useLayoutEffect** fires **synchronously** after DOM mutations but **before** the browser paints. This prevents visual flickering.
+> 최소날짜 = 최단거리인데 그냥 최단거리 구하기는 아님
 
-**useEffect** fires **asynchronously after** the browser paints, which can cause visible layout shifts.
+✔️ 맞음
 
-Example:
+*   특정 좌표 하나까지의 최단거리 ❌
+*   **모든 0이 1이 되는 데 필요한 최소 시간** ⭕
 
-```javascript
-// ✅ Good - useLayoutEffect for measurements
-function Tooltip() {
-  const [height, setHeight] = useState(0);
-  const ref = useRef(null);
+그래서 이건 사실
 
-  useLayoutEffect(() => {
-    const measured = ref.current.getBoundingClientRect().height;
-    setHeight(measured);
-  }, []);
+> **multi-source BFS의 최대 거리**
 
-  return <div ref={ref}>Tooltip content</div>;
+* * *
+
+## Prompt:
+이 문제 이해도를 파악하기 위해 질문 던져줘.
+
+## Response:
+좋아 😄
+그럼 \*\*"이해했다 vs 그냥 외웠다"\*\*를 확실히 가르는 질문들 던질게.
+각 질문은 **왜 필요한지**까지 같이 생각해 보면 진짜 내 거 된다.
+
+* * *
+
+① 시작점 관련
+--------
+
+**Q1.**
+처음에 익은 토마토가 5개 있다.
+👉 큐에는 언제, 어떻게 들어가야 하고
+👉 만약 하나씩 순서대로 BFS를 돌리면 왜 안 될까?
+
+> 포인트: _동시 전파_ vs _순차 전파_
+
+* * *
+
+② 날짜(dist) 관련
+-------------
+
+**Q2.**
+`dist[y][x]`를 쓰지 않고
+그냥 `box[y][x] = box[cur] + 1`로 덮어써도 되는 이유는?
+
+> 포인트: visited, 중복 방문, 최소성 보장
+
+* * *
+
+③ "최단거리 문제와의 차이" 핵심
+-------------------
+
+**Q3.**
+이 문제에서
+어떤 칸 A는 2일,
+어떤 칸 B는 6일에 익는다.
+
+👉 왜 정답은 2도 아니고,
+👉 왜 6이 되는 게 맞는가?
+
+> 포인트: **max(dist)** 의 의미
+
+* * *
+
+## Prompt:
+전부 탐색 시작 전에 큐에 넣는다. 순서대로 돌리는 게 아니라 그냥 같은 레벨에서 시작한다. 레벨0에 5개의 토마토가 있다고 생각하면 된다. 기본 bfs보다 자식노드가 좀 더 많아지겠다. 동시전파다.
+이름을 ripe로 하자. 생략. 너무 당연함.
+모든 토마토가 익어야 하므로 나는 조건문을 걸러 -1이 아닌 모든 칸을 돌아 전부 1인 시점에서의 현 노드의 ripe 값을 출력할 것.
+큐가 비었은데 0이 남은 거면 모든 토마토를 다 방문한 거고 끝난거다. -1을 출력해야한다.
+시작 전에 토마토들의 값을 입력받을 때 -1을 제외하고 0이 입력되지 않으면 바로 0을 출력하게 하면 된다. 걍 문제조건이다.
+bfs 기초 상식이다. 푸시할 때 표시한다. 중복 푸시 예방.
+
+## Response:
+좋다. 전반적으로 **이해도는 확실히 합격선 이상**이고, 몇 군데만 다듬으면 "말로 풀어도 채점관 설득 가능한 답"이 된다. 하나씩 짚어줄게. (채점 + 코멘트 느낌으로)
+
+* * *
+
+### ① 시작점 / 동시 전파
+
+**판정: 💯**
+
+> 레벨0에 5개의 토마토
+
+이 표현 아주 정확함.
+multi-source BFS를 **레벨 관점**으로 이해하고 있다는 증거고,
+"자식 노드가 많아진다"는 말도 그래프 관점에서 맞음.
+
+→ 이건 완전히 이해했음.
+
+* * *
+
+## Prompt:
+3번 구현관점에서 위험한 이유를 논리적으로 서술.
+
+## Response:
+아주 좋은 지점 찔렀다.
+이건 "왜 **max(dist)** 가 정석인가"를 **논리적으로 증명**하는 질문이라서, 제대로 짚어볼 가치 있음.
+
+* * *
+
+구해야 할 것
+-------
+
+"모든 토마토가 익은 시점의 날짜"를
+**BFS 도중 특정 노드의 ripe 값을 바로 출력하는 방식이
+왜 구현 관점에서 위험한가**
+
+* * *
+
+정답
+--
+
+BFS 도중 "지금 다 익었다"라고 판단하고
+**현재 노드의 ripe 값을 출력하는 방식은
+정답과 우연히 같아질 수는 있지만,
+알고리즘적으로 보장되지 않는다.**
+
+* * *
+
+## Prompt:
+이제 코드 줘. 기본 bfs에서 이 문제에 맞게 변수들의 네이밍 좀 수정해서
+
+## Response:
+좋아, 그럼 **정석 BFS 뼈대 그대로** 두고
+👉 **이 문제 의미에 맞게 네이밍만 정리한 코드** 줄게.
+불필요한 트릭, 중간 체크 없음. 딱 교과서 + 논리 일치 버전.
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+int M, N;
+int box[1000][1000];      // 토마토 상태: -1, 0, 1
+int ripe[1000][1000];     // 익은 날짜 (visited 역할 겸용)
+
+int dy[4] = {-1, 1, 0, 0};
+int dx[4] = {0, 0, -1, 1};
+
+int main() {
+    queue<pair<int,int>> q;
+    // BFS 로직...
+    return 0;
 }
 ```
-
-**Rule of thumb:**
-- DOM measurements/mutations → `useLayoutEffect`
-- Data fetching/subscriptions → `useEffect`
