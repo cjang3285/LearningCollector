@@ -1,186 +1,96 @@
 #!/usr/bin/env python3
-"""
-통합 테스트 러너
-
-모든 테스트를 TestSuite로 통합하여 실행합니다.
-"""
+"""전체 테스트 실행 스크립트"""
 
 import sys
-import unittest
+import subprocess
 from pathlib import Path
 
-# 프로젝트 루트를 path에 추가
+# 프로젝트 루트 디렉토리
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# 각 테스트 모듈 import
-from tests import (
-    test_config,
-    test_export,
-    test_parse,
-    test_storage,
-    test_collectors,
-    test_main,
-    test_github
-)
 
+def run_tests():
+    """모든 테스트 실행"""
+    print("=" * 80)
+    print("LearningCollector 테스트 실행")
+    print("=" * 80)
+    print()
 
-def create_test_suite():
-    """
-    전체 테스트 스위트 생성
+    # pytest 옵션
+    # -v: verbose (상세 출력)
+    # -s: stdout/stderr 출력 표시
+    # --tb=short: traceback을 짧게 표시
+    # --color=yes: 컬러 출력
+    cmd = [
+        'pytest',
+        'tests/',
+        '-v',
+        '--tb=short',
+        '--color=yes',
+        '--strict-markers'
+    ]
 
-    Returns:
-        unittest.TestSuite: 모든 테스트를 포함한 테스트 스위트
-    """
-    # TestLoader 생성
-    loader = unittest.TestLoader()
-
-    # TestSuite 생성
-    suite = unittest.TestSuite()
-
-    # 각 모듈의 테스트 추가
-    print("="*70)
-    print("테스트 스위트 구성 중...")
-    print("="*70)
-
-    # 1. Config 테스트
-    print("\n[1/7] Config 모듈 테스트 추가")
-    suite.addTests(loader.loadTestsFromModule(test_config))
-
-    # 2. Export 테스트
-    print("[2/7] Export 모듈 테스트 추가")
-    suite.addTests(loader.loadTestsFromModule(test_export))
-
-    # 3. Parse 테스트
-    print("[3/7] Parse 모듈 테스트 추가")
-    suite.addTests(loader.loadTestsFromModule(test_parse))
-
-    # 4. Storage 테스트
-    print("[4/7] Storage 모듈 테스트 추가")
-    suite.addTests(loader.loadTestsFromModule(test_storage))
-
-    # 5. Collectors 테스트
-    print("[5/7] Collectors 모듈 테스트 추가")
-    suite.addTests(loader.loadTestsFromModule(test_collectors))
-
-    # 6. Main 테스트
-    print("[6/7] Main ETL 파이프라인 테스트 추가")
-    suite.addTests(loader.loadTestsFromModule(test_main))
-
-    # 7. GitHub 통합 테스트
-    print("[7/7] GitHub 통합 테스트 추가")
-    suite.addTests(loader.loadTestsFromModule(test_github))
-
-    print("\n테스트 스위트 구성 완료!")
-    print(f"총 테스트 케이스 수: {suite.countTestCases()}")
-
-    return suite
-
-
-def run_tests_with_runner(verbosity=2):
-    """
-    TestRunner로 테스트 실행
-
-    Args:
-        verbosity: 출력 상세 레벨 (0: 최소, 1: 기본, 2: 상세)
-
-    Returns:
-        unittest.TestResult: 테스트 결과
-    """
-    # TestSuite 생성
-    suite = create_test_suite()
-
-    # TextTestRunner 생성
-    runner = unittest.TextTestRunner(
-        verbosity=verbosity,
-        stream=sys.stdout,
-        descriptions=True,
-        failfast=False  # 첫 실패에서 멈추지 않음
-    )
+    print(f"실행 명령: {' '.join(cmd)}")
+    print()
 
     # 테스트 실행
-    print("\n" + "="*70)
-    print("테스트 실행 시작")
-    print("="*70 + "\n")
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
 
-    result = runner.run(suite)
-
-    # 결과 요약
-    print("\n" + "="*70)
-    print("테스트 결과 요약")
-    print("="*70)
-    print(f"실행된 테스트: {result.testsRun}")
-    print(f"성공: {result.testsRun - len(result.failures) - len(result.errors) - len(result.skipped)}")
-    print(f"실패: {len(result.failures)}")
-    print(f"에러: {len(result.errors)}")
-    print(f"스킵: {len(result.skipped)}")
-
-    if result.wasSuccessful():
-        print("\n✓ 모든 테스트 통과!")
-        return 0
-    else:
-        print("\n✗ 일부 테스트 실패")
-        return 1
+    # 결과 코드 반환
+    return result.returncode
 
 
-def run_specific_module(module_name, verbosity=2):
-    """
-    특정 모듈의 테스트만 실행
+def run_specific_test(test_file):
+    """특정 테스트 파일 실행"""
+    print(f"테스트 실행: {test_file}")
+    print()
 
-    Args:
-        module_name: 테스트 모듈 이름 ('config', 'export', 'parse', etc.)
-        verbosity: 출력 상세 레벨
-    """
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
+    cmd = [
+        'pytest',
+        f'tests/{test_file}',
+        '-v',
+        '--tb=short',
+        '--color=yes'
+    ]
 
-    module_map = {
-        'config': test_config,
-        'export': test_export,
-        'parse': test_parse,
-        'storage': test_storage,
-        'collectors': test_collectors,
-        'main': test_main,
-        'github': test_github
-    }
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
+    return result.returncode
 
-    if module_name not in module_map:
-        print(f"❌ 잘못된 모듈 이름: {module_name}")
-        print(f"사용 가능한 모듈: {', '.join(module_map.keys())}")
-        return 1
 
-    print(f"\n[{module_name.upper()}] 모듈 테스트만 실행")
-    suite.addTests(loader.loadTestsFromModule(module_map[module_name]))
+def run_coverage():
+    """코드 커버리지 리포트 생성"""
+    print("=" * 80)
+    print("코드 커버리지 분석")
+    print("=" * 80)
+    print()
 
-    runner = unittest.TextTestRunner(verbosity=verbosity)
-    result = runner.run(suite)
+    cmd = [
+        'pytest',
+        'tests/',
+        '--cov=.',
+        '--cov-report=html',
+        '--cov-report=term'
+    ]
 
-    return 0 if result.wasSuccessful() else 1
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
+    return result.returncode
 
 
 if __name__ == '__main__':
-    import argparse
+    if len(sys.argv) > 1:
+        # 특정 테스트 파일 실행
+        test_file = sys.argv[1]
 
-    parser = argparse.ArgumentParser(description='Learning ETL 통합 테스트 러너')
-    parser.add_argument(
-        '-m', '--module',
-        choices=['config', 'export', 'parse', 'storage', 'collectors', 'main', 'github'],
-        help='특정 모듈만 테스트 (미지정 시 전체 테스트)'
-    )
-    parser.add_argument(
-        '-v', '--verbosity',
-        type=int,
-        choices=[0, 1, 2],
-        default=2,
-        help='출력 상세 레벨 (0: 최소, 1: 기본, 2: 상세)'
-    )
-
-    args = parser.parse_args()
-
-    # 특정 모듈 또는 전체 테스트 실행
-    if args.module:
-        exit_code = run_specific_module(args.module, args.verbosity)
+        if test_file == '--coverage':
+            # 커버리지 분석
+            exit_code = run_coverage()
+        else:
+            # 특정 파일 테스트
+            exit_code = run_specific_test(test_file)
     else:
-        exit_code = run_tests_with_runner(args.verbosity)
+        # 전체 테스트 실행
+        exit_code = run_tests()
 
+    # 종료 코드 반환
     sys.exit(exit_code)

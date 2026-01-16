@@ -1,0 +1,102 @@
+[
+  {
+    "sha": "abc123def456",
+    "commit": {
+      "author": {
+        "name": "Test User",
+        "email": "test@example.com",
+        "date": "2024-01-15T10:30:00Z"
+      },
+      "committer": {
+        "name": "Test User",
+        "email": "test@example.com",
+        "date": "2024-01-15T10:30:00Z"
+      },
+      "message": "Add user authentication feature\n\nImplemented JWT-based authentication with refresh tokens.\nIncludes middleware for protected routes.",
+      "tree": {
+        "sha": "tree123"
+      }
+    },
+    "author": {
+      "login": "testuser",
+      "id": 12345,
+      "avatar_url": "https://avatars.githubusercontent.com/u/12345"
+    },
+    "committer": {
+      "login": "testuser",
+      "id": 12345,
+      "avatar_url": "https://avatars.githubusercontent.com/u/12345"
+    },
+    "stats": {
+      "additions": 150,
+      "deletions": 30,
+      "total": 180
+    },
+    "files": [
+      {
+        "filename": "src/auth/jwt.js",
+        "status": "added",
+        "additions": 80,
+        "deletions": 0,
+        "changes": 80
+      },
+      {
+        "filename": "src/middleware/auth.js",
+        "status": "added",
+        "additions": 50,
+        "deletions": 0,
+        "changes": 50
+      },
+      {
+        "filename": "src/routes/api.js",
+        "status": "modified",
+        "additions": 20,
+        "deletions": 30,
+        "changes": 50
+      }
+    ]
+  },
+  {
+    "sha": "def456ghi789",
+    "commit": {
+      "author": {
+        "name": "Test User",
+        "email": "test@example.com",
+        "date": "2024-01-15T14:20:00Z"
+      },
+      "committer": {
+        "name": "Test User",
+        "email": "test@example.com",
+        "date": "2024-01-15T14:20:00Z"
+      },
+      "message": "Fix: resolve memory leak in WebSocket connection",
+      "tree": {
+        "sha": "tree456"
+      }
+    },
+    "author": {
+      "login": "testuser",
+      "id": 12345,
+      "avatar_url": "https://avatars.githubusercontent.com/u/12345"
+    },
+    "committer": {
+      "login": "testuser",
+      "id": 12345,
+      "avatar_url": "https://avatars.githubusercontent.com/u/12345"
+    },
+    "stats": {
+      "additions": 5,
+      "deletions": 10,
+      "total": 15
+    },
+    "files": [
+      {
+        "filename": "src/websocket/connection.js",
+        "status": "modified",
+        "additions": 5,
+        "deletions": 10,
+        "changes": 15
+      }
+    ]
+  }
+]
