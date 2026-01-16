@@ -1,12 +1,12 @@
 [Unit]
-Description=LearningCollector - Daily Collection Service
+Description=LearningCollector - Daily Post Pipeline
 After=network.target
 
 [Service]
 Type=oneshot
 User={{USER}}
 WorkingDirectory={{PROJECT_ROOT}}
-ExecStart={{PROJECT_ROOT}}/scripts/runtime/daily-collect.sh
+ExecStart={{PROJECT_ROOT}}/scripts/runtime/daily_post_pipeline.sh
 
 [Install]
 WantedBy=multi-user.target

@@ -26,6 +26,8 @@ logger = setup_logging(get_log_file('generate_post'), __name__)
 
 # 데이터 디렉토리
 DATA_DIR = PROJECT_ROOT / 'data'
+COLLECTION_LOG_DIR = DATA_DIR / 'collection_log'
+DRAFT_DIR = DATA_DIR / 'draft'
 
 # Claude API 키
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
@@ -33,7 +35,7 @@ ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 
 def load_daily_data(target_date: date) -> Dict:
     """날짜별 수집 데이터 로드"""
-    file_path = DATA_DIR / f'{target_date}.json'
+    file_path = COLLECTION_LOG_DIR / f'collect_result_{target_date}.json'
 
     if not file_path.exists():
         raise FileNotFoundError(f"데이터 파일이 없습니다: {file_path}")
@@ -196,7 +198,7 @@ def generate_draft(data: Dict, target_date: date) -> str:
 
 def save_draft(draft: str, target_date: date) -> Path:
     """블로그 초안을 파일로 저장"""
-    file_path = DATA_DIR / f'post_draft_{target_date}.md'
+    file_path = DRAFT_DIR / f'post_draft_{target_date}.md'
 
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write(draft)

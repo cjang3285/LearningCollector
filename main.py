@@ -36,7 +36,13 @@ logger = setup_logging(get_log_file('main'), __name__)
 
 # 데이터 디렉토리
 DATA_DIR = PROJECT_ROOT / 'data'
+COLLECTION_LOG_DIR = DATA_DIR / 'collection_log'
+DRAFT_DIR = DATA_DIR / 'draft'
+
+# 디렉토리 생성
 DATA_DIR.mkdir(exist_ok=True)
+COLLECTION_LOG_DIR.mkdir(exist_ok=True)
+DRAFT_DIR.mkdir(exist_ok=True)
 
 
 def collect_github(target_date: date) -> Dict:
@@ -131,7 +137,7 @@ def collect_baekjoon(target_date: date) -> Dict:
 
 def save_daily_data(target_date: date, data: Dict) -> Path:
     """날짜별 데이터를 JSON 파일로 저장"""
-    file_path = DATA_DIR / f'{target_date}.json'
+    file_path = COLLECTION_LOG_DIR / f'collect_result_{target_date}.json'
 
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2, default=str)
@@ -179,12 +185,6 @@ def collect_all(
 
     # 파일 저장
     save_daily_data(target_date, results)
-
-    # 로그 파일도 저장 (날짜 추적용)
-    log_file = PROJECT_ROOT / 'logs' / f'collect_result_{target_date}.json'
-    log_file.parent.mkdir(exist_ok=True)
-    with open(log_file, 'w', encoding='utf-8') as f:
-        json.dump(results, f, ensure_ascii=False, indent=2, default=str)
 
     return results
 

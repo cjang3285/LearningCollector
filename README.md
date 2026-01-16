@@ -54,20 +54,28 @@ AI_CHAT_DOWNLOAD_DIR=/home/user/Downloads
 
 # Claude API (블로그 생성용)
 ANTHROPIC_API_KEY=your_claude_api_key
+
+# 블로그 API (게시용)
+BLOG_API_URL=http://localhost:3000/api/posts
+BLOG_API_TOKEN=your_blog_api_token
+BLOG_MOCK_MODE=true  # 테스트용 (실제 게시: false)
 ```
 
 ### 3. 실행
 
 ```bash
-# 오늘 데이터 수집
-python main.py
+# 전체 파이프라인 (수집 → 초안 → 게시)
+bash scripts/runtime/daily_post_pipeline.sh
 
-# 블로그 초안 생성
-python generate_post_draft.py
+# 또는 개별 실행
+python main.py                    # 데이터 수집
+python generate_post_draft.py     # 블로그 초안 생성
+python publish_to_blog.py         # 블로그 게시 (Mock)
 
 # 특정 날짜
 python main.py --date 2026-01-15
 python generate_post_draft.py --date 2026-01-15
+python publish_to_blog.py --date 2026-01-15
 ```
 
 ---
@@ -76,30 +84,33 @@ python generate_post_draft.py --date 2026-01-15
 
 ```
 LearningCollector/
-├── main.py                    # 데이터 수집
-├── generate_post_draft.py     # 블로그 초안 생성
+├── main.py                         # 데이터 수집
+├── generate_post_draft.py          # 블로그 초안 생성
+├── publish_to_blog.py              # 블로그 API 게시
 │
 ├── data/
-│   ├── 2026-01-16.json       # 수집 데이터
-│   └── post_draft_2026-01-16.md  # 블로그 초안
+│   ├── collection_log/             # 수집 데이터
+│   │   └── collect_result_2026-01-16.json
+│   └── draft/                      # 블로그 초안
+│       └── post_draft_2026-01-16.md
 │
-├── load/                      # 데이터 수집
-│   ├── github_load.py        # GitHub API
-│   ├── ai_chat_load.py       # AI Chat 마크다운 스캔
-│   └── baekjoon_load.py      # BaekjoonHub 레포
+├── load/                           # 데이터 수집
+│   ├── github_load.py             # GitHub API
+│   ├── ai_chat_load.py            # AI Chat 마크다운 스캔
+│   └── baekjoon_load.py           # BaekjoonHub 레포
 │
-├── parse/                     # 데이터 파싱
+├── parse/                          # 데이터 파싱
 │   ├── github_parse.py
 │   ├── ai_chat_parse.py
 │   └── baekjoon_parse.py
 │
 ├── utils/
-│   └── collection_tracker.py # 날짜 추적 (파일 기반)
+│   └── collection_tracker.py      # 날짜 추적 (파일 기반)
 │
 └── scripts/
-    ├── systemd/              # 자동 실행 설정
+    ├── systemd/                    # 자동 실행 설정
     └── runtime/
-        └── daily-collect.sh  # 데이터 수집 + 블로그 생성
+        └── daily_post_pipeline.sh  # 전체 파이프라인
 ```
 
 ---
@@ -109,13 +120,19 @@ LearningCollector/
 ### 매일 자정 자동 실행 (systemd)
 
 ```
-1. GitHub 커밋 수집 → data/{날짜}.json
-2. AI Chat 마크다운 스캔 → 추가
-3. Baekjoon 풀이 수집 → 추가
-4. Claude API 호출 → data/post_draft_{날짜}.md
+1. main.py               → data/collection_log/collect_result_{날짜}.json
+   └─ GitHub 커밋 수집
+   └─ AI Chat 마크다운 스캔
+   └─ Baekjoon 풀이 수집
+
+2. generate_post_draft.py → data/draft/post_draft_{날짜}.md
+   └─ Claude API로 핵심 논점/의사결정 추출
+
+3. publish_to_blog.py     → 블로그 API 호출
+   └─ POST /api/posts (draft 또는 published)
 ```
 
-### 수집 데이터 구조 (data/2026-01-16.json)
+### 수집 데이터 구조 (data/collection_log/collect_result_2026-01-16.json)
 
 ```json
 {
@@ -144,7 +161,7 @@ LearningCollector/
 }
 ```
 
-### 블로그 초안 (data/post_draft_2026-01-16.md)
+### 블로그 초안 (data/draft/post_draft_2026-01-16.md)
 
 ```markdown
 # 2026-01-16 학습 일지
@@ -193,14 +210,13 @@ journalctl -u learningcollector-daily.service -f
 ### 수동 실행 (테스트용)
 
 ```bash
-# 전체 실행
-bash scripts/runtime/daily-collect.sh
+# 전체 파이프라인
+bash scripts/runtime/daily_post_pipeline.sh
 
-# 수집만
-python main.py
-
-# 블로그 생성만
-python generate_post_draft.py
+# 개별 실행
+python main.py                # 데이터 수집
+python generate_post_draft.py # 블로그 초안
+python publish_to_blog.py     # 블로그 게시
 ```
 
 ---
@@ -247,17 +263,17 @@ python main.py --import-zip --all
 ## 📊 로그 및 디버깅
 
 ```bash
-# 수집 로그
+# Cron 실행 로그
 cat logs/cron_$(date +%Y-%m-%d).log
 
-# 수집 결과
-cat logs/collect_result_$(date +%Y-%m-%d).json
+# 수집 데이터
+cat data/collection_log/collect_result_$(date +%Y-%m-%d).json | jq
 
-# 데이터 확인
-cat data/$(date +%Y-%m-%d).json | jq
+# 블로그 초안
+cat data/draft/post_draft_$(date +%Y-%m-%d).md
 
-# 블로그 초안 확인
-cat data/post_draft_$(date +%Y-%m-%d).md
+# systemd 로그
+journalctl -u learningcollector-daily.service -f
 ```
 
 ---

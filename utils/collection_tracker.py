@@ -12,29 +12,29 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# 프로젝트 루트 및 로그 디렉토리
+# 프로젝트 루트 및 데이터 디렉토리
 PROJECT_ROOT = Path(__file__).parent.parent
-LOGS_DIR = PROJECT_ROOT / 'logs'
+COLLECTION_LOG_DIR = PROJECT_ROOT / 'data' / 'collection_log'
 
 
 def get_last_collection_date() -> Optional[date]:
     """
-    로그 파일에서 마지막 수집 날짜 추출
+    수집 로그 파일에서 마지막 수집 날짜 추출
 
-    collect_result_*.json 파일명에서 날짜를 추출하여 가장 최근 날짜를 반환.
+    data/collection_log/collect_result_*.json 파일명에서 날짜를 추출하여 가장 최근 날짜를 반환.
 
     Returns:
         가장 최근 수집 날짜 (파일이 없으면 None)
     """
-    if not LOGS_DIR.exists():
-        logger.debug("로그 디렉토리가 존재하지 않음")
+    if not COLLECTION_LOG_DIR.exists():
+        logger.debug("수집 로그 디렉토리가 존재하지 않음")
         return None
 
     # 패턴: collect_result_YYYY-MM-DD.json
     pattern = re.compile(r'collect_result_(\d{4}-\d{2}-\d{2})\.json')
 
     dates = []
-    for file in LOGS_DIR.glob('collect_result_*.json'):
+    for file in COLLECTION_LOG_DIR.glob('collect_result_*.json'):
         match = pattern.match(file.name)
         if match:
             try:
@@ -50,7 +50,7 @@ def get_last_collection_date() -> Optional[date]:
         logger.info(f"마지막 수집 날짜: {last_date}")
         return last_date
 
-    logger.debug("로그 파일에서 수집 날짜를 찾을 수 없음 (첫 실행)")
+    logger.debug("수집 로그 파일을 찾을 수 없음 (첫 실행)")
     return None
 
 

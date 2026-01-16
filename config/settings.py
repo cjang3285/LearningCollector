@@ -76,6 +76,13 @@ COLLECT_AI_CHAT = os.getenv('COLLECT_AI_CHAT', 'true').lower() == 'true'
 # Claude 마이그레이션 (첫 이용 시에만 사용, 이후 AI_CHAT 사용)
 ENABLE_CLAUDE_MIGRATION = os.getenv('ENABLE_CLAUDE_MIGRATION', 'false').lower() == 'true'
 
+# ============================================
+# 블로그 API 설정
+# ============================================
+BLOG_API_URL = os.getenv('BLOG_API_URL', 'http://localhost:3000/api/posts')
+BLOG_API_TOKEN = os.getenv('BLOG_API_TOKEN', '')
+BLOG_MOCK_MODE = os.getenv('BLOG_MOCK_MODE', 'true').lower() == 'true'
+
 def validate_config():
     """필수 설정값 검증"""
     errors = []
