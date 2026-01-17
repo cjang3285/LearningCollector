@@ -1,0 +1,114 @@
+{
+  "sha": "e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2",
+  "node_id": "C_kwDOQwHMq9oAKGUzMGUyNzgwYmNkZGI4OTcxNGY4MmIzYTRkM2ViZDRhMGZlNDdhZjI",
+  "commit": {
+    "author": {
+      "name": "JANG CHANWOOK",
+      "email": "cjang6199@gmail.com",
+      "date": "2026-01-16T10:14:45Z"
+    },
+    "committer": {
+      "name": "JANG CHANWOOK",
+      "email": "cjang6199@gmail.com",
+      "date": "2026-01-16T10:14:45Z"
+    },
+    "message": "[Silver II] Title: 랜선 자르기, Time: 4 ms, Memory: 2220 KB -BaekjoonHub",
+    "tree": {
+      "sha": "ebb1e58d93fe168a53735db9d5857919257cbe1c",
+      "url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/git/trees/ebb1e58d93fe168a53735db9d5857919257cbe1c"
+    },
+    "url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/git/commits/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2",
+    "comment_count": 0,
+    "verification": {
+      "verified": false,
+      "reason": "unsigned",
+      "signature": null,
+      "payload": null,
+      "verified_at": null
+    }
+  },
+  "url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/commits/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2",
+  "html_url": "https://github.com/cjang3285/Baekjoon_solutions/commit/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2",
+  "comments_url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/commits/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2/comments",
+  "author": {
+    "login": "cjang3285",
+    "id": 239295454,
+    "node_id": "U_kgDODkNb3g",
+    "avatar_url": "https://avatars.githubusercontent.com/u/239295454?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/cjang3285",
+    "html_url": "https://github.com/cjang3285",
+    "followers_url": "https://api.github.com/users/cjang3285/followers",
+    "following_url": "https://api.github.com/users/cjang3285/following{/other_user}",
+    "gists_url": "https://api.github.com/users/cjang3285/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/cjang3285/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/cjang3285/subscriptions",
+    "organizations_url": "https://api.github.com/users/cjang3285/orgs",
+    "repos_url": "https://api.github.com/users/cjang3285/repos",
+    "events_url": "https://api.github.com/users/cjang3285/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/cjang3285/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "committer": {
+    "login": "cjang3285",
+    "id": 239295454,
+    "node_id": "U_kgDODkNb3g",
+    "avatar_url": "https://avatars.githubusercontent.com/u/239295454?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/cjang3285",
+    "html_url": "https://github.com/cjang3285",
+    "followers_url": "https://api.github.com/users/cjang3285/followers",
+    "following_url": "https://api.github.com/users/cjang3285/following{/other_user}",
+    "gists_url": "https://api.github.com/users/cjang3285/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/cjang3285/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/cjang3285/subscriptions",
+    "organizations_url": "https://api.github.com/users/cjang3285/orgs",
+    "repos_url": "https://api.github.com/users/cjang3285/repos",
+    "events_url": "https://api.github.com/users/cjang3285/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/cjang3285/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "parents": [
+    {
+      "sha": "f429dec2050009bcb8597fb9289067de42716fbb",
+      "url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/commits/f429dec2050009bcb8597fb9289067de42716fbb",
+      "html_url": "https://github.com/cjang3285/Baekjoon_solutions/commit/f429dec2050009bcb8597fb9289067de42716fbb"
+    }
+  ],
+  "stats": {
+    "total": 97,
+    "additions": 97,
+    "deletions": 0
+  },
+  "files": [
+    {
+      "sha": "170c9c959b93167225ac6389468de46b24ebc5f2",
+      "filename": "백준/Silver/1654. 랜선 자르기/README.md",
+      "status": "added",
+      "additions": 32,
+      "deletions": 0,
+      "changes": 32,
+      "blob_url": "https://github.com/cjang3285/Baekjoon_solutions/blob/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2/%EB%B0%B1%EC%A4%80%2FSilver%2F1654.%E2%80%85%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0%2FREADME.md",
+      "raw_url": "https://github.com/cjang3285/Baekjoon_solutions/raw/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2/%EB%B0%B1%EC%A4%80%2FSilver%2F1654.%E2%80%85%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0%2FREADME.md",
+      "contents_url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/contents/%EB%B0%B1%EC%A4%80%2FSilver%2F1654.%E2%80%85%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0%2FREADME.md?ref=e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2",
+      "patch": "@@ -0,0 +1,32 @@\n+# [Silver II] 랜선 자르기 - 1654 \n+\n+[문제 링크](https://www.acmicpc.net/problem/1654) \n+\n+### 성능 요약\n+\n+메모리: 2220 KB, 시간: 4 ms\n+\n+### 분류\n+\n+이분 탐색, 매개 변수 탐색\n+\n+### 제출 일자\n+\n+2026년 1월 16일 16:22:43\n+\n+### 문제 설명\n+\n+<p>집에서 시간을 보내던 오영식은 박성원의 부름을 받고 급히 달려왔다. 박성원이 캠프 때 쓸 N개의 랜선을 만들어야 하는데 너무 바빠서 영식이에게 도움을 청했다.</p>\n+\n+<p>이미 오영식은 자체적으로 K개의 랜선을 가지고 있다. 그러나 K개의 랜선은 길이가 제각각이다. 박성원은 랜선을 모두 N개의 같은 길이의 랜선으로 만들고 싶었기 때문에 K개의 랜선을 잘라서 만들어야 한다. 예를 들어 300cm 짜리 랜선에서 140cm 짜리 랜선을 두 개 잘라내면 20cm는 버려야 한다. (이미 자른 랜선은 붙일 수 없다.)</p>\n+\n+<p>편의를 위해 랜선을 자르거나 만들 때 손실되는 길이는 없다고 가정하며, 기존의 K개의 랜선으로 N개의 랜선을 만들 수 없는 경우는 없다고 가정하자. 그리고 자를 때는 항상 센티미터 단위로 정수길이만큼 자른다고 가정하자. N개보다 많이 만드는 것도 N개를 만드는 것에 포함된다. 이때 만들 수 있는 최대 랜선의 길이를 구하는 프로그램을 작성하시오.</p>\n+\n+### 입력 \n+\n+ <p>첫째 줄에는 오영식이 이미 가지고 있는 랜선의 개수 K, 그리고 필요한 랜선의 개수 N이 입력된다. K는 1이상 10,000이하의 정수이고, N은 1이상 1,000,000이하의 정수이다. 그리고 항상 K ≦ N 이다. 그 후 K줄에 걸쳐 이미 가지고 있는 각 랜선의 길이가 센티미터 단위의 정수로 입력된다. 랜선의 길이는 2<sup>31</sup>-1보다 작거나 같은 자연수이다.</p>\n+\n+### 출력 \n+\n+ <p>첫째 줄에 N개를 만들 수 있는 랜선의 최대 길이를 센티미터 단위의 정수로 출력한다.</p>\n+"
+    },
+    {
+      "sha": "37b020c2719616d982105d92b4980591fe040105",
+      "filename": "백준/Silver/1654. 랜선 자르기/랜선 자르기.cc",
+      "status": "added",
+      "additions": 65,
+      "deletions": 0,
+      "changes": 65,
+      "blob_url": "https://github.com/cjang3285/Baekjoon_solutions/blob/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2/%EB%B0%B1%EC%A4%80%2FSilver%2F1654.%E2%80%85%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0%2F%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0.cc",
+      "raw_url": "https://github.com/cjang3285/Baekjoon_solutions/raw/e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2/%EB%B0%B1%EC%A4%80%2FSilver%2F1654.%E2%80%85%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0%2F%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0.cc",
+      "contents_url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/contents/%EB%B0%B1%EC%A4%80%2FSilver%2F1654.%E2%80%85%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0%2F%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0.cc",
+      "contents_url": "https://api.github.com/repos/cjang3285/Baekjoon_solutions/contents/%EB%B0%B1%EC%A4%80%2FSilver%2F1654.%E2%80%85%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0%2F%EB%9E%9C%EC%84%A0%E2%80%85%EC%9E%90%EB%A5%B4%EA%B8%B0.cc?ref=e30e2780bcddb89714f82b3a4d3ebd4a0fe47af2",
+      "patch": "@@ -0,0 +1,65 @@\n+#include <bits/stdc++.h>\\r\n+using namespace std;\\r\n+\\r\n+int main() {\\r\n+    ios::sync_with_stdio(false);\\r\n+    cin.tie(NULL);\\r\n+\\r\n+    int K, N;\\r\n+    cin >> K >> N;\\r\n+\\r\n+    vector<long long> lan(K);\\r\n+\\r\n+    // 범위 설정\\r\n+    long long low = 1;          // 자를 수 있는 최소길이\\r\n+    long long high = 0;         \\r\n+\\r\n+    for(int i = 0; i < K; i++) {\\r\n+        cin >> lan[i];\\r\n+        high = max(high, lan[i]);   // 가장 긴 랜선 = 최댓값 후보\\r\n+    }\\r\n+\\r\n+    long long answer = 0; // 우리가 맞춰야 할 정답 L\\r\n+\\r\n+    while (low <= high) { // low가 high보다 커지면 중단.\\r\n+        // 긴 배열을 왼쪽, 오른쪽 배열로 두 조각으로 나누어 간단하게 생각해보자. \\r\n+        // mid는 정수형이라 /2하면 소수점 아래 소거되기 때문에\\r\n+        // mid는 전체 칸이 홀수개든 짝수개든 항상 왼쪽 배열 조각의 마지막 값이 된다. \\r\n+        long long mid = (low + high) / 2;\\r\n+\\r\n+        // 부른 길이로 개수 세보니 그 개수가\\r\n+        long long count = 0;\\r\n+        for(int x : lan) {\\r\n+            count += x / mid;\\r\n+        }\\r\n+        \\r\n+        // L (길이) 증가 ->\\r\n+        // 100 110 120 130 140 150 160 170 180\\r\n+        // S   S   S   S   S   F   F   F   F\\r\n+        // 일반적인 흐름은 실패 반복하면서 왼쪽구간만 남기며 자르는 길이(중앙값) L을 줄여간다. \\r\n+        // 그러다 연속 성공하면서 마지막에 성공에서 low가 high보다 커지고 \\r\n+        // while (low <= high) 탈출해서 최대 L을 출력.\\r\n+        \\r\n+        // 예시. 숫자 = 정렬됐다는 가정 하에 그 값이 중앙값이 되는 순서.\\r\n+        // [       3(첫 성공)     4   5  67(마지막 성공)  2                   1(첫 실패) ]\\r\n+        // [ F F F ... F | S S S ... S ]\\r\n+        // 실패(F) 구간 → 반복하면서 high 줄여서 왼쪽만 남김\\r\n+        // 첫 성공 → answer 갱신 → low = mid+1 → 오른쪽 탐색\\r\n+        // 연속 성공(S) 구간 → answer 계속 갱신 → 최대 L 확보\\r\n+        // 마지막 성공(mid) → low > high 돨때까지 low = mid + 1 → 반복 종료\\r\n+        // 한번 성공하면 이후 절대 다시 실패 구간으로 돌아가지 않음\\r\n+        if (count >= N) { // N개 이상 나왔다면 성공.\\r\n+            answer = mid; // mid는 성공했으니 답으로 기록. \\r\n+                          // 이번엔 mid의 다음 칸부터 high까지의 구간을 설정해서 \\r\n+            low = mid + 1; // 다음 반복에서는 mid 제외된 오른쪽 구간의 중앙값(즉 더 큰 길이)으로 잘라보자.\\r\n+        } \\r\n+        else { // N개보다 적게 나왔으면 실패. \\r\n+            high = mid - 1; // mid가 실패했으니 mid도 제외하기 위해 \\r\n+            // 원래 low 값부터 mid의 이전 칸까지 구간을 설정해서 \\r\n+            // 다음 반복에서는 mid 제외된 왼쪽 구간의 중앙값(즉 더 짧은 길이)으로 잘라보자.\\r\n+        }\\r\n+    }\\r\n+    // 반복 탈출 후 정답 출력\\r\n+    cout << answer;\\r\n+    return 0;\\r\n+}\\r"
+    }
+  ]
+}
