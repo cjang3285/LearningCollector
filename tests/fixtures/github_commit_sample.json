@@ -1,0 +1,118 @@
+{
+  "sha": "796ebe2eaec9da2cb54a43163b6945a11f2370b8",
+  "node_id": "C_kwDOQtjtvdoAKDc5NmViZTJlYWVjOWRhMmNiNTRhNDMxNjNiNjk0NWExMWYyMzcwYjg",
+  "commit": {
+    "author": {
+      "name": "JANG CHANWOOK",
+      "email": "cjang6199@gmail.com",
+      "date": "2026-01-14T14:23:22Z"
+    },
+    "committer": {
+      "name": "GitHub",
+      "email": "noreply@github.com",
+      "date": "2026-01-14T14:23:22Z"
+    },
+    "message": "Merge pull request #11 from cjang3285/claude/replace-export-with-load-CzAef\n\nClaude/replace export with load cz aef",
+    "tree": {
+      "sha": "37b9956ed0a2d950df897984ec65951332e322e8",
+      "url": "https://api.github.com/repos/cjang3285/LearningCollector/git/trees/37b9956ed0a2d950df897984ec65951332e322e8"
+    },
+    "url": "https://api.github.com/repos/cjang3285/LearningCollector/git/commits/796ebe2eaec9da2cb54a43163b6945a11f2370b8",
+    "comment_count": 0,
+    "verification": {
+      "verified": true,
+      "reason": "valid",
+      "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpZ6baCRC1aQ7uu5UhlAAAgUsQAA7RqNbPKVSNtSgOdDndsTI9\nCK8kGW/wPfd7Y+lgi0mAnR+Xr+asp/P530ti29D6Nhz52vOzfNHuSpH6W8sgBkyE\nK1vqRo5D0hTU1vPOV4vAZnyM7Wna5nOVG0Pvi8BWNB6Pszd2//q40aWsUZumCfi9\naq9pr04T2ZY/NM4mmDNJL8K40d25l6lUfhMn8ZFEXlUVJ3ru07y2dvW2jpX6/nVZ\nn+2fc6X/un3AOssCCPTrfgQAAYUallgQFuq+UhCbyO2pUaQWv3XjtRnAi5Un6FE9\nNjoLaCrOpVU1GdZcdqatjNYNjsgKXMQNQj7wm+jJmptB7whKh8EuRLakqgcFt7GY\nLVmJAfWBNJtDxTEk/BIVyfbekFu7F+kUBRBW2F7FN6BRZvIyPbX3FqX3z6sOuLvB\nU8L2/1UzHqetO4twxPX0DBdZZzyJqn665VPL9zkCIxy6bHOSOhQy3hLDbyhdW2XQ\nE1hKkZIyB6hOtlibzPYsvUbzloQ1w064WspXIRxtGJVVWDCXxYwpYcTp35lRk9Fa\n9QVW8b6OFOErIlsLmfp23vMTMCxTKspKN3USjsw2JurxKCnxKaMyfxGFSzGTkJYJ\n1z0FT4JglBjdEV2wR7RAEBlgwY/dHpg7J5I68lq+r+cJjWJpoqjZrtEO5vKrEOwF\nKPCqQbm7D/mtMobwSvAZ\n=f1Vn\n-----END PGP SIGNATURE-----\n",
+      "payload": "tree 37b9956ed0a2d950df897984ec65951332e322e8\nparent b58315c0cb0f1e2d96c71604145b94133e38fe44\nparent d4a00bf568f7a2995e378be5c89363a1e3969138\nauthor JANG CHANWOOK <cjang6199@gmail.com> 1768400602 +0900\ncommitter GitHub <noreply@github.com> 1768400602 +0900\n\nMerge pull request #11 from cjang3285/claude/replace-export-with-load-CzAef\n\nClaude/replace export with load cz aef",
+      "verified_at": "2026-01-14T14:23:23Z"
+    }
+  },
+  "url": "https://api.github.com/repos/cjang3285/LearningCollector/commits/796ebe2eaec9da2cb54a43163b6945a11f2370b8",
+  "html_url": "https://github.com/cjang3285/LearningCollector/commit/796ebe2eaec9da2cb54a43163b6945a11f2370b8",
+  "comments_url": "https://api.github.com/repos/cjang3285/LearningCollector/commits/796ebe2eaec9da2cb54a43163b6945a11f2370b8/comments",
+  "author": {
+    "login": "cjang3285",
+    "id": 239295454,
+    "node_id": "U_kgDODkNb3g",
+    "avatar_url": "https://avatars.githubusercontent.com/u/239295454?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/cjang3285",
+    "html_url": "https://github.com/cjang3285",
+    "followers_url": "https://api.github.com/users/cjang3285/followers",
+    "following_url": "https://api.github.com/users/cjang3285/following{/other_user}",
+    "gists_url": "https://api.github.com/users/cjang3285/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/cjang3285/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/cjang3285/subscriptions",
+    "organizations_url": "https://api.github.com/users/cjang3285/orgs",
+    "repos_url": "https://api.github.com/users/cjang3285/repos",
+    "events_url": "https://api.github.com/users/cjang3285/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/cjang3285/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "parents": [
+    {
+      "sha": "b58315c0cb0f1e2d96c71604145b94133e38fe44",
+      "url": "https://api.github.com/repos/cjang3285/LearningCollector/commits/b58315c0cb0f1e2d96c71604145b94133e38fe44",
+      "html_url": "https://github.com/cjang3285/LearningCollector/commit/b58315c0cb0f1e2d96c71604145b94133e38fe44"
+    },
+    {
+      "sha": "d4a00bf568f7a2995e378be5c89363a1e3969138",
+      "url": "https://api.github.com/repos/cjang3285/LearningCollector/commits/d4a00bf568f7a2995e378be5c89363a1e3969138",
+      "html_url": "https://github.com/cjang3285/LearningCollector/commit/d4a00bf568f7a2995e378be5c89363a1e3969138"
+    }
+  ],
+  "stats": {
+    "total": 1397,
+    "additions": 993,
+    "deletions": 404
+  },
+  "files": [
+    {
+      "sha": "5324871619098b0663c7ccfbc31154bb0f90a138",
+      "filename": "How_daemon_works.md",
+      "status": "modified",
+      "additions": 23,
+      "deletions": 23,
+      "changes": 46,
+      "blob_url": "https://github.com/cjang3285/LearningCollector/blob/796ebe2eaec9da2cb54a43163b6945a11f2370b8/How_daemon_works.md",
+      "raw_url": "https://github.com/cjang3285/LearningCollector/raw/796ebe2eaec9da2cb54a43163b6945a11f2370b8/How_daemon_works.md",
+      "contents_url": "https://api.github.com/repos/cjang3285/LearningCollector/contents/How_daemon_works.md?ref=796ebe2eaec9da2cb54a43163b6945a11f2370b8",
+      "patch": "@@ -1,31 +1,31 @@\n-# LearningETL 시스템 동작 구조\n+# LearningCollector 시스템 동작 구조\n \n ## 핵심 개념\n-`learningetl.service`가 아닌 **`learningetl-daily.timer/.service`**가 실제 운영 중인 유닛이다.\n+**`learningcollector-daily.timer/.service`**가 실제 운영 중인 유닛이다.\n \n ## 실행 흐름\n ```\n-learningetl-daily.timer \n-  → learningetl-daily.service \n-    → daily-collect.sh \n+learningcollector-daily.timer\n+  → learningcollector-daily.service\n+    → daily-collect.sh\n       → python main.py\n ```\n \n ## 코드 업데이트 반영 메커니즘\n - `git pull`로 `main.py` 변경사항을 pull하면 **즉시 반영 완료**\n - 별도 재시작 불필요 - 자정에 실행되는 타이머가 pull된 코드를 실행\n-- `learningetl.service`는 oneshot 타입으로 실행 후 종료되므로 상시 active 상태가 아님\n+- `learningcollector-daily.service`는 oneshot 타입으로 실행 후 종료되므로 상시 active 상태가 아님\n \n ---\n \n ## systemd 유닛 구성\n \n ### 1. Timer Unit\n-**파일**: `/etc/systemd/system/learningetl-daily.timer`\n+**파일**: `/etc/systemd/system/learningcollector-daily.timer`\n ```ini\n [Unit]\n-Description=LearningETL Daily Scan Timer\n-Requires=learningetl-daily.service\n+Description=LearningCollector - Daily Collection Timer\n+Requires=learningcollector-daily.service\n \n [Timer]\n OnCalendar=daily              # 매일 00:00 실행\n@@ -36,24 +36,24 @@ WantedBy=timers.target\n ```\n \n ### 2. Service Unit\n-**파일**: `/etc/systemd/system/learningetl-daily.service`\n+**파일**: `/etc/systemd/system/learningcollector-daily.service`\n ```ini\n [Unit]\n-Description=LearningETL Daily Scan\n+Description=LearningCollector - Daily Collection Service\n After=network.target postgresql.service\n \n [Service]\n Type=oneshot                  # 작업 완료 후 종료\n User=jcw\n-WorkingDirectory=/home/jcw/LearningETL\n-ExecStart=/home/jcw/LearningETL/scripts/runtime/daily-collect.sh\n+WorkingDirectory=/home/jcw/LearningCollector\n+ExecStart=/home/jcw/LearningCollector/scripts/runtime/daily-collect.sh\n \n [Install]\n WantedBy=multi-user.target\n ```\n \n ### 3. Shell Script\n-**파일**: `/home/jcw/LearningETL/scripts/runtime/daily-collect.sh`\n+**파일**: `/home/jcw/LearningCollector/scripts/runtime/daily-collect.sh`\n ```bash\n #!/bin/bash\n set -e  # 에러 발생 시 중단\n@@ -78,19 +78,19 @@ log_message() {\n \n # 실행\n log_message \"==========================================\"\n-log_message \"LearningETL 일일 수집 시작\"\n+log_message \"LearningCollector - 일일 수집 시작\"\n log_message \"작업 디렉토리: $PROJECT_ROOT\"\n \n cd \"$PROJECT_ROOT\"\n-if python main.py >> \"$LOG_FILE\" 2>&1; then\n+if \"$PROJECT_ROOT/venv/bin/python\" main.py >> \"$LOG_FILE\" 2>&1; then\n     log_message \"[SUCCESS] 수집 성공\"\n     EXIT_CODE=0\n else\n     log_message \"[ERROR] 수집 실패 (exit code: $?)\"\n     EXIT_CODE=1\n fi\n \n-log_message \"LearningETL 일일 수집 완료\"\n+log_message \"LearningCollector - 일일 수집 완료\"\n log_message \"==========================================\"\n exit $EXIT_CODE\n ```\n@@ -101,18 +101,18 @@ exit $EXIT_CODE\n \n ### 타이머 상태\n ```bash\n-$ sudo systemctl list-timers | grep learningetl\n-Fri 2026-01-02 00:00:00 KST  8h    Thu 2026-01-01 00:00:00 KST  15h ago  learningetl-daily.timer\n+$ sudo systemctl list-timers | grep learningcollector\n+Fri 2026-01-02 00:00:00 KST  8h    Thu 2026-01-01 00:00:00 KST  15h ago  learningcollector-daily.timer\n ```\n - **다음 실행**: 2026-01-02 00:00:00\n - **마지막 실행**: 2026-01-01 00:00:00 (15시간 전)\n \n ### 서비스 로그\n ```bash\n-$ sudo journalctl -u learningetl-daily.service --since today\n-Jan 01 00:00:00 jcw systemd[1]: Starting learningetl-daily.service...\n-Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] LearningETL 일일 수집 시작\n-Jan 01 00:00:01 jcw daily-collect.sh[64766]: [2026-01-01 00:00:00] 작업 디렉토리: /home/jcw/LearningETL\n+$ sudo journalctl -u learningcollector-daily.service --since today\n+Jan 01 00:00:00 jcw systemd[1]: Starting learningcollector-daily.service...\n+Jan 01 00:00:00 jcw daily-collect.sh[64756]: [2026-01-01 00:00:00] LearningCollector - 일일 수집 시작\n+Jan 01 00:00:01 jcw daily-collect.sh[64766]: [2026-01-01 00:00:00] 작업 디렉토리: /home/jcw/LearningCollector\n Jan 01 00:00:09 jcw daily-collect.sh[64789]: [2026-01-01 00:00:09] [SUCCESS] 수집 성공\n ```\n "
+    },
+    {
+      "sha": "47525028b652e6b37ef86385d1885eede6101cc9",
+      "filename": "RASPBERRY_PI_UPDATE.md",
+      "status": "added",
+      "additions": 114,
+      "deletions": 0,
+      "changes": 114,
+      "blob_url": "https://github.com/cjang3285/LearningCollector/blob/796ebe2eaec9da2cb54a43163b6945a11f2370b8/RASPBERRY_PI_UPDATE.md",
+      "raw_url": "https://github.com/cjang3285/LearningCollector/raw/796ebe2eaec9da2cb54a43163b6945a11f2370b8/RASPBERRY_PI_UPDATE.md",
+      "contents_url": "https://api.github.com/repos/cjang3285/LearningCollector/contents/RASPBERRY_PI_UPDATE.md?ref=796ebe2eaec9da2cb54a43163b6945a11f2370b8",
+      "patch": "@@ -0,0 +1,114 @@\n+# 라즈베리파이 업데이트 가이드\n+\n+## 간단 업데이트 절차\n+\n+### 1. 기존 타이머/서비스 중지 및 제거\n+\n+```bash\n+# 타이머/서비스 중지\n+sudo systemctl stop learningetl-daily.timer\n+sudo systemctl stop learningetl-daily.service\n+\n+# 비활성화\n+sudo systemctl disable learningetl-daily.timer\n+\n+# 기존 파일 제거\n+sudo rm /etc/systemd/system/learningetl-daily.timer\n+sudo rm /etc/systemd/system/learningetl-daily.service\n+```\n+\n+### 2. 폴더명 변경 (필수)\n+\n+```bash\n+# 프로젝트 폴더명 변경\n+cd ~\n+mv LearningETL LearningCollector\n+cd LearningCollector\n+```\n+\n+### 3. 코드 업데이트\n+\n+```bash\n+# Git pull\n+git pull origin main\n+```\n+\n+### 4. 새로운 타이머/서비스 설치\n+\n+```bash\n+# 현재 사용자 및 경로 확인\n+CURRENT_USER=$(whoami)\n+PROJECT_ROOT=$(pwd)\n+\n+# service 파일 설치\n+sed -e \"s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g\" \\\n+    -e \"s|{{USER}}|$CURRENT_USER|g\" \\\n+    scripts/systemd/learningcollector-daily.service | \\\n+    sudo tee /etc/systemd/system/learningcollector-daily.service > /dev/null\n+\n+# timer 파일 설치\n+sudo cp scripts/systemd/learningcollector-daily.timer /etc/systemd/system/\n+\n+# systemd 리로드\n+sudo systemctl daemon-reload\n+\n+# 타이머 활성화 및 시작\n+sudo systemctl enable learningcollector-daily.timer\n+sudo systemctl start learningcollector-daily.timer\n+```\n+\n+### 5. 확인\n+\n+```bash\n+# 타이머 상태 확인\n+systemctl list-timers learningcollector-daily.timer\n+\n+# 상세 상태\n+sudo systemctl status learningcollector-daily.timer\n+\n+# 수동 테스트 (선택사항)\n+sudo systemctl start learningcollector-daily.service\n+sudo journalctl -u learningcollector-daily.service -f\n+```\n+\n+---\n+\n+## 예상 출력\n+\n+```\n+NEXT                        LEFT          LAST                        PASSED  UNIT                            ACTIVATES\n+Wed 2026-01-15 00:00:00 KST 9h left       -                           -       learningcollector-daily.timer   learningcollector-daily.service\n+```\n+\n+```\n+● learningcollector-daily.timer - LearningCollector - Daily Collection Timer\n+   Loaded: loaded (/etc/systemd/system/learningcollector-daily.timer; enabled)\n+   Active: active (waiting) since ...\n+```\n+\n+---\n+\n+## 주요 변경사항\n+\n+- **파일명**: `learningetl-daily.*` → `learningcollector-daily.*`\n+- **폴더명**: `~/LearningETL` → `~/LearningCollector`\n+- **Description**: 한글 → `LearningCollector - ...`\n+- **로그 형식**: `etl_result_*.json` → `collect_result_*.json` (하위 호환)\n+\n+---\n+\n+## 일상 사용 명령어\n+\n+```bash\n+# 타이머 상태\n+systemctl list-timers learningcollector-daily.timer\n+\n+# 서비스 로그\n+sudo journalctl -u learningcollector-daily.service --since today\n+\n+# 수집 결과 파일\n+ls ~/LearningCollector/logs/collect_result_*.json\n+\n+# 수동 실행\n+sudo systemctl start learningcollector-daily.service\n+```"
+    }
+  ]
+}
