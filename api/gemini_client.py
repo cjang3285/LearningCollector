@@ -42,9 +42,9 @@ class GeminiClient:
         # 재시도 로직
         for attempt in range(self.max_retries):
             try:
-                # Gemini API 호출 (최신 방식)
+                # Gemini API 호출 (정식 모델 사용)
                 response = self.client.models.generate_content(
-                    model='gemini-2.0-flash-exp',
+                    model='gemini-1.5-flash',
                     contents=full_prompt
                 )
 
