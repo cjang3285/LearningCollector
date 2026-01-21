@@ -55,7 +55,7 @@ class JSONSaver:
     def save_commit(self, data: dict) -> str:
         """
         개발 커밋 JSON 저장
-        파일명: 커밋 SHA+시간+주요 변경사항.json
+        파일명: 커밋 SHA+시간+레포지토리.json
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -68,12 +68,12 @@ class JSONSaver:
 
         # 파일명 생성
         commit_time = data.get("커밋_날짜", datetime.now().isoformat())
-        changes = str(data.get("핵심_변경사항", "0"))
+        repo = data.get("레포지토리", "unknown")
 
         # SHA 앞 7자리만 사용
         short_sha = sha[:7] if sha else "unknown"
 
-        safe_name = self._sanitize_filename(f"{short_sha}_{commit_time}_{changes}changes")
+        safe_name = self._sanitize_filename(f"{short_sha}_{commit_time}_{repo}")
         filename = f"{safe_name}.json"
 
         # 저장
@@ -154,8 +154,8 @@ if __name__ == "__main__":
         "커밋_메시지": "feat: Add authentication",
         "SHA": "xyz789abc123",
         "변경된_파일_목록": ["auth.py", "models.py"],
-        "핵심_변경사항": 150,
-        "커밋_날짜": "2024-01-01T13:00:00"
+        "커밋_날짜": "2024-01-01T13:00:00",
+        "레포지토리": "TestRepo"
     }
 
     filename = saver.save_commit(commit_data)
