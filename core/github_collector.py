@@ -40,16 +40,36 @@ class GitHubCollector:
 
         # 2. ⭐ 중복 체크 먼저 (SHA만으로 판단)
         new_commits = []
+        duplicate_commits = []
+
         for commit in commits:
             sha = commit.get("oid")
+            message = commit.get("message", "")[:50]  # 메시지 첫 50자
+
             # 백준/개발 구분 없이 SHA로 중복 체크
-            if not (self.duplicate_checker.is_duplicate_baekjoon(sha) or
-                    self.duplicate_checker.is_duplicate_commit(sha)):
+            if self.duplicate_checker.is_duplicate_baekjoon(sha) or self.duplicate_checker.is_duplicate_commit(sha):
+                duplicate_commits.append(f"{sha[:7]} - {message}")
+            else:
                 new_commits.append(commit)
 
-        skipped = len(commits) - len(new_commits)
-        if skipped > 0:
-            print(f"  중복 제외: {skipped}개 (이미 저장됨)")
+        # 중복 커밋 로깅
+        if duplicate_commits:
+            print(f"  ⚠️  중복 제외: {len(duplicate_commits)}개 (이미 저장됨)")
+            if len(duplicate_commits) <= 10:
+                # 10개 이하면 전부 출력
+                for dup in duplicate_commits:
+                    print(f"    - {dup}")
+            else:
+                # 10개 초과면 처음 5개, 마지막 5개만 출력
+                print(f"    처음 5개:")
+                for dup in duplicate_commits[:5]:
+                    print(f"    - {dup}")
+                print(f"    ... ({len(duplicate_commits) - 10}개 생략) ...")
+                print(f"    마지막 5개:")
+                for dup in duplicate_commits[-5:]:
+                    print(f"    - {dup}")
+        else:
+            print(f"  ✓ 모든 커밋이 신규입니다")
 
         # 3. 백준 / 개발 분류 (새 커밋만)
         baekjoon_commits = []

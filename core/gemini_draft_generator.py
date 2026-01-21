@@ -77,6 +77,10 @@ class GeminiDraftGenerator:
     def _generate_baekjoon_drafts(self, json_files: List[str]) -> List[str]:
         """백준 풀이 초안 생성"""
         drafts = []
+        duplicates = []
+        processed = []
+
+        print(f"    총 {len(json_files)}개의 백준 JSON 발견")
 
         for json_file in json_files:
             # 일일 한도 초과 시 나머지 스킵
@@ -86,8 +90,11 @@ class GeminiDraftGenerator:
 
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "algorithm"):
-                print(f"    중복 제외: {json_file}")
+                duplicates.append(json_file)
                 continue
+
+            processed.append(json_file)
+            print(f"    처리 중: {json_file}")
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("알고리즘_풀이_포스팅_프롬프트.md")
@@ -109,11 +116,21 @@ class GeminiDraftGenerator:
             )
             drafts.append(draft_path)
 
+        # 중복 로깅
+        if duplicates:
+            print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
+            for dup in duplicates:
+                print(f"      - {dup}")
+
         return drafts
 
     def _generate_dev_drafts(self, json_files: List[str]) -> List[str]:
         """개발 진척 초안 생성"""
         drafts = []
+        duplicates = []
+        processed = []
+
+        print(f"    총 {len(json_files)}개의 개발 커밋 JSON 발견")
 
         for json_file in json_files:
             # 일일 한도 초과 시 나머지 스킵
@@ -123,8 +140,11 @@ class GeminiDraftGenerator:
 
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "dev"):
-                print(f"    중복 제외: {json_file}")
+                duplicates.append(json_file)
                 continue
+
+            processed.append(json_file)
+            print(f"    처리 중: {json_file}")
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("프로젝트_진척_및_의사결정_요약_프롬프트.md")
@@ -146,11 +166,21 @@ class GeminiDraftGenerator:
             )
             drafts.append(draft_path)
 
+        # 중복 로깅
+        if duplicates:
+            print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
+            for dup in duplicates:
+                print(f"      - {dup}")
+
         return drafts
 
     def _generate_study_drafts(self, json_files: List[str]) -> List[str]:
         """AI 대화 공부 초안 생성"""
         drafts = []
+        duplicates = []
+        processed = []
+
+        print(f"    총 {len(json_files)}개의 AI Chat JSON 발견")
 
         for json_file in json_files:
             # 일일 한도 초과 시 나머지 스킵
@@ -160,8 +190,11 @@ class GeminiDraftGenerator:
 
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "study"):
-                print(f"    중복 제외: {json_file}")
+                duplicates.append(json_file)
                 continue
+
+            processed.append(json_file)
+            print(f"    처리 중: {json_file}")
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("당일_공부_요약_프롬프트.md")
@@ -182,6 +215,12 @@ class GeminiDraftGenerator:
                 source_json=json_file
             )
             drafts.append(draft_path)
+
+        # 중복 로깅
+        if duplicates:
+            print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
+            for dup in duplicates:
+                print(f"      - {dup}")
 
         return drafts
 
