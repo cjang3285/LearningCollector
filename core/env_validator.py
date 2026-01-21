@@ -4,7 +4,6 @@
 """
 import os
 from pathlib import Path
-from tkinter import messagebox
 import requests
 
 
@@ -113,13 +112,14 @@ class EnvValidator:
             self.errors.append(f"에디터 명령어를 찾을 수 없습니다: {editor_cmd}")
 
     def show_validation_result(self, is_valid, errors):
-        """검증 결과를 UI로 표시"""
+        """검증 결과 출력"""
         if is_valid:
-            messagebox.showinfo("성공", "모든 환경변수가 정상적으로 검증되었습니다.")
+            print("✓ 모든 환경변수가 정상적으로 검증되었습니다.")
             return True
         else:
-            error_message = "다음 문제를 해결해주세요:\n\n" + "\n".join(f"• {error}" for error in errors)
-            messagebox.showerror("검증 실패", error_message)
+            print("✗ 환경변수 검증 실패:")
+            for error in errors:
+                print(f"  • {error}")
             return False
 
 

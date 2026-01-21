@@ -3,16 +3,15 @@ Gemini API 클라이언트
 블로그 초안 생성
 """
 import os
-import google.generativeai as genai
+from google import genai
 
 
 class GeminiClient:
-    """Gemini API 클라이언트"""
+    """Gemini API 클라이언트 (최신 google.genai 사용)"""
 
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
-        genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.client = genai.Client(api_key=self.api_key)
 
     def generate_draft(self, prompt: str, json_content: str) -> str:
         """
@@ -38,8 +37,11 @@ class GeminiClient:
 """
 
         try:
-            # Gemini API 호출
-            response = self.model.generate_content(full_prompt)
+            # Gemini API 호출 (최신 방식)
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=full_prompt
+            )
 
             # 응답 텍스트 반환
             return response.text

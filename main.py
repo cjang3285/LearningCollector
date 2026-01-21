@@ -8,14 +8,51 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
-
-# UI 모듈
-from ui.env_setup_ui import show_env_setup_ui
+import getpass
 
 # Core 모듈
 from core.env_validator import validate_env
 from core.startup_register import register_startup
 from core.orchestrator import run_orchestrator
+
+
+def setup_env_cli():
+    """CLI로 환경변수 입력받아 .env 파일 생성"""
+    print("\n환경변수 설정을 시작합니다.")
+    print("=" * 60)
+
+    env_vars = {}
+
+    # Module 1: 인증 정보
+    print("\n[Module 1: 인증 정보]")
+    env_vars["GITHUB_TOKEN"] = getpass.getpass("GITHUB_TOKEN: ")
+    env_vars["GEMINI_API_KEY"] = getpass.getpass("GEMINI_API_KEY: ")
+
+    # Module 2: 감시
+    print("\n[Module 2: 감시]")
+    env_vars["AI_CHAT_DOWNLOAD_DIR"] = input("AI_CHAT_DOWNLOAD_DIR (다운로드 폴더 경로): ").strip()
+    log_path = input("LOG_FILE_PATH (기본값: ./log/err.log): ").strip()
+    env_vars["LOG_FILE_PATH"] = log_path if log_path else "./log/err.log"
+
+    # Module 3: 필터링 및 환경 설정
+    print("\n[Module 3: 필터링 및 환경 설정]")
+    env_vars["GITHUB_USERNAME"] = input("GITHUB_USERNAME: ").strip()
+    editor = input("EDITOR_COMMAND (기본값: code): ").strip()
+    env_vars["EDITOR_COMMAND"] = editor if editor else "code"
+
+    # .env 파일 저장
+    env_path = Path(__file__).parent / ".env"
+    try:
+        with open(env_path, "w", encoding="utf-8") as f:
+            for key, value in env_vars.items():
+                f.write(f"{key}={value}\n")
+
+        print("\n✓ .env 파일이 생성되었습니다.")
+        return True
+
+    except Exception as e:
+        print(f"\n✗ .env 파일 생성 실패: {str(e)}")
+        return False
 
 
 def main():
@@ -29,14 +66,13 @@ def main():
 
     if not env_path.exists():
         print("\n환경변수 파일(.env)이 존재하지 않습니다.")
-        print("환경변수 설정 UI를 시작합니다...\n")
 
-        # 환경변수 입력 UI 표시
-        env_vars = show_env_setup_ui()
+        # CLI로 환경변수 입력
+        success = setup_env_cli()
 
-        if not env_vars:
-            print("환경변수 설정이 취소되었습니다.")
-            sys.exit(0)
+        if not success:
+            print("환경변수 설정이 실패했습니다.")
+            sys.exit(1)
 
     # 2. 환경변수 로드
     load_dotenv()
