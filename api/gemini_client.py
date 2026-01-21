@@ -54,18 +54,26 @@ class GeminiClient:
             except Exception as e:
                 error_msg = str(e)
 
+                # 일일 한도 초과 확인
+                is_daily_quota = 'per_day' in error_msg.lower() or 'perdayperproject' in error_msg.lower()
+
                 # Rate limit 에러 확인
                 is_rate_limit = any(keyword in error_msg.lower() for keyword in
                                    ['rate limit', 'quota', 'resource exhausted', '429'])
 
-                if is_rate_limit and attempt < self.max_retries - 1:
+                if is_daily_quota:
+                    # 일일 한도 초과 - 재시도 불가
+                    print(f"      ❌ Gemini API 일일 한도 초과. 내일 다시 시도하세요.")
+                    return None
+                elif is_rate_limit and attempt < self.max_retries - 1:
+                    # 분당 한도 - 재시도 가능
                     wait_time = self.retry_delay * (2 ** attempt)  # Exponential backoff
-                    print(f"      Rate limit 도달. {wait_time}초 대기 후 재시도... ({attempt + 1}/{self.max_retries})")
+                    print(f"      ⏳ Rate limit 도달. {wait_time}초 대기 후 재시도... ({attempt + 1}/{self.max_retries})")
                     time.sleep(wait_time)
                     continue
                 else:
-                    # 재시도 불가능하거나 마지막 시도 실패
-                    print(f"      Gemini API 호출 실패: {error_msg}")
+                    # 기타 에러 또는 마지막 시도 실패
+                    print(f"      ❌ Gemini API 호출 실패: {error_msg[:200]}")
                     return None
 
         return None

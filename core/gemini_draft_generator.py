@@ -23,6 +23,7 @@ class GeminiDraftGenerator:
         self.blog_client = BlogAPIClient()
         self.draft_saver = DraftSaver()
         self.editor_command = os.getenv("EDITOR_COMMAND", "code")
+        self.quota_exhausted = False  # 일일 한도 초과 플래그
 
     def generate_drafts(
         self,
@@ -78,6 +79,11 @@ class GeminiDraftGenerator:
         drafts = []
 
         for json_file in json_files:
+            # 일일 한도 초과 시 나머지 스킵
+            if self.quota_exhausted:
+                print(f"    한도 초과로 스킵: {json_file}")
+                continue
+
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "algorithm"):
                 print(f"    중복 제외: {json_file}")
@@ -91,8 +97,9 @@ class GeminiDraftGenerator:
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                print(f"    생성 실패로 스킵: {json_file}")
-                continue
+                self.quota_exhausted = True  # 한도 초과로 간주
+                print(f"    ⚠️  API 한도 초과. 나머지 백준 draft 생성 중단")
+                break
 
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
@@ -109,6 +116,11 @@ class GeminiDraftGenerator:
         drafts = []
 
         for json_file in json_files:
+            # 일일 한도 초과 시 나머지 스킵
+            if self.quota_exhausted:
+                print(f"    한도 초과로 스킵: {json_file}")
+                continue
+
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "dev"):
                 print(f"    중복 제외: {json_file}")
@@ -122,8 +134,9 @@ class GeminiDraftGenerator:
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                print(f"    생성 실패로 스킵: {json_file}")
-                continue
+                self.quota_exhausted = True  # 한도 초과로 간주
+                print(f"    ⚠️  API 한도 초과. 나머지 개발 draft 생성 중단")
+                break
 
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
@@ -140,6 +153,11 @@ class GeminiDraftGenerator:
         drafts = []
 
         for json_file in json_files:
+            # 일일 한도 초과 시 나머지 스킵
+            if self.quota_exhausted:
+                print(f"    한도 초과로 스킵: {json_file}")
+                continue
+
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "study"):
                 print(f"    중복 제외: {json_file}")
@@ -153,8 +171,9 @@ class GeminiDraftGenerator:
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                print(f"    생성 실패로 스킵: {json_file}")
-                continue
+                self.quota_exhausted = True  # 한도 초과로 간주
+                print(f"    ⚠️  API 한도 초과. 나머지 학습 draft 생성 중단")
+                break
 
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
