@@ -1,4 +1,0 @@
-이 파이프라인의 구조를 DOCS를 참고해 파악하세요
-현재 브랜치는 AI 마크다운, 백준, 깃허브 정보 취합이 가능하며 라즈베리파이에서 learningetl-daily...service, timer, sh로 동작중입니다. etc/../system 폴더로 들어가 해당 파일들을 확인하세요.
-db 스키마는 docs에 이미지들이 있습니다. learning 스키마의 4가지 테이블이 존재합니다. db 이름은 my_blog입니다. 사용자 이름은 postgres, 비번도 postgres입니다.
-첫 이용시 1회 사용하는 클로드 마이그레이션 코드인 bulk_import 폴더에는 클로드의 기능만 검증되어 기동 중입니다. 
