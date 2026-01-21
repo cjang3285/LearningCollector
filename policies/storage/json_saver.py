@@ -86,17 +86,19 @@ class JSONSaver:
     def save_ai_chat(self, data: dict) -> str:
         """
         AI Chat JSON 저장
-        파일명: 대화 제목 및 exported 날짜, 시간.json
+        파일명: AI종류_대화제목_exported시간.json
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
         """
+        original_filename = data.get("원본_파일")
+
+        # 중복 체크 (원본 파일명 기반)
+        if self.duplicate_checker.is_duplicate_ai_chat(original_filename):
+            return None
+
         ai_type = data.get("AI_종류")
         exported_time = data.get("Exported_시간")
-
-        # 중복 체크
-        if self.duplicate_checker.is_duplicate_ai_chat(ai_type, exported_time):
-            return None
 
         # 파일명 생성
         title = data.get("대화_제목", "NoTitle")

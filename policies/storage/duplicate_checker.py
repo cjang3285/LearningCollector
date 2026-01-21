@@ -64,13 +64,12 @@ class DuplicateChecker:
 
         return False
 
-    def is_duplicate_ai_chat(self, ai_type: str, exported_time: str) -> bool:
+    def is_duplicate_ai_chat(self, original_filename: str) -> bool:
         """
-        AI Chat JSON 중복 체크
+        AI Chat JSON 중복 체크 (원본 파일명 기반)
 
         Args:
-            ai_type: AI 종류 (ChatGPT, Gemini, Claude)
-            exported_time: exported 시간
+            original_filename: 원본 마크다운 파일명
 
         Returns:
             bool: 중복이면 True
@@ -83,8 +82,7 @@ class DuplicateChecker:
             try:
                 with open(json_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    if (data.get("AI_종류") == ai_type and
-                        data.get("Exported_시간") == exported_time):
+                    if data.get("원본_파일") == original_filename:
                         return True
             except Exception:
                 continue
@@ -99,4 +97,4 @@ if __name__ == "__main__":
     print("중복 체크 테스트:")
     print(f"백준 중복: {checker.is_duplicate_baekjoon('abc123')}")
     print(f"커밋 중복: {checker.is_duplicate_commit('def456')}")
-    print(f"AI Chat 중복: {checker.is_duplicate_ai_chat('ChatGPT', '2024-01-01 12:00:00')}")
+    print(f"AI Chat 중복: {checker.is_duplicate_ai_chat('ChatGPT-example.md')}")

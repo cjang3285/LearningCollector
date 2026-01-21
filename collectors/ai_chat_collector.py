@@ -47,6 +47,8 @@ class AIChatCollector:
                 json_filename = self._process_md_file(md_file)
                 if json_filename:
                     saved_jsons.append(json_filename)
+                else:
+                    print(f"  중복 제외: {md_file.name}")
             except Exception as e:
                 print(f"  오류: {md_file.name} 처리 실패 - {str(e)}")
 
