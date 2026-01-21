@@ -89,6 +89,11 @@ class GeminiDraftGenerator:
 
             draft_content = self.gemini_client.generate_draft(prompt, json_content)
 
+            # 생성 실패 시 스킵
+            if draft_content is None:
+                print(f"    생성 실패로 스킵: {json_file}")
+                continue
+
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
                 draft_type="algorithm",
@@ -115,6 +120,11 @@ class GeminiDraftGenerator:
 
             draft_content = self.gemini_client.generate_draft(prompt, json_content)
 
+            # 생성 실패 시 스킵
+            if draft_content is None:
+                print(f"    생성 실패로 스킵: {json_file}")
+                continue
+
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
                 draft_type="dev",
@@ -140,6 +150,11 @@ class GeminiDraftGenerator:
             json_content = self._load_json(json_file)
 
             draft_content = self.gemini_client.generate_draft(prompt, json_content)
+
+            # 생성 실패 시 스킵
+            if draft_content is None:
+                print(f"    생성 실패로 스킵: {json_file}")
+                continue
 
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
