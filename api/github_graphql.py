@@ -45,8 +45,16 @@ class GitHubGraphQLClient:
         # 2. 각 레포지토리의 모든 브랜치에서 커밋 수집
         for repo in repositories:
             repo_name = repo["name"]
-            commits = self._fetch_repo_commits(username, repo_name, start_date, end_date)
-            all_commits.extend(commits)
+
+            # 레포의 모든 브랜치 조회
+            branches = self._fetch_branches(username, repo_name)
+
+            # 각 브랜치에서 커밋 수집
+            for branch in branches:
+                commits = self._fetch_branch_commits(
+                    username, repo_name, branch, start_date, end_date
+                )
+                all_commits.extend(commits)
 
         return all_commits
 
@@ -88,6 +96,119 @@ class GitHubGraphQLClient:
             cursor = page_info["endCursor"]
 
         return repositories
+
+    def _fetch_branches(self, owner: str, repo_name: str) -> List[str]:
+        """레포지토리의 모든 브랜치 조회"""
+        query = """
+        query($owner: String!, $name: String!, $cursor: String) {
+          repository(owner: $owner, name: $name) {
+            refs(refPrefix: "refs/heads/", first: 100, after: $cursor) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                name
+              }
+            }
+          }
+        }
+        """
+
+        branches = []
+        cursor = None
+
+        try:
+            while True:
+                variables = {"owner": owner, "name": repo_name, "cursor": cursor}
+                response = self._execute_query(query, variables)
+
+                repo_data = response.get("data", {}).get("repository")
+                if not repo_data:
+                    break
+
+                refs_data = repo_data["refs"]
+                branches.extend([node["name"] for node in refs_data["nodes"]])
+
+                page_info = refs_data["pageInfo"]
+                if not page_info["hasNextPage"]:
+                    break
+
+                cursor = page_info["endCursor"]
+
+        except Exception as e:
+            print(f"    경고: {repo_name} 브랜치 조회 실패 - {str(e)}")
+
+        return branches
+
+    def _fetch_branch_commits(
+        self,
+        owner: str,
+        repo_name: str,
+        branch: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[dict]:
+        """특정 브랜치의 커밋 조회"""
+        query = """
+        query($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $until: GitTimestamp!) {
+          repository(owner: $owner, name: $name) {
+            ref(qualifiedName: $branch) {
+              target {
+                ... on Commit {
+                  history(first: 100, since: $since, until: $until) {
+                    nodes {
+                      oid
+                      message
+                      committedDate
+                      additions
+                      deletions
+                      changedFiles
+                      author {
+                        name
+                        email
+                        user {
+                          login
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        variables = {
+            "owner": owner,
+            "name": repo_name,
+            "branch": f"refs/heads/{branch}",
+            "since": start_date.isoformat(),
+            "until": end_date.isoformat()
+        }
+
+        try:
+            response = self._execute_query(query, variables)
+
+            # 응답 확인
+            if "errors" in response:
+                return []
+
+            repo_data = response.get("data", {}).get("repository")
+            if not repo_data or not repo_data.get("ref"):
+                return []
+
+            commits = repo_data["ref"]["target"]["history"]["nodes"]
+
+            # 레포지토리 정보 추가
+            for commit in commits:
+                commit["repository"] = repo_name
+
+            return commits
+
+        except Exception as e:
+            return []
 
     def _fetch_repo_commits(
         self,
