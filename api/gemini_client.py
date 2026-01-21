@@ -44,7 +44,7 @@ class GeminiClient:
             try:
                 # Gemini API 호출 (정식 모델 사용)
                 response = self.client.models.generate_content(
-                    model='gemini-1.5-flash-latest',
+                    model='gemini-2.5-flash-lite',
                     contents=full_prompt
                 )
 
