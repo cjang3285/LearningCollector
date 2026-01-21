@@ -63,18 +63,14 @@ class AIChatCollector:
         """
         AI Chat MD 파일 검색
         ChatGPT-, Gemini-, Claude- 접두사를 가진 파일만 수집
+        파일 시간과 무관하게 모든 파일 수집 (중복은 save 시 체크)
         """
         ai_prefixes = ["ChatGPT-", "Gemini-", "Claude-"]
         found_files = []
 
         for md_file in download_path.glob("*.md"):
-            # 파일명 체크
-            if not any(md_file.name.startswith(prefix) for prefix in ai_prefixes):
-                continue
-
-            # 파일 수정 날짜 체크 (수집 기간 내)
-            file_mtime = datetime.fromtimestamp(md_file.stat().st_mtime)
-            if start_date <= file_mtime <= end_date:
+            # 파일명 체크 (접두사로 필터링)
+            if any(md_file.name.startswith(prefix) for prefix in ai_prefixes):
                 found_files.append(md_file)
 
         return found_files
