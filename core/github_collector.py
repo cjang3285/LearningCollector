@@ -11,6 +11,7 @@ from api.github_graphql import GitHubGraphQLClient
 
 # 정책 모듈 임포트
 from policies.storage.json_saver import JSONSaver
+from policies.storage.duplicate_checker import DuplicateChecker
 from collectors.classifier import CommitClassifier
 
 
@@ -20,6 +21,7 @@ class GitHubCollector:
     def __init__(self):
         self.github_client = GitHubGraphQLClient()
         self.classifier = CommitClassifier()
+        self.duplicate_checker = DuplicateChecker()
         self.json_saver = JSONSaver()
 
     def collect(self, start_date: datetime, end_date: datetime) -> Tuple[List[str], List[str]]:
@@ -36,11 +38,24 @@ class GitHubCollector:
         commits = self.github_client.fetch_commits(username, start_date, end_date)
         print(f"  총 {len(commits)}개의 커밋 발견")
 
-        # 2. 백준 / 개발 분류
+        # 2. ⭐ 중복 체크 먼저 (SHA만으로 판단)
+        new_commits = []
+        for commit in commits:
+            sha = commit.get("oid")
+            # 백준/개발 구분 없이 SHA로 중복 체크
+            if not (self.duplicate_checker.is_duplicate_baekjoon(sha) or
+                    self.duplicate_checker.is_duplicate_commit(sha)):
+                new_commits.append(commit)
+
+        skipped = len(commits) - len(new_commits)
+        if skipped > 0:
+            print(f"  중복 제외: {skipped}개 (이미 저장됨)")
+
+        # 3. 백준 / 개발 분류 (새 커밋만)
         baekjoon_commits = []
         dev_commits = []
 
-        for commit in commits:
+        for commit in new_commits:
             if self.classifier.is_baekjoon_commit(commit):
                 baekjoon_commits.append(commit)
             else:
@@ -48,7 +63,7 @@ class GitHubCollector:
 
         print(f"  분류 완료 - 백준: {len(baekjoon_commits)}, 개발: {len(dev_commits)}")
 
-        # 3. JSON 저장
+        # 4. JSON 저장 (백준 커밋 → 즉시 REST 조회)
         baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
         dev_files = self._save_dev_commits(dev_commits)
 
