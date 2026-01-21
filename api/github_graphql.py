@@ -48,12 +48,15 @@ class GitHubGraphQLClient:
 
             # 레포의 모든 브랜치 조회
             branches = self._fetch_branches(username, repo_name)
+            print(f"    {repo_name}: {len(branches)}개 브랜치")
 
             # 각 브랜치에서 커밋 수집
             for branch in branches:
                 commits = self._fetch_branch_commits(
                     username, repo_name, branch, start_date, end_date
                 )
+                if commits:
+                    print(f"      {branch}: {len(commits)}개 커밋")
                 all_commits.extend(commits)
 
         return all_commits
