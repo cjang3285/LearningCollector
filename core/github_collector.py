@@ -72,8 +72,11 @@ class GitHubCollector:
     def _save_baekjoon_commits(self, commits: List[dict]) -> List[str]:
         """백준 커밋을 JSON으로 저장"""
         saved_files = []
+        total = len(commits)
 
-        for commit in commits:
+        for idx, commit in enumerate(commits, 1):
+            print(f"    백준 처리 중: {idx}/{total}", end='\r', flush=True)
+
             # 백준 정보 추출
             baekjoon_data = {
                 "문제_번호": self._extract_problem_number(commit),
@@ -89,13 +92,18 @@ class GitHubCollector:
             if filename:
                 saved_files.append(filename)
 
+        if total > 0:
+            print()  # 줄바꿈
         return saved_files
 
     def _save_dev_commits(self, commits: List[dict]) -> List[str]:
         """개발 커밋을 JSON으로 저장"""
         saved_files = []
+        total = len(commits)
 
-        for commit in commits:
+        for idx, commit in enumerate(commits, 1):
+            print(f"    개발 커밋 처리 중: {idx}/{total}", end='\r', flush=True)
+
             # 개발 커밋 정보 추출
             dev_data = {
                 "커밋_메시지": commit.get("message"),
@@ -110,6 +118,8 @@ class GitHubCollector:
             if filename:
                 saved_files.append(filename)
 
+        if total > 0:
+            print()  # 줄바꿈
         return saved_files
 
     def _extract_problem_number(self, commit: dict) -> str:
