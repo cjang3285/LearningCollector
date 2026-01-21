@@ -74,14 +74,13 @@ class GitHubCollector:
         saved_files = []
 
         for commit in commits:
-            # 백준 정보 추출
+            # 백준 정보 추출 (정책에 명시된 필드만)
             baekjoon_data = {
                 "문제_번호": self._extract_problem_number(commit),
                 "문제명": self._extract_problem_name(commit),
                 "티어": self._extract_tier(commit),
                 "풀이_코드": self._extract_solution_code(commit),
-                "제출한_날짜": commit.get("committedDate"),
-                "커밋_SHA": commit.get("oid")
+                "제출한_날짜": commit.get("committedDate")
             }
 
             # 중복 체크 및 저장
@@ -96,14 +95,12 @@ class GitHubCollector:
         saved_files = []
 
         for commit in commits:
-            # 개발 커밋 정보 추출
+            # 개발 커밋 정보 추출 (정책에 명시된 필드만)
             dev_data = {
                 "커밋_메시지": commit.get("message"),
                 "SHA": commit.get("oid"),
                 "변경된_파일_목록": self._get_changed_files(commit),
-                "핵심_변경사항": commit.get("additions", 0) + commit.get("deletions", 0),
-                "커밋_날짜": commit.get("committedDate"),
-                "레포지토리": commit.get("repository")
+                "핵심_변경사항": self._get_diff_summary(commit)
             }
 
             # 중복 체크 및 저장
@@ -169,6 +166,61 @@ class GitHubCollector:
         except Exception as e:
             print(f"  파일 목록 조회 실패 (SHA: {sha[:7]}): {str(e)}")
             return []
+
+    def _get_diff_summary(self, commit: dict) -> str:
+        """REST API로 diff 요약 생성"""
+        import requests
+
+        owner = os.getenv("GITHUB_USERNAME")
+        repo = commit.get("repository")
+        sha = commit.get("oid")
+
+        if not all([owner, repo, sha]):
+            return "요약 없음"
+
+        try:
+            token = os.getenv("GITHUB_TOKEN")
+            headers = {"Authorization": f"token {token}"}
+
+            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                return "요약 없음"
+
+            commit_data = response.json()
+            files = commit_data.get("files", [])
+
+            total_additions = commit_data.get("stats", {}).get("additions", 0)
+            total_deletions = commit_data.get("stats", {}).get("deletions", 0)
+
+            # 파일별 변경사항 요약
+            file_summaries = []
+            for file in files[:5]:  # 최대 5개 파일만
+                filename = file.get("filename", "")
+                additions = file.get("additions", 0)
+                deletions = file.get("deletions", 0)
+                status = file.get("status", "modified")
+
+                if status == "added":
+                    file_summaries.append(f"{filename} 추가 (+{additions})")
+                elif status == "removed":
+                    file_summaries.append(f"{filename} 삭제 (-{deletions})")
+                else:
+                    file_summaries.append(f"{filename} 수정 (+{additions}/-{deletions})")
+
+            summary_text = ", ".join(file_summaries)
+            if len(files) > 5:
+                summary_text += f" 외 {len(files) - 5}개 파일"
+
+            # 전체 통계 추가
+            summary_text += f" [총 +{total_additions}/-{total_deletions}]"
+
+            return summary_text
+
+        except Exception as e:
+            print(f"  Diff 요약 생성 실패 (SHA: {sha[:7]}): {str(e)}")
+            return "요약 생성 실패"
 
     def _extract_solution_code(self, commit: dict) -> str:
         """풀이 코드 추출 (REST API 사용)"""
