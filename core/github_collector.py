@@ -85,7 +85,7 @@ class GitHubCollector:
             dev_data = {
                 "커밋_메시지": commit.get("message"),
                 "SHA": commit.get("oid"),
-                "변경된_파일_목록": commit.get("changedFiles", []),
+                "변경된_파일_목록": self._get_changed_files(commit),
                 "핵심_변경사항": commit.get("additions", 0) + commit.get("deletions", 0),
                 "커밋_날짜": commit.get("committedDate"),
                 "레포지토리": commit.get("repository")
@@ -123,14 +123,80 @@ class GitHubCollector:
         # 실제 구현에서는 백준 API나 파일명에서 추출
         return "Unknown"
 
+    def _get_changed_files(self, commit: dict) -> list:
+        """REST API로 변경된 파일 목록 가져오기"""
+        import requests
+
+        owner = os.getenv("GITHUB_USERNAME")
+        repo = commit.get("repository")
+        sha = commit.get("oid")
+
+        if not all([owner, repo, sha]):
+            return []
+
+        try:
+            token = os.getenv("GITHUB_TOKEN")
+            headers = {"Authorization": f"token {token}"}
+
+            # 커밋의 파일 목록 가져오기
+            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                return []
+
+            commit_data = response.json()
+            files = commit_data.get("files", [])
+
+            # 파일명 리스트 반환
+            return [file.get("filename") for file in files]
+
+        except Exception as e:
+            print(f"  파일 목록 조회 실패 (SHA: {sha[:7]}): {str(e)}")
+            return []
+
     def _extract_solution_code(self, commit: dict) -> str:
-        """풀이 코드 추출"""
-        # 변경된 파일 중 코드 파일 내용 가져오기
-        files = commit.get("changedFiles", [])
-        for file in files:
-            if file.get("path", "").endswith((".py", ".java", ".cpp", ".c")):
-                return file.get("content", "")
-        return ""
+        """풀이 코드 추출 (REST API 사용)"""
+        import requests
+
+        # GitHub REST API로 커밋 상세 정보 가져오기
+        owner = os.getenv("GITHUB_USERNAME")
+        repo = commit.get("repository")
+        sha = commit.get("oid")
+
+        if not all([owner, repo, sha]):
+            return ""
+
+        try:
+            token = os.getenv("GITHUB_TOKEN")
+            headers = {"Authorization": f"token {token}"}
+
+            # 커밋의 파일 목록 가져오기
+            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                return ""
+
+            commit_data = response.json()
+            files = commit_data.get("files", [])
+
+            # 코드 파일 찾기
+            for file in files:
+                filename = file.get("filename", "")
+                if filename.endswith((".py", ".java", ".cpp", ".c", ".js", ".go")):
+                    # patch에서 코드 추출 또는 raw_url로 파일 내용 가져오기
+                    patch = file.get("patch", "")
+                    if patch:
+                        # patch에서 추가된 코드만 추출
+                        code_lines = [line[1:] for line in patch.split("\n") if line.startswith("+") and not line.startswith("+++")]
+                        return "\n".join(code_lines)
+
+            return ""
+
+        except Exception as e:
+            print(f"  코드 추출 실패 (SHA: {sha[:7]}): {str(e)}")
+            return ""
 
 
 if __name__ == "__main__":
