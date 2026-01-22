@@ -4,7 +4,7 @@ GraphQL API 테스트 스크립트
 실제로 커밋이 수집되는지 확인
 """
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,7 +21,7 @@ def test_recent_commits():
     username = os.getenv("GITHUB_USERNAME")
 
     # 최근 1시간 (UTC 기준)
-    end_date = datetime.utcnow()
+    end_date = datetime.now(timezone.utc).replace(tzinfo=None)
     start_date = end_date - timedelta(hours=1)
 
     print(f"\n사용자: {username}")
@@ -58,7 +58,7 @@ def test_specific_repo():
     username = os.getenv("GITHUB_USERNAME")
 
     # 최근 7일 (UTC 기준)
-    end_date = datetime.utcnow()
+    end_date = datetime.now(timezone.utc).replace(tzinfo=None)
     start_date = end_date - timedelta(days=7)
 
     print(f"\n사용자: {username}")
