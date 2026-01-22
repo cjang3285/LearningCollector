@@ -1,8 +1,0 @@
-# Client-Server Mode - Client 의존성 (노트북/데스크탑)
-# 용도: Downloads 폴더 감시 및 파일 전송
-
-# HTTP 클라이언트 (Server에 파일 전송)
-requests==2.31.0
-
-# 파일 시스템 감시 (Downloads 폴더 실시간 모니터링)
-watchdog==6.0.0

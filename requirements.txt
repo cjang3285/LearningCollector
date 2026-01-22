@@ -1,18 +1,18 @@
-# Standalone Mode 의존성
-# 용도: 한 대의 머신에서 모든 ETL 작업 수행
-
-# HTTP 클라이언트 (GitHub API 호출)
+# Core dependencies
+python-dotenv>=1.0.0
 requests>=2.31.0
 
-# PostgreSQL 드라이버
-psycopg2-binary>=2.9.9
-
-# 환경변수 관리
-python-dotenv>=1.0.0
-
-# 파일 시스템 감시 (AI Chat 마크다운 파일 자동 감지용)
-# --ai-chat-scan 옵션 사용 시 필요
+# File monitoring
 watchdog>=3.0.0
 
-# YAML 설정 파일 파싱 (Collector 설정 관리)
-PyYAML>=6.0
+# GitHub API
+PyGithub>=2.1.1
+
+# Gemini AI (최신 패키지)
+google-genai>=0.2.0
+
+# Scheduling (Linux)
+python-crontab>=3.0.0; platform_system == "Linux"
+
+# Date/Time utilities
+python-dateutil>=2.8.2
