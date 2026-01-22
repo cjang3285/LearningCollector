@@ -20,8 +20,8 @@ def test_recent_commits():
     client = GitHubGraphQLClient()
     username = os.getenv("GITHUB_USERNAME")
 
-    # 최근 1시간
-    end_date = datetime.now()
+    # 최근 1시간 (UTC 기준)
+    end_date = datetime.utcnow()
     start_date = end_date - timedelta(hours=1)
 
     print(f"\n사용자: {username}")
@@ -57,8 +57,8 @@ def test_specific_repo():
     client = GitHubGraphQLClient()
     username = os.getenv("GITHUB_USERNAME")
 
-    # 최근 7일
-    end_date = datetime.now()
+    # 최근 7일 (UTC 기준)
+    end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=7)
 
     print(f"\n사용자: {username}")
