@@ -1,31 +1,31 @@
-# 개인 학습 정보 수집 자동화 도구
+# LearningCollector
 
-SOLID 원칙 기반 확장 가능한 학습 데이터 수집 파이프라인.
-
-모든 학습 활동(GitHub 커밋, AI 채팅, 백준 문제풀이)을 자동으로 수집하여 PostgreSQL DB에 저장합니다.
+개인 학습 활동 자동 수집 및 블로그 초안 생성 도구
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![SOLID](https://img.shields.io/badge/Architecture-SOLID-orange.svg)](docs/DESIGN_PATTERNS.md)
 
 ---
 
-## 주요 특징
+## 개요
 
-### 핵심 기능
+학습 활동을 자동으로 수집하고 Gemini API를 활용해 블로그 초안을 생성하는 CLI 도구입니다.
 
-- **GitHub 커밋 수집**: REST API로 커밋 메타데이터 및 diff 수집
-- **AI 채팅 수집**: Claude, ChatGPT, Gemini 마크다운 파싱
-- **백준 풀이 수집**: 백준허브 연동 레포에서 푸시된 문제 풀이 수집
-- **PostgreSQL 저장**: 추출된 데이터를 구조화하여 DB 저장 (JSONB 활용)
+### 수집 대상
 
-### 아키텍처
+- **GitHub 커밋**: 모든 레포지토리, 모든 브랜치에서 커밋 수집 (GraphQL API)
+- **백준 문제풀이**: BaekjoonHub 연동 레포지토리에서 자동 푸시된 풀이
+- **AI 채팅 기록**: Claude, ChatGPT, Gemini 대화 마크다운 파일
 
-- **SOLID 원칙 적용**: 유지보수성, 확장성, 테스트 용이성
-- **설정 기반 확장**: 새 Collector 추가 시 YAML 파일만 수정
-- **플러그인 시스템**: 외부 Collector 로드 가능
-- **동적 클래스 로딩**: 런타임에 Collector 추가/제거
-- **하위 호환성**: 기존 코드 수정 없이 확장
+### 주요 기능
+
+1. **자동 수집**: 마지막 실행 이후 증분 수집 (exec_date.log 기반)
+2. **중복 제거**: SHA 기반 커밋 중복 체크, 파일명 기반 AI Chat 중복 체크
+3. **블로그 초안 생성**: Gemini API로 카테고리별 초안 자동 생성
+   - 알고리즘 풀이 (백준)
+   - 개발 진척 (커밋 요약)
+   - 학습 노트 (AI 채팅)
+4. **자동 블로그 포스팅**: 생성된 초안을 자동으로 블로그에 업로드
 
 ---
 
@@ -38,65 +38,48 @@ SOLID 원칙 기반 확장 가능한 학습 데이터 수집 파이프라인.
 git clone https://github.com/cjang3285/LearningCollector.git
 cd LearningCollector
 
+# 가상환경 생성 및 활성화
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate  # Windows
+
 # 의존성 설치
 pip install -r requirements.txt
-
-# 환경 변수 설정
-cp .env.example .env
-nano .env  # GITHUB_TOKEN, DB 정보 입력
-
-# DB 스키마 생성
-psql -h localhost -U postgres -d my_blog -f scripts/installation/create-schema.sql
 ```
 
-상세 설치 가이드: [INSTALL.md](INSTALL.md)
+### 2. 환경 변수 설정
 
-### 2. 실행
+첫 실행 시 CLI로 환경변수 입력:
 
 ```bash
-# 기본 실행 (GitHub + Baekjoon + AI Chat 자동 스캔)
+python main.py
+```
+
+또는 `.env` 파일을 직접 생성:
+
+```env
+# 인증 정보
+GITHUB_TOKEN=ghp_your_token_here
+GEMINI_API_KEY=your_gemini_api_key
+
+# 감시 대상
+AI_CHAT_DOWNLOAD_DIR=/path/to/downloads
+LOG_FILE_PATH=./log/err.log
+
+# 필터링
+GITHUB_USERNAME=your_github_username
+EDITOR_COMMAND=code
+```
+
+### 3. 실행
+
+```bash
+# 기본 실행 (첫 실행 시 최근 30일 수집)
 python main.py
 
-# GitHub만 제외
-python main.py --skip-github
-
-# 특정 날짜
-python main.py --date 2025-12-25
-
-# Claude ZIP 첫 임포트
-python main.py --import-zip --all
+# 강제 30일 전체 수집
+FORCE_FULL_COLLECTION=true python main.py
 ```
-
-### 3. 데이터 조회
-
-```bash
-# 통계
-python -m cli stats
-
-# AI Chat 목록
-python -m cli list ai-chat
-
-# 특정 대화 보기
-python -m cli show ai-chat 1
-```
-
----
-
-## 문서
-
-### 핵심 문서
-
-| 문서 | 설명 |
-|------|------|
-| [설치 가이드](INSTALL.md) | E2E 설치 및 설정 |
-| [아키텍처 진화](docs/ARCHITECTURE_EVOLUTION.md) | 리팩토링 전후 비교 |
-| [설계 패턴](docs/DESIGN_PATTERNS.md) | Factory, Registry, 동적 로딩 설명 |
-| [DB 가이드](docs/DATABASE_GUIDE.md) | DB 스키마 및 설정 |
-
-### 사용 가이드
-
-- [Standalone 가이드](docs/STANDALONE_GUIDE.md) - 현재 사용 중인 모드
-- [Cron 설정](docs/CRON_GUIDE.md) - 자동화 설정
 
 ---
 
@@ -104,226 +87,234 @@ python -m cli show ai-chat 1
 
 ```
 LearningCollector/
-├── main.py                     # 메인 실행 파일 (Factory 사용)
+├── main.py                          # 메인 실행 파일
 │
-├── interfaces/                 # 인터페이스 계층 (SOLID - DIP, ISP)
-│   ├── __init__.py             # IParser, ISaver, ICollector
-│   ├── contexts.py             # CollectionContext
-│   └── results.py              # CollectionResult
+├── core/                            # 핵심 로직
+│   ├── orchestrator.py              # 전체 흐름 조율
+│   ├── github_collector.py          # GitHub 커밋 수집
+│   ├── ai_chat_collector.py         # AI Chat 마크다운 수집
+│   ├── gemini_draft_generator.py    # Gemini로 초안 생성
+│   ├── classifier.py                # 커밋 분류 (백준/개발)
+│   ├── env_validator.py             # 환경변수 검증
+│   └── startup_register.py          # 시작프로그램 등록
 │
-├── factories/                  # 객체 생성 팩토리 (SOLID - OCP)
-│   ├── __init__.py
-│   └── collector_factory.py    # 동적 Collector 생성
+├── api/                             # 외부 API 클라이언트
+│   ├── github_graphql.py            # GitHub GraphQL API
+│   └── gemini_client.py             # Gemini API
 │
-├── collectors/                 # 수집 오케스트레이터 (ICollector 구현)
-│   ├── github_collector.py     # Export → Parse → Save 조율
-│   ├── baekjoon_collector.py
-│   └── ai_chat_collector.py
+├── policies/                        # 정책 및 저장 로직
+│   ├── collection_period.py         # 수집 기간 계산
+│   └── storage/                     # 저장 정책
+│       ├── json_saver.py            # JSON 파일 저장
+│       ├── draft_saver.py           # Draft 마크다운 저장
+│       └── duplicate_checker.py     # 중복 체크
 │
-├── parse/                      # 데이터 파싱 (IParser 구현)
-│   ├── github_parse.py
-│   ├── baekjoon_parse.py
-│   └── ai_chat_parse.py
+├── prompts/                         # Gemini 프롬프트 템플릿
+│   ├── 알고리즘_풀이_포스팅_프롬프트.md
+│   ├── 프로젝트_진척_및_의사결정_요약_프롬프트.md
+│   └── AI와의_대화를_통한_학습_요약_프롬프트.md
 │
-├── storage/                    # 데이터 저장 (ISaver 구현)
-│   ├── base_saver.py           # BaseSaver (공통 로직)
-│   ├── github_saver.py
-│   ├── baekjoon_saver.py
-│   └── ai_chat_saver.py
+├── data/                            # 수집된 데이터 (JSON)
+│   ├── baekjoon/                    # 백준 풀이
+│   ├── commits/                     # 개발 커밋
+│   ├── ai_chat/                     # AI 채팅 기록
+│   └── draft/                       # 생성된 초안
+│       ├── algorithm/
+│       ├── dev/
+│       └── study/
 │
-├── load/                     # 데이터 수집
-│   ├── github_load.py
-│   ├── baekjoon_load.py
-│   └── ai_chat_load.py
-│
-├── config/                     # 설정 관리
-│   ├── settings.py
-│   ├── logging_config.py
-│   ├── collectors.yaml         # Collector 설정
-│   └── collector_config.py     # 설정 로더
-│
-├── bulk_import/                # Claude ZIP 일괄 임포트
-│   ├── converters/
-│   ├── formatters/
-│   └── parsers/
-│
-├── cli/                        # CLI 쿼리 도구
-├── scripts/                    # 운영 스크립트
-├── tests/                      # 테스트
-│
-└── docs/                       # 문서
-    ├── DESIGN_PATTERNS.md
-    ├── ARCHITECTURE_EVOLUTION.md
-    └── ...
+└── log/                             # 로그
+    └── exec_date.log                # 마지막 실행 시간 기록
 ```
 
 ---
 
-## 새로운 Collector 추가 방법
+## 작동 원리
 
-**1. Collector 클래스 작성** (ICollector 인터페이스 구현)
+### 1. 수집 기간 계산 (UTC 기준)
+
+- **첫 실행**: 최근 30일
+- **이후 실행**: 마지막 실행 시간(exec_date.log) ~ 현재
+- 모든 datetime은 UTC로 통일 (`datetime.now(timezone.utc)`)
+
+### 2. GitHub 커밋 수집 (GraphQL API)
 
 ```python
-# collectors/notion_collector.py
-from interfaces import ICollector, CollectionContext, CollectionResult
+# 모든 레포지토리 조회
+repositories = fetch_user_repositories(username)
 
-class NotionCollector(ICollector):
-    def collect(self, context: CollectionContext) -> CollectionResult:
-        # 수집 로직
-        return CollectionResult(success=True, ...)
+# 각 레포의 모든 브랜치 조회
+for repo in repositories:
+    branches = fetch_branches(repo)
 
-    def should_run(self, context: CollectionContext) -> bool:
-        return True
-
-    def get_name(self) -> str:
-        return "notion"
+    # 각 브랜치의 커밋 수집
+    for branch in branches:
+        commits = fetch_branch_commits(repo, branch, since, until)
 ```
 
-**2. YAML 설정 파일에 추가**
+**중복 제거**:
+- SHA 기반 중복 체크
+- 백준 커밋 / 개발 커밋 분류
+- JSON 파일로 저장 (`data/baekjoon/`, `data/commits/`)
 
-```yaml
-# config/collectors.yaml
-collectors:
-  notion:
-    enabled: true
-    class_path: "collectors.notion_collector.NotionCollector"
-    priority: 25
-    description: "Notion 페이지 수집"
+### 3. AI Chat 수집
+
+- 다운로드 폴더 감시 (`AI_CHAT_DOWNLOAD_DIR`)
+- 파일명 패턴: `Claude-*.md`, `ChatGPT-*.md`, `Gemini-*.md`
+- 중복: 파일명 기반 체크
+- JSON 저장: `data/ai_chat/`
+
+### 4. Gemini 초안 생성
+
+```python
+for json_file in json_files:
+    # 중복 체크 (이미 생성된 draft가 있는지)
+    if is_duplicate_draft(json_file):
+        continue
+
+    # Gemini API 호출
+    prompt = load_prompt("알고리즘_풀이_포스팅_프롬프트.md")
+    draft = gemini_client.generate_draft(prompt, json_content)
+
+    # Draft 저장
+    save_draft(draft, category="algorithm")
 ```
+
+**에러 처리**:
+- 일일 한도 초과: 나머지 스킵 (다음 실행 때 재시도)
+- Rate limit: Exponential backoff (2s, 4s, 8s)
+- 오류 draft 자동 삭제 (키워드: "오류", "RESOURCE_EXHAUSTED", "429")
+
+### 5. 블로그 포스팅
+
+- VS Code로 생성된 draft 열기
+- 자동으로 블로그에 포스팅
 
 ---
 
-## SOLID 원칙 적용
+## 주요 API
 
-| 원칙 | 적용 방법 | 효과 |
-|------|-----------|------|
-| **SRP** | Collector는 조율만, Parser는 파싱만, Saver는 저장만 | 단일 책임 |
-| **OCP** | YAML 설정으로 확장, 코드 수정 불필요 | 확장에 개방 |
-| **LSP** | 모든 Collector가 `ICollector` 구현 | 다형성 |
-| **ISP** | 최소한의 메서드만 정의 (3개) | 인터페이스 부담 감소 |
-| **DIP** | 인터페이스에 의존, 구체 클래스 교체 가능 | 테스트 용이 (Mock 주입) |
+### GitHub GraphQL API
 
-상세 설명: [DESIGN_PATTERNS.md](docs/DESIGN_PATTERNS.md)
+**장점**:
+- 한 번의 요청으로 여러 브랜치 조회
+- 필요한 필드만 요청 (효율적)
+
+**제약**:
+- `history` 필드에서 `since`와 `until` 동시 사용 불가
+- 해결: `since`만 사용, 클라이언트에서 `end_date` 필터링
+
+**중요 설정**:
+```python
+# ISO 포맷에서 마이크로초 제거 (GitHub API 호환성)
+since_param = start_date.replace(microsecond=0).isoformat() + "Z"
+```
+
+### Gemini API
+
+**모델**: `gemini-2.5-flash-lite`
+
+**Retry 로직**:
+- 일일 한도 초과: 즉시 중단
+- Rate limit: Exponential backoff (최대 3회)
+
+---
+
+## 중복 제거 전략
+
+### 1. GitHub 커밋
+
+- **키**: 커밋 SHA (`oid`)
+- **저장**: `data/baekjoon/duplicate.json`, `data/commits/duplicate.json`
+- **체크 시점**: 수집 직후, JSON 저장 전
+
+### 2. AI Chat
+
+- **키**: 파일명 (예: `Claude-학습etl마무리.md`)
+- **저장**: `data/ai_chat/duplicate.json`
+- **체크 시점**: 수집 직후, JSON 저장 전
+
+### 3. Draft
+
+- **키**: 원본 JSON 파일명
+- **체크 시점**: Gemini API 호출 전
+- **예외**: 오류가 포함된 draft는 자동 삭제 후 재생성
 
 ---
 
 ## 자동화 설정
 
-### 실시간 파일 감지 (Daemon)
-
-AI 채팅 파일 자동 수집 (파일 감지 즉시 처리)
+### Cron (매일 자정 실행)
 
 ```bash
-# 설치
-bash scripts/installation/install-daemon.sh
+# crontab 편집
+crontab -e
 
-# 시작
-sudo systemctl start learningcollector
-
-# 상태 확인
-sudo systemctl status learningcollector
+# 매일 자정 실행
+0 0 * * * cd /home/user/LearningCollector && /home/user/LearningCollector/venv/bin/python main.py >> /home/user/LearningCollector/log/cron.log 2>&1
 ```
-
-### 매일 자정 전체 스캔 (systemd timer 권장)
-
-```bash
-# 설치
-bash scripts/installation/setup-daily-timer.sh
-
-# 상태 확인
-systemctl list-timers learningcollector-daily.timer
-
-# 로그 확인
-journalctl -u learningcollector-daily.service -f
-```
-
-장점:
-- 시스템 재부팅 시 놓친 작업 자동 실행 (Persistent=true)
-- journalctl 통합 로그 관리
-- 실행 상태 추적 및 실패 알림
-- 의존성 관리 (PostgreSQL 준비 후 실행)
 
 ---
 
-## 데이터베이스
+## 환경 변수
 
-### 스키마
-
-```sql
-learning.learning_artifacts          -- 모든 학습 활동 메타데이터
-learning.github_commits              -- GitHub 커밋 상세
-learning.baekjoon_solutions          -- 백준 문제풀이
-learning.ai_chat_conversations       -- AI Chat (Claude/ChatGPT/Gemini)
-```
-
-JSONB 활용: 유연한 메타데이터 저장 + GIN 인덱스로 검색
-
-상세: [DATABASE_GUIDE.md](docs/DATABASE_GUIDE.md)
+| 변수 | 설명 | 필수 |
+|------|------|------|
+| `GITHUB_TOKEN` | GitHub Personal Access Token (repo 권한) | ✅ |
+| `GEMINI_API_KEY` | Gemini API Key | ✅ |
+| `GITHUB_USERNAME` | GitHub 사용자명 | ✅ |
+| `AI_CHAT_DOWNLOAD_DIR` | AI Chat 마크다운 다운로드 폴더 | ✅ |
+| `LOG_FILE_PATH` | 로그 파일 경로 (기본: ./log/err.log) | ❌ |
+| `EDITOR_COMMAND` | 에디터 명령어 (기본: code) | ❌ |
+| `FORCE_FULL_COLLECTION` | 강제 30일 수집 (true/false) | ❌ |
 
 ---
 
-## 자주 쓰는 명령어
+## 문제 해결
 
-### AI 채팅 파일 감지 안 됨
+### 1. 커밋이 수집되지 않음
 
-1. 파일명 확인: `Claude-`, `ChatGPT-`, `Gemini-`로 시작하는지
-2. 확장자 확인: `.md` 파일인지
-3. 다운로드 폴더 확인: `.env`에 설정한 경로 확인
+**증상**: "0개 커밋" 메시지
 
-### DB 연결
+**원인**:
+- `exec_date.log`에 KST 시간이 기록되어 있음 (UTC로 읽으려고 시도)
+- 시작 시간 > 종료 시간 (역전된 범위)
 
+**해결**:
 ```bash
-# PostgreSQL 상태 확인
-sudo systemctl status postgresql
-
-# DB 접속 테스트
-psql -h localhost -U postgres -d my_blog
+# exec_date.log 삭제 후 재실행
+rm log/exec_date.log
+python main.py
 ```
+
+### 2. Gemini API 한도 초과
+
+**증상**: "⚠️ API 한도 초과" 메시지
+
+**해결**:
+- 무료 티어: 분당 15개 제한
+- 다음날 재실행 (중복 체크 덕분에 이미 생성된 draft는 건너뜀)
+
+### 3. Draft에 오류 메시지만 있음
+
+**증상**: Draft 내용이 "# 오류", "RESOURCE_EXHAUSTED" 등
+
+**해결**:
+- 자동으로 감지 및 삭제됨
+- 다음 실행 때 재생성됨
 
 ---
 
 ## 의존성
 
 - Python 3.8+
-- PostgreSQL 12+
 - GitHub Personal Access Token
-- 백준허브 연동 레포 - [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub)
-- AI chat exporter chrome extensions
+- Gemini API Key
+- BaekjoonHub 연동 레포지토리
+- AI Chat Exporter Chrome Extensions:
   - [Claude Exporter](https://chromewebstore.google.com/detail/claude-exporter/elhmfakncmnghlnabnolalcjkdpfjnin)
   - [ChatGPT Exporter](https://chromewebstore.google.com/detail/chatgpt-exporter/pldlpacbeonbjfhlongcdflcgfcnglkl)
   - [Gemini Chat Exporter](https://chromewebstore.google.com/detail/gemini-chat-exporter/bhmoomcflhcfhingnjjieheeadmdefkc)
-
----
-
-## 아키텍처 히스토리
-
-### 현재: 설정 기반 + 동적 로딩
-
-- YAML 설정 파일로 Collector 관리
-- 동적 클래스 로딩 (importlib)
-- 런타임 활성화/비활성화
-- 플러그인 시스템 기반
-
-### Phase 1~5: SOLID 리팩토링
-
-- Phase 1: 인터페이스 정의 (IParser, ISaver, ICollector)
-- Phase 2: Parser 리팩토링 (DIP 적용)
-- Phase 3: Saver 리팩토링 (DIP 적용)
-- Phase 4: Collector 리팩토링 (SRP, LSP 적용)
-- Phase 5: CollectorFactory 도입 (OCP 적용)
-
-### Phase 0: 리팩토링 전
-
-- 절차적 프로그래밍
-- 하드코딩
-
-전체 변화 과정: [ARCHITECTURE_EVOLUTION.md](docs/ARCHITECTURE_EVOLUTION.md)
-
----
-
-## 기여
-
-Issues와 Pull Requests를 환영합니다.
 
 ---
 
@@ -335,17 +326,7 @@ MIT License
 
 ## 관련 프로젝트
 
-- [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub) - 백준 해결 문제를 지정한 레포지터리로 자동 커밋 푸시
-- [Claude Exporter](https://github.com/jasonkneen/claude-exporter) - Claude 대화 내보내기
-- [ChatGPT Exporter](https://github.com/pionxzh/chatgpt-exporter) - ChatGPT 대화 내보내기
-- [Gemini Chat Exporter](https://github.com/jiajunhang/gemini-chat-exporter) - Gemini 대화 내보내기
-
----
-
-<div align="center">
-
-Made with SOLID principles
-
-[Documentation](docs/) | [Report Bug](https://github.com/cjang3285/LearningETL/issues) | [Request Feature](https://github.com/cjang3285/LearningETL/issues)
-
-</div>
+- [BaekjoonHub](https://github.com/BaekjoonHub/BaekjoonHub) - 백준 자동 커밋 푸시
+- [Claude Exporter](https://github.com/jasonkneen/claude-exporter)
+- [ChatGPT Exporter](https://github.com/pionxzh/chatgpt-exporter)
+- [Gemini Chat Exporter](https://github.com/jiajunhang/gemini-chat-exporter)

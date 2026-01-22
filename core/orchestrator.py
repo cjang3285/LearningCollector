@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # 콜렉터 임포트
-from collectors.ai_chat_collector import AIChatCollector
+from core.ai_chat_collector import AIChatCollector
 from core.github_collector import GitHubCollector
 from core.gemini_draft_generator import GeminiDraftGenerator
 

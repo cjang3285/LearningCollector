@@ -12,7 +12,7 @@ from api.github_graphql import GitHubGraphQLClient
 # 정책 모듈 임포트
 from policies.storage.json_saver import JSONSaver
 from policies.storage.duplicate_checker import DuplicateChecker
-from collectors.classifier import CommitClassifier
+from core.classifier import CommitClassifier
 
 
 class GitHubCollector:
