@@ -227,7 +227,11 @@ class GitHubGraphQLClient:
             for commit in commits:
                 commit_date_str = commit["committedDate"].replace("Z", "+00:00")
                 commit_date = datetime.fromisoformat(commit_date_str)
-                if commit_date <= end_date:
+
+                # 타임존 제거 (naive datetime으로 변환)
+                commit_date_naive = commit_date.replace(tzinfo=None)
+
+                if commit_date_naive <= end_date:
                     commit["repository"] = repo_name
                     filtered_commits.append(commit)
 
