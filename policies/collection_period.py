@@ -24,7 +24,16 @@ class CollectionPeriodManager:
         Returns:
             tuple: (start_date, end_date)
         """
+        import os
         end_date = datetime.now()
+
+        # 환경변수로 강제 30일 수집 (테스트용)
+        force_full_collection = os.getenv("FORCE_FULL_COLLECTION", "false").lower() == "true"
+
+        if force_full_collection:
+            start_date = end_date - timedelta(days=30)
+            print(f"  🔄 강제 전체 수집 모드: 최근 30일")
+            return start_date, end_date
 
         # 마지막 실행 시간 확인
         last_exec_time = self._get_last_execution_time()
@@ -32,9 +41,13 @@ class CollectionPeriodManager:
         if last_exec_time is None:
             # 첫 실행: 한달 전부터
             start_date = end_date - timedelta(days=30)
+            print(f"  📌 첫 실행: 최근 30일 수집")
         else:
             # 이후 실행: 마지막 실행 시간부터
             start_date = last_exec_time
+            duration = end_date - start_date
+            print(f"  📌 증분 수집: 마지막 실행 이후 ({duration.total_seconds() / 60:.1f}분)")
+            print(f"     exec_date.log 위치: {self.exec_log_path}")
 
         return start_date, end_date
 

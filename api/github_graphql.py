@@ -54,13 +54,18 @@ class GitHubGraphQLClient:
             print(f"    {repo_name}: {len(branches)}개 브랜치")
 
             # 각 브랜치에서 커밋 수집
+            branch_commit_count = 0
             for branch in branches:
                 commits = self._fetch_branch_commits(
                     username, repo_name, branch, start_date, end_date
                 )
                 if commits:
-                    print(f"      {branch}: {len(commits)}개 커밋")
+                    print(f"      ✓ {branch}: {len(commits)}개 커밋")
+                    branch_commit_count += len(commits)
                 all_commits.extend(commits)
+
+            if branch_commit_count == 0 and len(branches) > 0:
+                print(f"      ⚠️  모든 브랜치에서 커밋 0개 (수집 기간 확인 필요)")
 
         print(f"    ✅ 총 수집: {len(all_commits)}개 커밋")
         return all_commits
@@ -213,6 +218,10 @@ class GitHubGraphQLClient:
 
             commits = repo_data["ref"]["target"]["history"]["nodes"]
 
+            # 디버그: API로부터 받은 커밋 개수
+            if len(commits) > 0:
+                print(f"        API 응답: {len(commits)}개 커밋 (필터링 전)")
+
             # end_date 이후 커밋 필터링 (클라이언트 사이드)
             filtered_commits = []
             for commit in commits:
@@ -221,6 +230,10 @@ class GitHubGraphQLClient:
                 if commit_date <= end_date:
                     commit["repository"] = repo_name
                     filtered_commits.append(commit)
+
+            # 디버그: 필터링 후 개수
+            if len(commits) > 0 and len(filtered_commits) == 0:
+                print(f"        ⚠️  필터링으로 모두 제외됨 (end_date 이후 커밋)")
 
             return filtered_commits
 
