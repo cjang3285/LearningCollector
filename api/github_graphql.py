@@ -192,12 +192,20 @@ class GitHubGraphQLClient:
         }
         """
 
+        # ISO 포맷 (마이크로초 제거)
+        since_param = start_date.replace(microsecond=0).isoformat() + "Z"
+
         variables = {
             "owner": owner,
             "name": repo_name,
             "branch": f"refs/heads/{branch}",
-            "since": start_date.isoformat()
+            "since": since_param
         }
+
+        # 디버깅: 첫 브랜치에만 파라미터 출력
+        import os
+        if os.getenv("DEBUG_GRAPHQL") == "true":
+            print(f"        [DEBUG] since={since_param}, branch={branch}")
 
         try:
             response = self._execute_query(query, variables)
