@@ -19,13 +19,13 @@ class CollectionPeriodManager:
 
     def get_collection_period(self) -> tuple:
         """
-        수집 기간 계산
+        수집 기간 계산 (UTC 기준)
 
         Returns:
-            tuple: (start_date, end_date)
+            tuple: (start_date, end_date) - UTC datetime
         """
         import os
-        end_date = datetime.now()
+        end_date = datetime.utcnow()  # UTC 사용
 
         # 환경변수로 강제 30일 수집 (테스트용)
         force_full_collection = os.getenv("FORCE_FULL_COLLECTION", "false").lower() == "true"
@@ -74,8 +74,8 @@ class CollectionPeriodManager:
         return None
 
     def update_last_execution(self):
-        """현재 시간을 마지막 실행 시간으로 기록"""
-        current_time = datetime.now()
+        """현재 시간을 마지막 실행 시간으로 기록 (UTC)"""
+        current_time = datetime.utcnow()
 
         try:
             with open(self.exec_log_path, "a", encoding="utf-8") as f:
