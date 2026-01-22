@@ -75,18 +75,14 @@ class GeminiDraftGenerator:
         return all_drafts
 
     def _generate_baekjoon_drafts(self, json_files: List[str]) -> List[str]:
-        """백준 풀이 초안 생성 (테스트: 1개만)"""
+        """백준 풀이 초안 생성"""
         drafts = []
         duplicates = []
         processed = []
 
         print(f"    총 {len(json_files)}개의 백준 JSON 발견")
-        print(f"    ⚠️  테스트 모드: 첫 1개만 처리합니다")
 
-        # 테스트: 첫 1개만 처리
-        test_limit = min(1, len(json_files))
-
-        for json_file in json_files[:test_limit]:
+        for json_file in json_files:
             # 일일 한도 초과 시 나머지 스킵
             if self.quota_exhausted:
                 print(f"    한도 초과로 스킵: {json_file}")
@@ -130,18 +126,14 @@ class GeminiDraftGenerator:
         return drafts
 
     def _generate_dev_drafts(self, json_files: List[str]) -> List[str]:
-        """개발 진척 초안 생성 (테스트: 1개만)"""
+        """개발 진척 초안 생성"""
         drafts = []
         duplicates = []
         processed = []
 
         print(f"    총 {len(json_files)}개의 개발 커밋 JSON 발견")
-        print(f"    ⚠️  테스트 모드: 첫 1개만 처리합니다")
 
-        # 테스트: 첫 1개만 처리
-        test_limit = min(1, len(json_files))
-
-        for json_file in json_files[:test_limit]:
+        for json_file in json_files:
             # 일일 한도 초과 시 나머지 스킵
             if self.quota_exhausted:
                 print(f"    한도 초과로 스킵: {json_file}")
@@ -185,18 +177,14 @@ class GeminiDraftGenerator:
         return drafts
 
     def _generate_study_drafts(self, json_files: List[str]) -> List[str]:
-        """AI 대화 공부 초안 생성 (테스트: 1개만)"""
+        """AI 대화 공부 초안 생성"""
         drafts = []
         duplicates = []
         processed = []
 
         print(f"    총 {len(json_files)}개의 AI Chat JSON 발견")
-        print(f"    ⚠️  테스트 모드: 첫 1개만 처리합니다")
 
-        # 테스트: 첫 1개만 처리
-        test_limit = min(1, len(json_files))
-
-        for json_file in json_files[:test_limit]:
+        for json_file in json_files:
             # 일일 한도 초과 시 나머지 스킵
             if self.quota_exhausted:
                 print(f"    한도 초과로 스킵: {json_file}")
