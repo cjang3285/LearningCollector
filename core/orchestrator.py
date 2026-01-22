@@ -3,7 +3,7 @@
 각 콜렉터에는 aws로부터 바이너리를 이용 실행이 지원되고 각각 필요한 모듈들을 개별적으로 호출
 """
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # 콜렉터 임포트
@@ -28,7 +28,8 @@ class Orchestrator:
         """메인 실행 흐름"""
         print("="*50)
         print("LearningCollector 실행 시작")
-        print(f"실행 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        current_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        print(f"실행 시간 (UTC): {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print("="*50)
 
         # 1. 수집 기간 계산
