@@ -38,6 +38,9 @@ class GitHubGraphQLClient:
         """
         all_commits = []
 
+        # 디버그: 수집 기간 출력
+        print(f"    📅 수집 기간: {start_date.strftime('%Y-%m-%d %H:%M:%S')} ~ {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
+
         # 1. 사용자의 모든 레포지토리 조회
         repositories = self._fetch_repositories(username)
         print(f"    → {len(repositories)}개 레포지토리 발견")
@@ -59,6 +62,7 @@ class GitHubGraphQLClient:
                     print(f"      {branch}: {len(commits)}개 커밋")
                 all_commits.extend(commits)
 
+        print(f"    ✅ 총 수집: {len(all_commits)}개 커밋")
         return all_commits
 
     def _fetch_repositories(self, username: str) -> List[dict]:
@@ -152,14 +156,14 @@ class GitHubGraphQLClient:
         start_date: datetime,
         end_date: datetime
     ) -> List[dict]:
-        """특정 브랜치의 커밋 조회"""
+        """특정 브랜치의 커밋 조회 (since만 사용)"""
         query = """
-        query($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $until: GitTimestamp!) {
+        query($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!) {
           repository(owner: $owner, name: $name) {
             ref(qualifiedName: $branch) {
               target {
                 ... on Commit {
-                  history(first: 100, since: $since, until: $until) {
+                  history(first: 100, since: $since) {
                     nodes {
                       oid
                       message
@@ -187,8 +191,7 @@ class GitHubGraphQLClient:
             "owner": owner,
             "name": repo_name,
             "branch": f"refs/heads/{branch}",
-            "since": start_date.isoformat(),
-            "until": end_date.isoformat()
+            "since": start_date.isoformat()
         }
 
         try:
@@ -196,21 +199,33 @@ class GitHubGraphQLClient:
 
             # 응답 확인
             if "errors" in response:
+                print(f"        GraphQL 에러: {response['errors']}")
                 return []
 
             repo_data = response.get("data", {}).get("repository")
-            if not repo_data or not repo_data.get("ref"):
+            if not repo_data:
+                print(f"        레포 데이터 없음: {repo_name}")
+                return []
+
+            if not repo_data.get("ref"):
+                # 브랜치가 없거나 접근 불가 (조용히 스킵)
                 return []
 
             commits = repo_data["ref"]["target"]["history"]["nodes"]
 
-            # 레포지토리 정보 추가
+            # end_date 이후 커밋 필터링 (클라이언트 사이드)
+            filtered_commits = []
             for commit in commits:
-                commit["repository"] = repo_name
+                commit_date_str = commit["committedDate"].replace("Z", "+00:00")
+                commit_date = datetime.fromisoformat(commit_date_str)
+                if commit_date <= end_date:
+                    commit["repository"] = repo_name
+                    filtered_commits.append(commit)
 
-            return commits
+            return filtered_commits
 
         except Exception as e:
+            print(f"        예외 발생 ({branch}): {str(e)}")
             return []
 
     def _execute_query(self, query: str, variables: dict) -> dict:
