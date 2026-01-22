@@ -51,13 +51,14 @@ class DraftSaver:
         """
         Draft 중복 체크
         첨부파일 이름으로 중복 판단
+        오류 draft는 자동으로 삭제
 
         Args:
             source_json: 첨부파일 이름 (JSON 파일명)
             draft_type: draft 종류 (algorithm, dev, study)
 
         Returns:
-            bool: 중복이면 True
+            bool: 중복이면 True (단, 오류 draft는 삭제 후 False 반환)
         """
         draft_type_dir = self.draft_dir / draft_type
 
@@ -71,9 +72,50 @@ class DraftSaver:
         for draft_file in draft_type_dir.glob("*.md"):
             # 파일명이 source_name으로 끝나는지 확인
             if draft_file.stem.endswith(source_name):
+                # 오류 draft인지 확인
+                if self._is_error_draft(draft_file):
+                    print(f"    🗑️  오류 draft 삭제: {draft_file.name}")
+                    draft_file.unlink()  # 삭제
+                    return False  # 삭제했으므로 중복 아님
                 return True
 
         return False
+
+    def _is_error_draft(self, draft_path: Path) -> bool:
+        """
+        오류 draft인지 확인
+        첫 10줄 안에 "오류", "RESOURCE_EXHAUSTED", "초안 생성 중 오류 발생" 등이 있으면 오류 draft
+
+        Args:
+            draft_path: draft 파일 경로
+
+        Returns:
+            bool: 오류 draft이면 True
+        """
+        try:
+            with open(draft_path, "r", encoding="utf-8") as f:
+                # 첫 10줄만 읽기
+                lines = [f.readline() for _ in range(10)]
+                content = "".join(lines)
+
+                # 오류 키워드 체크
+                error_keywords = [
+                    "# 오류",
+                    "초안 생성 중 오류 발생",
+                    "RESOURCE_EXHAUSTED",
+                    "429",
+                    "quota",
+                    "exceeded your current quota"
+                ]
+
+                for keyword in error_keywords:
+                    if keyword in content:
+                        return True
+
+                return False
+
+        except Exception:
+            return False
 
     def get_drafts_by_type(self, draft_type: str) -> list:
         """

@@ -213,75 +213,6 @@ class GitHubGraphQLClient:
         except Exception as e:
             return []
 
-    def _fetch_repo_commits(
-        self,
-        owner: str,
-        repo_name: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> List[dict]:
-        """특정 레포지토리의 커밋 조회"""
-        query = """
-        query($owner: String!, $name: String!, $since: GitTimestamp!, $until: GitTimestamp!) {
-          repository(owner: $owner, name: $name) {
-            defaultBranchRef {
-              target {
-                ... on Commit {
-                  history(first: 100, since: $since, until: $until) {
-                    nodes {
-                      oid
-                      message
-                      committedDate
-                      additions
-                      deletions
-                      changedFiles
-                      author {
-                        name
-                        email
-                        user {
-                          login
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-        """
-
-        variables = {
-            "owner": owner,
-            "name": repo_name,
-            "since": start_date.isoformat(),
-            "until": end_date.isoformat()
-        }
-
-        try:
-            response = self._execute_query(query, variables)
-
-            # 응답 확인
-            if "errors" in response:
-                print(f"    경고: {repo_name} - {response['errors']}")
-                return []
-
-            repo_data = response.get("data", {}).get("repository")
-            if not repo_data or not repo_data.get("defaultBranchRef"):
-                return []
-
-            commits = repo_data["defaultBranchRef"]["target"]["history"]["nodes"]
-
-            # 레포지토리 정보 추가
-            for commit in commits:
-                commit["repository"] = repo_name
-
-            return commits
-
-        except Exception as e:
-            print(f"    오류: {repo_name} 커밋 조회 실패 - {str(e)}")
-            return []
-
     def _execute_query(self, query: str, variables: dict) -> dict:
         """GraphQL 쿼리 실행"""
         payload = {
@@ -300,41 +231,6 @@ class GitHubGraphQLClient:
             raise Exception(f"GitHub API 오류: HTTP {response.status_code}")
 
         return response.json()
-
-    def fetch_commit_details(self, owner: str, repo: str, commit_sha: str) -> dict:
-        """특정 커밋의 상세 정보 조회 (파일 변경 내용 포함)"""
-        query = """
-        query($owner: String!, $name: String!, $oid: GitObjectID!) {
-          repository(owner: $owner, name: $name) {
-            object(oid: $oid) {
-              ... on Commit {
-                oid
-                message
-                committedDate
-                additions
-                deletions
-                changedFiles
-                files(first: 10) {
-                  nodes {
-                    path
-                    additions
-                    deletions
-                  }
-                }
-              }
-            }
-          }
-        }
-        """
-
-        variables = {
-            "owner": owner,
-            "name": repo,
-            "oid": commit_sha
-        }
-
-        response = self._execute_query(query, variables)
-        return response["data"]["repository"]["object"]
 
 
 if __name__ == "__main__":
