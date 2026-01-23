@@ -145,10 +145,9 @@ class GitHubCollector:
 
     def _extract_problem_number(self, commit: dict) -> str:
         """
-        커밋 메시지에서 문제 번호 추출
-        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
-
-        문제 번호는 REST API로 파일명에서 추출
+        커밋에서 문제 번호 추출
+        백준 레포 구조: 백준/{티어}/{번호. 문제명}/solution.py
+        예: 백준/Gold/1202. 보석 도둑/solution.py
         """
         import re
 
@@ -173,31 +172,15 @@ class GitHubCollector:
                 commit_data = response.json()
                 files = commit_data.get("files", [])
 
-                # 파일명에서 문제 번호 추출 (여러 패턴 시도)
+                # 파일 경로에서 문제 번호 추출
+                # 패턴: 백준/{티어}/{번호. 문제명}/
                 for file in files:
                     filename = file.get("filename", "")
 
-                    # 패턴 1: 폴더명 사이에 숫자 (예: "백준/14425/solution.py")
-                    match = re.search(r'/(\d{4,5})/', filename)
+                    # 정규식: 백준/[^/]+/(\d+)\.
+                    match = re.search(r'백준/[^/]+/(\d+)\.', filename)
                     if match:
                         return match.group(1)
-
-                    # 패턴 2: 파일명 시작 부분 (예: "14425.py", "14425번_문제.cpp")
-                    match = re.search(r'(\d{4,5})', filename)
-                    if match:
-                        return match.group(1)
-
-                # README.md 내용에서 추출 시도
-                for file in files:
-                    if file.get("filename", "").endswith("README.md"):
-                        # patch에서 문제 번호 찾기
-                        patch = file.get("patch", "")
-                        match = re.search(r'문제\s*번호[:\s]*(\d{4,5})', patch)
-                        if match:
-                            return match.group(1)
-                        match = re.search(r'\[(\d{4,5})번\]', patch)
-                        if match:
-                            return match.group(1)
 
             return "Unknown"
 
@@ -271,10 +254,9 @@ class GitHubCollector:
             return []
 
     def _extract_solution_code(self, commit: dict) -> str:
-        """풀이 코드 추출 (REST API 사용)"""
+        """풀이 코드 추출 (REST API 사용) - 전체 파일 내용 가져오기"""
         import requests
 
-        # GitHub REST API로 커밋 상세 정보 가져오기
         owner = os.getenv("GITHUB_USERNAME")
         repo = commit.get("repository")
         sha = commit.get("oid")
@@ -296,16 +278,18 @@ class GitHubCollector:
             commit_data = response.json()
             files = commit_data.get("files", [])
 
-            # 코드 파일 찾기
+            # 백준 폴더 내의 코드 파일 찾기
             for file in files:
                 filename = file.get("filename", "")
-                if filename.endswith((".py", ".java", ".cpp", ".c", ".js", ".go")):
-                    # patch에서 코드 추출 또는 raw_url로 파일 내용 가져오기
-                    patch = file.get("patch", "")
-                    if patch:
-                        # patch에서 추가된 코드만 추출
-                        code_lines = [line[1:] for line in patch.split("\n") if line.startswith("+") and not line.startswith("+++")]
-                        return "\n".join(code_lines)
+
+                # 백준 폴더 내의 코드 파일인지 확인
+                if "백준/" in filename and filename.endswith((".py", ".java", ".cpp", ".c", ".js", ".go")):
+                    # raw_url로 전체 파일 내용 가져오기
+                    raw_url = file.get("raw_url")
+                    if raw_url:
+                        raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                        if raw_response.status_code == 200:
+                            return raw_response.text
 
             return ""
 
