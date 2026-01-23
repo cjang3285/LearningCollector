@@ -97,15 +97,24 @@ class GitHubCollector:
         for idx, commit in enumerate(commits, 1):
             print(f"    백준 처리 중: {idx}/{total}", end='\r', flush=True)
 
-            # 백준 정보 추출
+            # 1. 커밋 메시지에서 추출 (로컬 작업, API 호출 없음)
+            problem_name = self._extract_problem_name(commit)
+            tier = self._extract_tier(commit)
+            runtime = self._extract_runtime(commit)
+            memory = self._extract_memory(commit)
+
+            # 2. REST API 1-2번 호출로 나머지 정보 추출
+            rest_info = self._fetch_baekjoon_rest_info(commit)
+
+            # 백준 정보 구성
             baekjoon_data = {
-                "문제_번호": self._extract_problem_number(commit),
-                "문제명": self._extract_problem_name(commit),
-                "티어": self._extract_tier(commit),
-                "풀이_코드": self._extract_solution_code(commit),
-                "실행_시간": self._extract_runtime(commit),
-                "메모리": self._extract_memory(commit),
-                "언어": self._extract_language(commit),
+                "문제_번호": rest_info.get("문제_번호", "Unknown"),
+                "문제명": problem_name,
+                "티어": tier,
+                "풀이_코드": rest_info.get("풀이_코드", ""),
+                "실행_시간": runtime,
+                "메모리": memory,
+                "언어": rest_info.get("언어", "Unknown"),
                 "제출한_날짜": commit.get("committedDate"),
                 "커밋_SHA": commit.get("oid")
             }
@@ -127,11 +136,14 @@ class GitHubCollector:
         for idx, commit in enumerate(commits, 1):
             print(f"    개발 커밋 처리 중: {idx}/{total}", end='\r', flush=True)
 
+            # REST API 1번 호출로 파일 목록 가져오기
+            changed_files = self._fetch_changed_files(commit)
+
             # 개발 커밋 정보 추출
             dev_data = {
                 "커밋_메시지": commit.get("message"),
                 "SHA": commit.get("oid"),
-                "변경된_파일_목록": self._get_changed_files(commit),
+                "변경된_파일_목록": changed_files,
                 "커밋_날짜": commit.get("committedDate"),
                 "레포지토리": commit.get("repository"),
                 "브랜치": commit.get("branch", "unknown")
@@ -146,134 +158,44 @@ class GitHubCollector:
             print()  # 줄바꿈
         return saved_files
 
-    def _extract_problem_number(self, commit: dict) -> str:
+    def _fetch_baekjoon_rest_info(self, commit: dict) -> dict:
         """
-        커밋에서 문제 번호 추출
-        백준 레포 구조: 백준/{티어}/{번호. 문제명}/solution.py
-        예: 백준/Gold/1202. 보석 도둑/solution.py
-        """
-        import re
-
-        # REST API로 파일 목록 가져오기
-        try:
-            owner = os.getenv("GITHUB_USERNAME")
-            repo = commit.get("repository")
-            sha = commit.get("oid")
-
-            if not all([owner, repo, sha]):
-                return "Unknown"
-
-            import requests
-            token = os.getenv("GITHUB_TOKEN")
-            headers = {"Authorization": f"token {token}"}
-
-            # 커밋의 파일 목록 가져오기
-            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
-            response = requests.get(url, headers=headers, timeout=10)
-
-            if response.status_code == 200:
-                commit_data = response.json()
-                files = commit_data.get("files", [])
-
-                # 파일 경로에서 문제 번호 추출
-                # 패턴: 백준/{티어}/{번호. 문제명}/
-                for file in files:
-                    filename = file.get("filename", "")
-
-                    # 정규식: 백준/[^/]+/(\d+)\.
-                    match = re.search(r'백준/[^/]+/(\d+)\.', filename)
-                    if match:
-                        return match.group(1)
-
-            return "Unknown"
-
-        except Exception:
-            return "Unknown"
-
-    def _extract_problem_name(self, commit: dict) -> str:
-        """
-        커밋 메시지에서 문제 이름 추출
-        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
+        REST API 호출로 백준 정보 추출 (1-2번 호출)
+        - 문제 번호 (파일 경로에서)
+        - 언어 (확장자에서)
+        - 풀이 코드 (raw_url에서)
         """
         import re
-
-        message = commit.get("message", "")
-
-        # "Title: 문제명," 부분 추출
-        match = re.search(r'Title:\s*([^,]+)', message)
-        if match:
-            return match.group(1).strip()
-
-        return "Unknown"
-
-    def _extract_tier(self, commit: dict) -> str:
-        """
-        티어 정보 추출
-        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
-        """
-        import re
-
-        message = commit.get("message", "")
-
-        # [티어] 부분 추출
-        match = re.search(r'\[(.*?)\]', message)
-        if match:
-            tier = match.group(1).strip()
-            # 공백을 언더스코어로 변경
-            return tier.replace(" ", "_")
-
-        return "Unknown"
-
-    def _extract_runtime(self, commit: dict) -> str:
-        """커밋 메시지에서 실행 시간 추출 (Time: X ms)"""
-        import re
-        message = commit.get("message", "")
-
-        # Time: X ms 패턴
-        match = re.search(r'Time:\s*(\d+)\s*ms', message)
-        if match:
-            return f"{match.group(1)} ms"
-
-        return ""
-
-    def _extract_memory(self, commit: dict) -> str:
-        """커밋 메시지에서 메모리 추출 (Memory: Y KB)"""
-        import re
-        message = commit.get("message", "")
-
-        # Memory: Y KB 패턴
-        match = re.search(r'Memory:\s*(\d+)\s*KB', message)
-        if match:
-            return f"{match.group(1)} KB"
-
-        return ""
-
-    def _extract_language(self, commit: dict) -> str:
-        """파일 확장자에서 언어 추출"""
         import requests
 
         owner = os.getenv("GITHUB_USERNAME")
         repo = commit.get("repository")
         sha = commit.get("oid")
 
+        result = {
+            "문제_번호": "Unknown",
+            "언어": "Unknown",
+            "풀이_코드": ""
+        }
+
         if not all([owner, repo, sha]):
-            return "Unknown"
+            return result
 
         try:
             token = os.getenv("GITHUB_TOKEN")
             headers = {"Authorization": f"token {token}"}
 
-            # 커밋의 파일 목록 가져오기
+            # REST API 호출 #1: 커밋 상세 정보 (파일 목록)
             url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
             response = requests.get(url, headers=headers, timeout=10)
 
             if response.status_code != 200:
-                return "Unknown"
+                return result
 
             commit_data = response.json()
             files = commit_data.get("files", [])
 
-            # 백준 폴더 내의 코드 파일 확장자 찾기
+            # 언어별 확장자 매핑
             extension_to_language = {
                 ".py": "Python",
                 ".java": "Java",
@@ -289,20 +211,42 @@ class GitHubCollector:
                 ".cs": "C#"
             }
 
+            # files 배열을 한 번만 순회하며 모든 정보 추출
             for file in files:
                 filename = file.get("filename", "")
-                if "백준/" in filename:
+
+                # 백준 폴더 내의 코드 파일인지 확인 (README.md 제외)
+                if "백준/" in filename and not filename.endswith("README.md"):
+                    # 문제 번호 추출: 백준/{티어}/{번호. 문제명}/
+                    match = re.search(r'백준/[^/]+/(\d+)\.', filename)
+                    if match:
+                        result["문제_번호"] = match.group(1)
+
+                    # 언어 추출 (확장자)
                     for ext, lang in extension_to_language.items():
                         if filename.endswith(ext):
-                            return lang
+                            result["언어"] = lang
+                            break
 
-            return "Unknown"
+                    # 풀이 코드 추출 (raw_url로 별도 요청)
+                    raw_url = file.get("raw_url")
+                    if raw_url:
+                        # REST API 호출 #2: 파일 내용
+                        raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                        if raw_response.status_code == 200:
+                            result["풀이_코드"] = raw_response.text
 
-        except Exception:
-            return "Unknown"
+                    # 코드 파일 찾았으면 종료
+                    break
 
-    def _get_changed_files(self, commit: dict) -> list:
-        """REST API로 변경된 파일 목록 가져오기"""
+            return result
+
+        except Exception as e:
+            print(f"  REST API 호출 실패 (SHA: {sha[:7]}): {str(e)}")
+            return result
+
+    def _fetch_changed_files(self, commit: dict) -> list:
+        """REST API로 변경된 파일 목록 가져오기 (1번 호출)"""
         import requests
 
         owner = os.getenv("GITHUB_USERNAME")
@@ -316,7 +260,7 @@ class GitHubCollector:
             token = os.getenv("GITHUB_TOKEN")
             headers = {"Authorization": f"token {token}"}
 
-            # 커밋의 파일 목록 가져오기
+            # REST API 호출: 커밋 상세 정보
             url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
             response = requests.get(url, headers=headers, timeout=10)
 
@@ -333,53 +277,63 @@ class GitHubCollector:
             print(f"  파일 목록 조회 실패 (SHA: {sha[:7]}): {str(e)}")
             return []
 
-    def _extract_solution_code(self, commit: dict) -> str:
-        """풀이 코드 추출 (REST API 사용) - 전체 파일 내용 가져오기"""
-        import requests
+    def _extract_problem_name(self, commit: dict) -> str:
+        """
+        커밋 메시지에서 문제 이름 추출 (로컬 작업)
+        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
+        """
+        import re
 
-        owner = os.getenv("GITHUB_USERNAME")
-        repo = commit.get("repository")
-        sha = commit.get("oid")
+        message = commit.get("message", "")
 
-        if not all([owner, repo, sha]):
-            return ""
+        # "Title: 문제명," 부분 추출
+        match = re.search(r'Title:\s*([^,]+)', message)
+        if match:
+            return match.group(1).strip()
 
-        try:
-            token = os.getenv("GITHUB_TOKEN")
-            headers = {"Authorization": f"token {token}"}
+        return "Unknown"
 
-            # 커밋의 파일 목록 가져오기
-            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
-            response = requests.get(url, headers=headers, timeout=10)
+    def _extract_tier(self, commit: dict) -> str:
+        """
+        티어 정보 추출 (로컬 작업)
+        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
+        """
+        import re
 
-            if response.status_code != 200:
-                return ""
+        message = commit.get("message", "")
 
-            commit_data = response.json()
-            files = commit_data.get("files", [])
+        # [티어] 부분 추출
+        match = re.search(r'\[(.*?)\]', message)
+        if match:
+            tier = match.group(1).strip()
+            # 공백을 언더스코어로 변경
+            return tier.replace(" ", "_")
 
-            # 백준 폴더 내의 코드 파일 찾기
-            code_extensions = (".py", ".java", ".cpp", ".cc", ".c", ".js", ".go",
-                             ".kt", ".rs", ".swift", ".rb", ".cs")
+        return "Unknown"
 
-            for file in files:
-                filename = file.get("filename", "")
+    def _extract_runtime(self, commit: dict) -> str:
+        """커밋 메시지에서 실행 시간 추출 (로컬 작업)"""
+        import re
+        message = commit.get("message", "")
 
-                # 백준 폴더 내의 코드 파일인지 확인 (README.md 제외)
-                if "백준/" in filename and not filename.endswith("README.md"):
-                    if filename.endswith(code_extensions):
-                        # raw_url로 전체 파일 내용 가져오기
-                        raw_url = file.get("raw_url")
-                        if raw_url:
-                            raw_response = requests.get(raw_url, headers=headers, timeout=10)
-                            if raw_response.status_code == 200:
-                                return raw_response.text
+        # Time: X ms 패턴
+        match = re.search(r'Time:\s*(\d+)\s*ms', message)
+        if match:
+            return f"{match.group(1)} ms"
 
-            return ""
+        return ""
 
-        except Exception as e:
-            print(f"  코드 추출 실패 (SHA: {sha[:7]}): {str(e)}")
-            return ""
+    def _extract_memory(self, commit: dict) -> str:
+        """커밋 메시지에서 메모리 추출 (로컬 작업)"""
+        import re
+        message = commit.get("message", "")
+
+        # Memory: Y KB 패턴
+        match = re.search(r'Memory:\s*(\d+)\s*KB', message)
+        if match:
+            return f"{match.group(1)} KB"
+
+        return ""
 
 
 if __name__ == "__main__":
