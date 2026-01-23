@@ -34,7 +34,7 @@ class Orchestrator:
 
         # 1. 수집 기간 계산
         start_date, end_date = self.period_manager.get_collection_period()
-        print(f"\n수집 기간: {start_date} ~ {end_date}")
+        print(f"\n수집 기간: {start_date.strftime('%Y-%m-%d %H:%M:%S')} ~ {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # 2. AI Chat 수집 (다운로드 폴더 감시)
         print("\n[1/3] AI Chat 수집 중...")

@@ -30,13 +30,11 @@ class DraftSaver:
         Returns:
             str: 저장된 draft 파일 경로
         """
-        # 파일명 생성
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
         # source_json에서 .json 제거
         source_name = source_json.replace(".json", "")
 
-        filename = f"{draft_type}_{timestamp}_{source_name}.md"
+        # 파일명: draft종류_JSON파일명.md (시간 제외)
+        filename = f"{draft_type}_{source_name}.md"
 
         # 저장 경로
         file_path = self.draft_dir / draft_type / filename

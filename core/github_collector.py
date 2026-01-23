@@ -143,28 +143,80 @@ class GitHubCollector:
         return saved_files
 
     def _extract_problem_number(self, commit: dict) -> str:
-        """커밋 메시지에서 문제 번호 추출"""
-        message = commit.get("message", "")
-        # 예: "1234: 문제 이름" 형식에서 번호 추출
-        parts = message.split(":")
-        if len(parts) > 0:
-            return parts[0].strip()
-        return "Unknown"
+        """
+        커밋 메시지에서 문제 번호 추출
+        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
+
+        문제 번호는 REST API로 파일명에서 추출 (README.md 확인)
+        """
+        import re
+
+        # README.md에서 문제 번호 추출 (REST API 사용)
+        try:
+            owner = os.getenv("GITHUB_USERNAME")
+            repo = commit.get("repository")
+            sha = commit.get("oid")
+
+            if not all([owner, repo, sha]):
+                return "Unknown"
+
+            import requests
+            token = os.getenv("GITHUB_TOKEN")
+            headers = {"Authorization": f"token {token}"}
+
+            # 커밋의 파일 목록 가져오기
+            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code == 200:
+                commit_data = response.json()
+                files = commit_data.get("files", [])
+
+                # README.md 또는 문제 파일에서 번호 추출
+                for file in files:
+                    filename = file.get("filename", "")
+                    # 폴더명에서 문제 번호 추출 (예: "백준/1234/")
+                    match = re.search(r'/(\d{4,5})/', filename)
+                    if match:
+                        return match.group(1)
+
+            return "Unknown"
+
+        except Exception:
+            return "Unknown"
 
     def _extract_problem_name(self, commit: dict) -> str:
-        """커밋 메시지에서 문제 이름 추출"""
+        """
+        커밋 메시지에서 문제 이름 추출
+        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
+        """
+        import re
+
         message = commit.get("message", "")
-        # 예: "1234: 문제 이름" 형식에서 이름 추출
-        parts = message.split(":")
-        if len(parts) > 1:
-            # -BaekjoonHub 제거
-            name = parts[1].replace("-BaekjoonHub", "").strip()
-            return name
+
+        # "Title: 문제명," 부분 추출
+        match = re.search(r'Title:\s*([^,]+)', message)
+        if match:
+            return match.group(1).strip()
+
         return "Unknown"
 
     def _extract_tier(self, commit: dict) -> str:
-        """티어 정보 추출 (파일명이나 커밋 메시지에서)"""
-        # 실제 구현에서는 백준 API나 파일명에서 추출
+        """
+        티어 정보 추출
+        백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
+        """
+        import re
+
+        message = commit.get("message", "")
+
+        # [티어] 부분 추출
+        match = re.search(r'\[(.*?)\]', message)
+        if match:
+            tier = match.group(1).strip()
+            # 공백을 언더스코어로 변경
+            return tier.replace(" ", "_")
+
         return "Unknown"
 
     def _get_changed_files(self, commit: dict) -> list:

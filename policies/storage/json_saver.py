@@ -24,7 +24,7 @@ class JSONSaver:
     def save_baekjoon(self, data: dict) -> str:
         """
         백준 JSON 저장
-        파일명: 티어+푼 시간+문제 제목+번호.json
+        파일명: 티어_문제번호_문제제목.json (시간 제외)
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -37,12 +37,11 @@ class JSONSaver:
 
         # 파일명 생성
         tier = data.get("티어", "Unknown")
-        solved_time = data.get("제출한_날짜", datetime.now().isoformat())
         problem_name = data.get("문제명", "Unknown")
         problem_number = data.get("문제_번호", "Unknown")
 
-        # 파일명에서 특수문자 제거
-        safe_name = self._sanitize_filename(f"{tier}_{solved_time}_{problem_name}_{problem_number}")
+        # 파일명: 티어_번호_제목.json
+        safe_name = self._sanitize_filename(f"{tier}_{problem_number}_{problem_name}")
         filename = f"{safe_name}.json"
 
         # 저장
@@ -55,7 +54,7 @@ class JSONSaver:
     def save_commit(self, data: dict) -> str:
         """
         개발 커밋 JSON 저장
-        파일명: 커밋 SHA+시간+레포지토리.json
+        파일명: SHA_레포지토리.json (시간 제외)
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -67,13 +66,13 @@ class JSONSaver:
             return None
 
         # 파일명 생성
-        commit_time = data.get("커밋_날짜", datetime.now().isoformat())
         repo = data.get("레포지토리", "unknown")
 
         # SHA 앞 7자리만 사용
         short_sha = sha[:7] if sha else "unknown"
 
-        safe_name = self._sanitize_filename(f"{short_sha}_{commit_time}_{repo}")
+        # 파일명: SHA_레포.json
+        safe_name = self._sanitize_filename(f"{short_sha}_{repo}")
         filename = f"{safe_name}.json"
 
         # 저장
@@ -86,7 +85,7 @@ class JSONSaver:
     def save_ai_chat(self, data: dict) -> str:
         """
         AI Chat JSON 저장
-        파일명: AI종류_대화제목_exported시간.json
+        파일명: AI종류_대화제목.json (시간 제외)
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -98,14 +97,11 @@ class JSONSaver:
             return None
 
         ai_type = data.get("AI_종류")
-        exported_time = data.get("Exported_시간")
-
-        # 파일명 생성
         title = data.get("대화_제목", "NoTitle")
 
+        # 파일명: AI종류_대화제목.json
         safe_title = self._sanitize_filename(title)
-        safe_time = self._sanitize_filename(exported_time)
-        filename = f"{ai_type}_{safe_title}_{safe_time}.json"
+        filename = f"{ai_type}_{safe_title}.json"
 
         # 저장
         file_path = self.data_dir / "ai_chat" / filename
