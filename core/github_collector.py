@@ -103,6 +103,9 @@ class GitHubCollector:
                 "문제명": self._extract_problem_name(commit),
                 "티어": self._extract_tier(commit),
                 "풀이_코드": self._extract_solution_code(commit),
+                "실행_시간": self._extract_runtime(commit),
+                "메모리": self._extract_memory(commit),
+                "언어": self._extract_language(commit),
                 "제출한_날짜": commit.get("committedDate"),
                 "커밋_SHA": commit.get("oid")
             }
@@ -221,6 +224,83 @@ class GitHubCollector:
 
         return "Unknown"
 
+    def _extract_runtime(self, commit: dict) -> str:
+        """커밋 메시지에서 실행 시간 추출 (Time: X ms)"""
+        import re
+        message = commit.get("message", "")
+
+        # Time: X ms 패턴
+        match = re.search(r'Time:\s*(\d+)\s*ms', message)
+        if match:
+            return f"{match.group(1)} ms"
+
+        return ""
+
+    def _extract_memory(self, commit: dict) -> str:
+        """커밋 메시지에서 메모리 추출 (Memory: Y KB)"""
+        import re
+        message = commit.get("message", "")
+
+        # Memory: Y KB 패턴
+        match = re.search(r'Memory:\s*(\d+)\s*KB', message)
+        if match:
+            return f"{match.group(1)} KB"
+
+        return ""
+
+    def _extract_language(self, commit: dict) -> str:
+        """파일 확장자에서 언어 추출"""
+        import requests
+
+        owner = os.getenv("GITHUB_USERNAME")
+        repo = commit.get("repository")
+        sha = commit.get("oid")
+
+        if not all([owner, repo, sha]):
+            return "Unknown"
+
+        try:
+            token = os.getenv("GITHUB_TOKEN")
+            headers = {"Authorization": f"token {token}"}
+
+            # 커밋의 파일 목록 가져오기
+            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                return "Unknown"
+
+            commit_data = response.json()
+            files = commit_data.get("files", [])
+
+            # 백준 폴더 내의 코드 파일 확장자 찾기
+            extension_to_language = {
+                ".py": "Python",
+                ".java": "Java",
+                ".cpp": "C++",
+                ".cc": "C++",
+                ".c": "C",
+                ".js": "JavaScript",
+                ".go": "Go",
+                ".kt": "Kotlin",
+                ".rs": "Rust",
+                ".swift": "Swift",
+                ".rb": "Ruby",
+                ".cs": "C#"
+            }
+
+            for file in files:
+                filename = file.get("filename", "")
+                if "백준/" in filename:
+                    for ext, lang in extension_to_language.items():
+                        if filename.endswith(ext):
+                            return lang
+
+            return "Unknown"
+
+        except Exception:
+            return "Unknown"
+
     def _get_changed_files(self, commit: dict) -> list:
         """REST API로 변경된 파일 목록 가져오기"""
         import requests
@@ -279,17 +359,21 @@ class GitHubCollector:
             files = commit_data.get("files", [])
 
             # 백준 폴더 내의 코드 파일 찾기
+            code_extensions = (".py", ".java", ".cpp", ".cc", ".c", ".js", ".go",
+                             ".kt", ".rs", ".swift", ".rb", ".cs")
+
             for file in files:
                 filename = file.get("filename", "")
 
-                # 백준 폴더 내의 코드 파일인지 확인
-                if "백준/" in filename and filename.endswith((".py", ".java", ".cpp", ".c", ".js", ".go")):
-                    # raw_url로 전체 파일 내용 가져오기
-                    raw_url = file.get("raw_url")
-                    if raw_url:
-                        raw_response = requests.get(raw_url, headers=headers, timeout=10)
-                        if raw_response.status_code == 200:
-                            return raw_response.text
+                # 백준 폴더 내의 코드 파일인지 확인 (README.md 제외)
+                if "백준/" in filename and not filename.endswith("README.md"):
+                    if filename.endswith(code_extensions):
+                        # raw_url로 전체 파일 내용 가져오기
+                        raw_url = file.get("raw_url")
+                        if raw_url:
+                            raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                            if raw_response.status_code == 200:
+                                return raw_response.text
 
             return ""
 
