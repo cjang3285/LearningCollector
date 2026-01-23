@@ -148,11 +148,11 @@ class GitHubCollector:
         커밋 메시지에서 문제 번호 추출
         백준Hub 형식: [티어] Title: 문제명, Time: X ms, Memory: Y KB -BaekjoonHub
 
-        문제 번호는 REST API로 파일명에서 추출 (README.md 확인)
+        문제 번호는 REST API로 파일명에서 추출
         """
         import re
 
-        # README.md에서 문제 번호 추출 (REST API 사용)
+        # REST API로 파일 목록 가져오기
         try:
             owner = os.getenv("GITHUB_USERNAME")
             repo = commit.get("repository")
@@ -173,13 +173,31 @@ class GitHubCollector:
                 commit_data = response.json()
                 files = commit_data.get("files", [])
 
-                # README.md 또는 문제 파일에서 번호 추출
+                # 파일명에서 문제 번호 추출 (여러 패턴 시도)
                 for file in files:
                     filename = file.get("filename", "")
-                    # 폴더명에서 문제 번호 추출 (예: "백준/1234/")
+
+                    # 패턴 1: 폴더명 사이에 숫자 (예: "백준/14425/solution.py")
                     match = re.search(r'/(\d{4,5})/', filename)
                     if match:
                         return match.group(1)
+
+                    # 패턴 2: 파일명 시작 부분 (예: "14425.py", "14425번_문제.cpp")
+                    match = re.search(r'(\d{4,5})', filename)
+                    if match:
+                        return match.group(1)
+
+                # README.md 내용에서 추출 시도
+                for file in files:
+                    if file.get("filename", "").endswith("README.md"):
+                        # patch에서 문제 번호 찾기
+                        patch = file.get("patch", "")
+                        match = re.search(r'문제\s*번호[:\s]*(\d{4,5})', patch)
+                        if match:
+                            return match.group(1)
+                        match = re.search(r'\[(\d{4,5})번\]', patch)
+                        if match:
+                            return match.group(1)
 
             return "Unknown"
 

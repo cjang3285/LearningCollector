@@ -22,7 +22,7 @@ class GeminiDraftGenerator:
         self.gemini_client = GeminiClient()
         self.blog_client = BlogAPIClient()
         self.draft_saver = DraftSaver()
-        self.editor_command = os.getenv("EDITOR_COMMAND", "code")
+        self.editor_command = os.getenv("EDITOR_COMMAND", "nano")
         self.quota_exhausted = False  # 일일 한도 초과 플래그
 
     def generate_drafts(
@@ -63,14 +63,14 @@ class GeminiDraftGenerator:
             all_drafts.extend(study_drafts)
             print(f"    → {len(study_drafts)}개 생성 완료")
 
-        # 4. VS Code로 열기
-        if all_drafts:
-            self._open_in_vscode(all_drafts)
-
-        # 5. 블로그 포스팅
+        # 4. 블로그 포스팅 (초안 생성 직후)
         if all_drafts:
             print(f"\n  블로그 포스팅 중... ({len(all_drafts)}개)")
             self._post_to_blog(all_drafts)
+
+        # 5. 에디터로 열기 (맨 마지막)
+        if all_drafts:
+            self._open_in_editor(all_drafts)
 
         return all_drafts
 
@@ -247,14 +247,22 @@ class GeminiDraftGenerator:
 
         raise FileNotFoundError(f"JSON 파일을 찾을 수 없습니다: {json_filename}")
 
-    def _open_in_vscode(self, draft_paths: List[str]):
-        """생성된 초안들을 VS Code로 열기"""
+    def _open_in_editor(self, draft_paths: List[str]):
+        """생성된 초안들을 에디터로 열기"""
+        if not draft_paths:
+            return
+
         try:
-            # 모든 파일을 한번에 VS Code로 열기
-            subprocess.run([self.editor_command] + draft_paths, check=True)
-            print(f"\n  VS Code로 {len(draft_paths)}개 파일 열기 완료")
+            # nano는 한 번에 여러 파일 지원하지 않으므로 첫 번째 파일만 열기
+            if self.editor_command == "nano":
+                print(f"\n  에디터로 첫 번째 파일 열기: {draft_paths[0]}")
+                subprocess.run([self.editor_command, draft_paths[0]])
+            else:
+                # code, vim 등은 여러 파일 지원
+                subprocess.run([self.editor_command] + draft_paths, check=True)
+                print(f"\n  에디터로 {len(draft_paths)}개 파일 열기 완료")
         except subprocess.CalledProcessError as e:
-            print(f"  VS Code 실행 실패: {str(e)}")
+            print(f"  에디터 실행 실패: {str(e)}")
         except FileNotFoundError:
             print(f"  에디터를 찾을 수 없습니다: {self.editor_command}")
 
