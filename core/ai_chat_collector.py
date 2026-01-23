@@ -49,7 +49,7 @@ class AIChatCollector:
             try:
                 json_filename = self._process_md_file(md_file)
                 if json_filename:
-                    saved_jsons.append(md_file.name)
+                    saved_jsons.append(json_filename)
                 else:
                     duplicates.append(md_file.name)
             except Exception as e:
