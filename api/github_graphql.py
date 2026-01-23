@@ -51,21 +51,31 @@ class GitHubGraphQLClient:
 
             # 레포의 모든 브랜치 조회
             branches = self._fetch_branches(username, repo_name)
-            print(f"    {repo_name}: {len(branches)}개 브랜치")
+            print(f"    {repo_name}/")
 
             # 각 브랜치에서 커밋 수집
-            branch_commit_count = 0
-            for branch in branches:
+            for idx, branch in enumerate(branches):
+                is_last_branch = (idx == len(branches) - 1)
+                branch_prefix = "    └─ " if is_last_branch else "    ├─ "
+
                 commits = self._fetch_branch_commits(
                     username, repo_name, branch, start_date, end_date
                 )
-                if commits:
-                    print(f"      ✓ {branch}: {len(commits)}개 커밋")
-                    branch_commit_count += len(commits)
-                all_commits.extend(commits)
 
-            if branch_commit_count == 0 and len(branches) > 0:
-                print(f"      ⚠️  모든 브랜치에서 커밋 0개 (수집 기간 확인 필요)")
+                if commits:
+                    print(f"{branch_prefix}{branch}: {len(commits)}개")
+                    # 첫 3개 커밋 메시지 출력
+                    commit_prefix = "       " if is_last_branch else "    │  "
+                    for i, commit in enumerate(commits[:3]):
+                        message = commit["message"].split("\n")[0][:60]  # 첫 줄, 60자까지
+                        sha_short = commit["oid"][:7]
+                        print(f"{commit_prefix}  - {sha_short}: {message}")
+                    if len(commits) > 3:
+                        print(f"{commit_prefix}  ... ({len(commits) - 3}개 더)")
+                else:
+                    print(f"{branch_prefix}{branch}: 0개")
+
+                all_commits.extend(commits)
 
         print(f"    ✅ 총 수집: {len(all_commits)}개 커밋")
         return all_commits
@@ -148,8 +158,8 @@ class GitHubGraphQLClient:
 
                 cursor = page_info["endCursor"]
 
-        except Exception as e:
-            print(f"    경고: {repo_name} 브랜치 조회 실패 - {str(e)}")
+        except Exception:
+            pass
 
         return branches
 
@@ -202,33 +212,18 @@ class GitHubGraphQLClient:
             "since": since_param
         }
 
-        # 디버깅: 첫 브랜치에만 파라미터 출력
-        import os
-        if os.getenv("DEBUG_GRAPHQL") == "true":
-            print(f"        [DEBUG] since={since_param}, branch={branch}")
-
         try:
             response = self._execute_query(query, variables)
 
             # 응답 확인
             if "errors" in response:
-                print(f"        GraphQL 에러: {response['errors']}")
                 return []
 
             repo_data = response.get("data", {}).get("repository")
-            if not repo_data:
-                print(f"        레포 데이터 없음: {repo_name}")
-                return []
-
-            if not repo_data.get("ref"):
-                # 브랜치가 없거나 접근 불가 (조용히 스킵)
+            if not repo_data or not repo_data.get("ref"):
                 return []
 
             commits = repo_data["ref"]["target"]["history"]["nodes"]
-
-            # 디버그: API로부터 받은 커밋 개수
-            if len(commits) > 0:
-                print(f"        API 응답: {len(commits)}개 커밋 (필터링 전)")
 
             # end_date 이후 커밋 필터링 (클라이언트 사이드)
             filtered_commits = []
@@ -243,14 +238,9 @@ class GitHubGraphQLClient:
                     commit["repository"] = repo_name
                     filtered_commits.append(commit)
 
-            # 디버그: 필터링 후 개수
-            if len(commits) > 0 and len(filtered_commits) == 0:
-                print(f"        ⚠️  필터링으로 모두 제외됨 (end_date 이후 커밋)")
-
             return filtered_commits
 
-        except Exception as e:
-            print(f"        예외 발생 ({branch}): {str(e)}")
+        except Exception:
             return []
 
     def _execute_query(self, query: str, variables: dict) -> dict:

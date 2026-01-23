@@ -42,15 +42,32 @@ class AIChatCollector:
 
         # JSON 변환 및 저장
         saved_jsons = []
+        duplicates = []
+        errors = []
+
         for md_file in md_files:
             try:
                 json_filename = self._process_md_file(md_file)
                 if json_filename:
-                    saved_jsons.append(json_filename)
+                    saved_jsons.append(md_file.name)
                 else:
-                    print(f"  중복 제외: {md_file.name}")
+                    duplicates.append(md_file.name)
             except Exception as e:
-                print(f"  오류: {md_file.name} 처리 실패 - {str(e)}")
+                errors.append(f"{md_file.name} - {str(e)}")
+
+        # 결과 출력
+        if duplicates:
+            print(f"  중복 제외: {len(duplicates)}개")
+
+        if saved_jsons:
+            print(f"  새 파일 {len(saved_jsons)}개 발견:")
+            for filename in saved_jsons:
+                print(f"    - {filename}")
+
+        if errors:
+            print(f"  오류 발생: {len(errors)}개")
+            for error in errors:
+                print(f"    - {error}")
 
         return saved_jsons
 
