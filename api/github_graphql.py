@@ -236,6 +236,7 @@ class GitHubGraphQLClient:
 
                 if commit_date_naive <= end_date:
                     commit["repository"] = repo_name
+                    commit["branch"] = branch  # 브랜치 정보 추가
                     filtered_commits.append(commit)
 
             return filtered_commits

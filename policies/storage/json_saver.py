@@ -4,7 +4,7 @@ JSON 저장 모듈
 """
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from policies.storage.duplicate_checker import DuplicateChecker
 
@@ -21,10 +21,30 @@ class JSONSaver:
         (self.data_dir / "commits").mkdir(parents=True, exist_ok=True)
         (self.data_dir / "ai_chat").mkdir(parents=True, exist_ok=True)
 
+    def _utc_to_kst(self, utc_time_str: str) -> str:
+        """
+        UTC 시간을 KST로 변환
+
+        Args:
+            utc_time_str: ISO 8601 형식 UTC 시간 (예: "2026-01-21T12:18:56Z")
+
+        Returns:
+            str: KST 시간 (예: "2026-01-21_21-18-56")
+        """
+        # ISO 8601 파싱 (Z를 +00:00으로 변환)
+        utc_time_str = utc_time_str.replace("Z", "+00:00")
+        utc_time = datetime.fromisoformat(utc_time_str)
+
+        # UTC → KST (+9시간)
+        kst_time = utc_time + timedelta(hours=9)
+
+        # 파일명용 형식: YYYY-MM-DD_HH-MM-SS
+        return kst_time.strftime("%Y-%m-%d_%H-%M-%S")
+
     def save_baekjoon(self, data: dict) -> str:
         """
         백준 JSON 저장
-        파일명: 티어_문제번호_문제제목.json (시간 제외)
+        파일명: 티어_문제번호_문제제목_푼시간.json
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -39,9 +59,16 @@ class JSONSaver:
         tier = data.get("티어", "Unknown")
         problem_name = data.get("문제명", "Unknown")
         problem_number = data.get("문제_번호", "Unknown")
+        solved_time = data.get("제출한_날짜", "")
 
-        # 파일명: 티어_번호_제목.json
-        safe_name = self._sanitize_filename(f"{tier}_{problem_number}_{problem_name}")
+        # UTC → KST 변환
+        if solved_time:
+            kst_time = self._utc_to_kst(solved_time)
+        else:
+            kst_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # 파일명: 티어_번호_제목_시간.json
+        safe_name = self._sanitize_filename(f"{tier}_{problem_number}_{problem_name}_{kst_time}")
         filename = f"{safe_name}.json"
 
         # 저장
@@ -54,7 +81,7 @@ class JSONSaver:
     def save_commit(self, data: dict) -> str:
         """
         개발 커밋 JSON 저장
-        파일명: SHA_레포지토리.json (시간 제외)
+        파일명: 레포_브랜치_메시지핵심_커밋시간_수집시간_SHA.json
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -65,14 +92,31 @@ class JSONSaver:
         if self.duplicate_checker.is_duplicate_commit(sha):
             return None
 
-        # 파일명 생성
+        # 파일명 구성 요소
         repo = data.get("레포지토리", "unknown")
+        branch = data.get("브랜치", "unknown")
+        commit_message = data.get("커밋_메시지", "")
+        commit_time = data.get("커밋_날짜", "")
 
-        # SHA 앞 7자리만 사용
+        # SHA 앞 7자리
         short_sha = sha[:7] if sha else "unknown"
 
-        # 파일명: SHA_레포.json
-        safe_name = self._sanitize_filename(f"{short_sha}_{repo}")
+        # 커밋 메시지 핵심 (첫 줄, 30자 제한)
+        message_core = commit_message.split("\n")[0][:30]
+
+        # UTC → KST 변환
+        if commit_time:
+            kst_commit_time = self._utc_to_kst(commit_time)
+        else:
+            kst_commit_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # 수집된 시간 (현재 시간, KST)
+        collected_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # 파일명: 레포_브랜치_메시지_커밋시간_수집시간_SHA.json
+        safe_name = self._sanitize_filename(
+            f"{repo}_{branch}_{message_core}_{kst_commit_time}_{collected_time}_{short_sha}"
+        )
         filename = f"{safe_name}.json"
 
         # 저장

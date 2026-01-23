@@ -130,7 +130,8 @@ class GitHubCollector:
                 "SHA": commit.get("oid"),
                 "변경된_파일_목록": self._get_changed_files(commit),
                 "커밋_날짜": commit.get("committedDate"),
-                "레포지토리": commit.get("repository")
+                "레포지토리": commit.get("repository"),
+                "브랜치": commit.get("branch", "unknown")
             }
 
             # 중복 체크 및 저장
