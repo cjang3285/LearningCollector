@@ -146,6 +146,27 @@ class SchemaPolicy:
         }
     }
 
+    # Draft 검증 규칙
+    DRAFT_VALIDATION_RULES = {
+        "filename_pattern": r'^(algorithm|dev|study)_.+\.md$',
+        "min_length": 200,  # 최소 글자 수
+        "h1_pattern": r'^# .+',  # H1 제목 패턴
+        "h2_pattern": r'^## .+',  # H2 섹션 패턴
+        "error_keywords": [
+            "# 오류",
+            "초안 생성 중 오류 발생",
+            "RESOURCE_EXHAUSTED",
+            "429",
+            "quota",
+            "exceeded your current quota"
+        ],
+        "draft_type_mapping": {
+            "baekjoon": "algorithm",
+            "commits": "dev",
+            "ai_chat": "study"
+        }
+    }
+
     @classmethod
     def get_schema(cls, json_type: str) -> Dict:
         """JSON 타입별 스키마 반환"""
