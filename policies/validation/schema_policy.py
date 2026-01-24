@@ -123,7 +123,7 @@ class SchemaPolicy:
         "모든_대화_내용": {
             "required": True,
             "type": str,
-            "pattern": r'^.+$',
+            "pattern": r'^[\s\S]+$',  # 비어있지 않음 (줄바꿈 포함)
             "description": "대화 전체 내용"
         },
         "Exported_시간": {
