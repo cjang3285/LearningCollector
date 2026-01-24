@@ -232,18 +232,30 @@ if __name__ == "__main__":
     validator.print_report(results)
 
     # 실패 파일 처리
-    if args.save_failed or args.delete_failed:
+    # 실패한 파일 수 계산
+    total_failed = sum(
+        sum(1 for r in type_results if not r.is_valid)
+        for type_results in results.values()
+    )
+
+    if total_failed > 0:
+        # 실패 파일 목록 저장
         failed_count = validator.save_failed_files_list(results)
 
-        if args.delete_failed and failed_count > 0:
-            response = input(f"\n⚠️  {failed_count}개의 실패 파일을 삭제하시겠습니까? (yes/no): ")
-            if response.lower() == "yes":
+        # 삭제 여부 확인 (기본 실행 또는 --delete-failed 플래그)
+        if args.delete_failed or (not args.save_failed and not args.delete_failed):
+            response = input(f"\n⚠️  {failed_count}개의 실패 파일을 삭제하시겠습니까? (y/n): ")
+            if response.lower() in ['y', 'yes']:
                 import subprocess
-                subprocess.run(["xargs", "rm"], stdin=open("failed_files.txt"), check=True)
-                print(f"🗑️  {failed_count}개 파일 삭제 완료")
-                Path("failed_files.txt").unlink()  # 목록 파일도 삭제
+                try:
+                    subprocess.run(["xargs", "rm"], stdin=open("failed_files.txt"), check=True)
+                    print(f"🗑️  {failed_count}개 파일 삭제 완료")
+                    Path("failed_files.txt").unlink()  # 목록 파일도 삭제
+                except Exception as e:
+                    print(f"삭제 실패: {str(e)}")
             else:
                 print("취소되었습니다.")
-    elif not (args.save_failed or args.delete_failed):
-        # 기본 실행 (플래그 없으면 검증만)
-        pass
+                print(f"💾 실패 파일 목록이 failed_files.txt에 저장되었습니다.")
+                print(f"   수동 삭제: xargs rm < failed_files.txt")
+    else:
+        print("\n✅ 모든 파일이 검증을 통과했습니다!")
