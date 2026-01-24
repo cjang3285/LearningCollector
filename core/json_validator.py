@@ -137,26 +137,14 @@ class JSONValidator:
         print(f"전체 요약: {total_files}개 파일 중 ✅ {total_valid}개 통과, ❌ {total_invalid}개 실패")
         print("=" * 80 + "\n")
 
-    def save_failed_files_list(self, results: Dict[str, List[ValidationResult]], output_file: str = "failed_files.txt"):
-        """검증 실패 파일 목록을 텍스트 파일로 저장"""
+    def get_failed_files(self, results: Dict[str, List[ValidationResult]]) -> List[str]:
+        """검증 실패 파일 경로 리스트 반환"""
         failed_files = []
-
         for json_type, type_results in results.items():
             for result in type_results:
                 if not result.is_valid:
                     failed_files.append(result.file_path)
-
-        if failed_files:
-            with open(output_file, "w", encoding="utf-8") as f:
-                for file_path in failed_files:
-                    f.write(f"{file_path}\n")
-
-            print(f"📝 검증 실패 파일 목록 저장: {output_file}")
-            print(f"   삭제 명령어: xargs rm < {output_file}")
-            return len(failed_files)
-        else:
-            print("✅ 모든 파일이 검증을 통과했습니다.")
-            return 0
+        return failed_files
 
     def print_schema_guide(self):
         """스키마 가이드 출력"""
@@ -183,48 +171,7 @@ class JSONValidator:
             print()
 
 
-def run_validator(save_failed_list: bool = False):
-    """
-    검증 실행
-
-    Args:
-        save_failed_list: True일 경우 실패 파일 목록을 failed_files.txt에 저장
-    """
-    validator = JSONValidator()
-
-    print("🔍 JSON 파일 검증 시작...\n")
-
-    # 검증 실행
-    results = validator.validate_all()
-
-    # 결과 출력
-    validator.print_report(results)
-
-    # 실패 파일 목록 저장 (옵션)
-    if save_failed_list:
-        validator.save_failed_files_list(results)
-
-    # 스키마 가이드 출력 (옵션)
-    # validator.print_schema_guide()
-
-
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="JSON 파일 검증 도구")
-    parser.add_argument(
-        "--save-failed",
-        action="store_true",
-        help="검증 실패 파일 목록을 failed_files.txt에 저장"
-    )
-    parser.add_argument(
-        "--delete-failed",
-        action="store_true",
-        help="검증 실패 파일을 즉시 삭제 (주의: 복구 불가능)"
-    )
-
-    args = parser.parse_args()
-
     # 검증 실행
     validator = JSONValidator()
     print("🔍 JSON 파일 검증 시작...\n")
@@ -232,30 +179,19 @@ if __name__ == "__main__":
     validator.print_report(results)
 
     # 실패 파일 처리
-    # 실패한 파일 수 계산
-    total_failed = sum(
-        sum(1 for r in type_results if not r.is_valid)
-        for type_results in results.values()
-    )
+    failed_files = validator.get_failed_files(results)
 
-    if total_failed > 0:
-        # 실패 파일 목록 저장
-        failed_count = validator.save_failed_files_list(results)
-
-        # 삭제 여부 확인 (기본 실행 또는 --delete-failed 플래그)
-        if args.delete_failed or (not args.save_failed and not args.delete_failed):
-            response = input(f"\n⚠️  {failed_count}개의 실패 파일을 삭제하시겠습니까? (y/n): ")
-            if response.lower() in ['y', 'yes']:
-                import subprocess
+    if failed_files:
+        response = input(f"\n⚠️  {len(failed_files)}개의 실패 파일을 삭제하시겠습니까? (y/n): ")
+        if response.lower() in ['y', 'yes']:
+            import os
+            deleted_count = 0
+            for file_path in failed_files:
                 try:
-                    subprocess.run(["xargs", "rm"], stdin=open("failed_files.txt"), check=True)
-                    print(f"🗑️  {failed_count}개 파일 삭제 완료")
-                    Path("failed_files.txt").unlink()  # 목록 파일도 삭제
+                    os.remove(file_path)
+                    deleted_count += 1
                 except Exception as e:
-                    print(f"삭제 실패: {str(e)}")
-            else:
-                print("취소되었습니다.")
-                print(f"💾 실패 파일 목록이 failed_files.txt에 저장되었습니다.")
-                print(f"   수동 삭제: xargs rm < failed_files.txt")
+                    print(f"삭제 실패: {file_path} - {str(e)}")
+            print(f"🗑️  {deleted_count}개 파일 삭제 완료")
     else:
         print("\n✅ 모든 파일이 검증을 통과했습니다!")
