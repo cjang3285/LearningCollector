@@ -77,7 +77,7 @@ class SchemaPolicy:
         "커밋_메시지": {
             "required": True,
             "type": str,
-            "pattern": r'^.+$',
+            "pattern": r'^[\s\S]+$',  # multiline 커밋 메시지 지원
             "description": "커밋 메시지"
         },
         "SHA": {

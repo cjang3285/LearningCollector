@@ -270,18 +270,19 @@ class GeminiDraftGenerator:
         """블로그에 포스팅"""
         for draft_path in draft_paths:
             try:
-                with open(draft_path, "r", encoding="utf-8") as f:
-                    content = f.read()
+                # Draft 파일에서 frontmatter 포함한 모든 메타데이터 파싱
+                result = self.blog_client.create_post_from_draft(draft_path)
 
-                # 제목 추출 (첫 번째 # 제목)
-                title = self._extract_title(content)
-
-                # 블로그 API 호출
-                self.blog_client.create_post(title, content)
-                print(f"    블로그 포스팅 완료: {title}")
+                if result.get("success"):
+                    print(f"    ✅ 블로그 포스팅 완료: {result.get('title', 'Unknown')}")
+                    if result.get("url"):
+                        print(f"       URL: {result['url']}")
+                else:
+                    print(f"    ❌ 블로그 포스팅 실패: {draft_path}")
+                    print(f"       오류: {result.get('message', 'Unknown error')}")
 
             except Exception as e:
-                print(f"    블로그 포스팅 실패: {draft_path} - {str(e)}")
+                print(f"    ❌ 블로그 포스팅 예외 발생: {draft_path} - {str(e)}")
 
     def _extract_title(self, markdown_content: str) -> str:
         """마크다운에서 제목 추출"""
