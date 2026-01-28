@@ -71,15 +71,19 @@ class BlogAPIClient:
 
             # 응답 확인
             if response.status_code == 201:
+                response_data = response.json()
                 return {
                     "success": True,
                     "message": "포스트 생성 성공",
-                    "data": response.json()
+                    "title": title,  # 제목 포함
+                    "data": response_data,
+                    "url": response_data.get("slug", "")  # URL 포함 (있으면)
                 }
             else:
                 return {
                     "success": False,
                     "message": f"포스트 생성 실패: HTTP {response.status_code}",
+                    "title": title,  # 실패해도 제목 포함
                     "error": response.text
                 }
 

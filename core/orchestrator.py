@@ -43,7 +43,7 @@ class Orchestrator:
 
         # 3. GitHub 수집 (GraphQL)
         print("\n[2/3] GitHub 수집 중...")
-        baekjoon_jsons, commit_jsons = self.github_collector.collect(start_date, end_date)
+        baekjoon_jsons, commit_jsons = self.github_collector.collect_interactive(start_date, end_date)
         print(f"  → 백준: {len(baekjoon_jsons)}개, 개발: {len(commit_jsons)}개 JSON 저장 완료")
 
         # 4. Draft 생성 (Gemini)
