@@ -18,7 +18,8 @@ from policies.collection_period import CollectionPeriodManager
 class Orchestrator:
     """전체 흐름 조율 클래스"""
 
-    def __init__(self):
+    def __init__(self, auto=False):
+        self.auto = auto
         self.period_manager = CollectionPeriodManager()
         self.ai_chat_collector = AIChatCollector()
         self.github_collector = GitHubCollector()
@@ -43,7 +44,12 @@ class Orchestrator:
 
         # 3. GitHub 수집 (GraphQL)
         print("\n[2/3] GitHub 수집 중...")
-        baekjoon_jsons, commit_jsons = self.github_collector.collect_interactive(start_date, end_date)
+        if self.auto:
+            # Auto 모드: 모든 레포/브랜치 자동 조회
+            baekjoon_jsons, commit_jsons = self.github_collector.collect(start_date, end_date)
+        else:
+            # Interactive 모드: 레포/브랜치 선택
+            baekjoon_jsons, commit_jsons = self.github_collector.collect_interactive(start_date, end_date)
         print(f"  → 백준: {len(baekjoon_jsons)}개, 개발: {len(commit_jsons)}개 JSON 저장 완료")
 
         # 4. Draft 생성 (Gemini)
@@ -63,9 +69,14 @@ class Orchestrator:
         print("="*50)
 
 
-def run_orchestrator():
-    """Orchestrator 실행 함수"""
-    orchestrator = Orchestrator()
+def run_orchestrator(auto=False):
+    """Orchestrator 실행 함수
+
+    Args:
+        auto: True면 모든 레포/브랜치 자동 조회 (cron job용)
+              False면 대화형으로 레포/브랜치 선택 (수동 실행용)
+    """
+    orchestrator = Orchestrator(auto=auto)
     orchestrator.run()
 
 

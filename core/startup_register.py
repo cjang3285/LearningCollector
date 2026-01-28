@@ -50,7 +50,7 @@ class StartupRegister:
   <Actions>
     <Exec>
       <Command>{python_path}</Command>
-      <Arguments>{script_path}</Arguments>
+      <Arguments>{script_path} --auto</Arguments>
     </Exec>
   </Actions>
 </Task>"""
@@ -102,9 +102,9 @@ class StartupRegister:
             # 기존 작업 제거
             cron.remove_all(comment="LearningCollector")
 
-            # 새 작업 추가 (매일 자정)
+            # 새 작업 추가 (매일 자정, auto 모드)
             job = cron.new(
-                command=f"{python_path} {script_path}",
+                command=f"{python_path} {script_path} --auto",
                 comment="LearningCollector"
             )
             job.setall("0 0 * * *")  # 매일 자정
@@ -132,7 +132,7 @@ class StartupRegister:
         # plist 내용 정의
         plist_content = {
             "Label": plist_name,
-            "ProgramArguments": [python_path, script_path],
+            "ProgramArguments": [python_path, script_path, "--auto"],
             "StartCalendarInterval": {
                 "Hour": 0,
                 "Minute": 0
