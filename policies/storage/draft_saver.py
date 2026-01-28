@@ -3,7 +3,6 @@ Draft 저장 모듈
 MD draft 작성 및 저장
 파일명: draft의 종류(dev, algorithm, study) + 초안 생성 시간 + 초안 작성에 쓰인 첨부파일 이름.md
 """
-import re
 from pathlib import Path
 from datetime import datetime
 
@@ -21,11 +20,11 @@ class DraftSaver:
 
     def save_draft(self, draft_type: str, content: str, source_json: str) -> str:
         """
-        Draft 저장 (frontmatter 자동 추가)
+        Draft 저장 (Gemini 출력 그대로)
 
         Args:
             draft_type: draft 종류 (algorithm, dev, study)
-            content: 초안 내용 (마크다운, frontmatter 없음)
+            content: 초안 내용 (마크다운)
             source_json: 첨부파일 이름 (JSON 파일명)
 
         Returns:
@@ -40,69 +39,11 @@ class DraftSaver:
         # 저장 경로
         file_path = self.draft_dir / draft_type / filename
 
-        # frontmatter 추가
-        content_with_frontmatter = self._add_frontmatter(content, draft_type)
-
-        # 저장
+        # 저장 (Gemini 출력 그대로)
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content_with_frontmatter)
+            f.write(content)
 
         return str(file_path)
-
-    def _add_frontmatter(self, content: str, draft_type: str) -> str:
-        """
-        마크다운 콘텐츠에 frontmatter 추가
-
-        Args:
-            content: 마크다운 콘텐츠 (H1 제목부터 시작)
-            draft_type: draft 종류 (algorithm, dev, study)
-
-        Returns:
-            str: frontmatter가 추가된 마크다운
-        """
-        lines = content.split('\n')
-
-        # H1 제목 추출
-        title = ""
-        excerpt = ""
-        content_start_index = 0
-
-        for i, line in enumerate(lines):
-            if line.strip().startswith('# '):
-                title = line.strip()[2:].strip()
-                content_start_index = i + 1
-                break
-
-        # 첫 문단 추출 (H1 다음 첫 번째 비어있지 않은 줄)
-        for i in range(content_start_index, len(lines)):
-            line = lines[i].strip()
-            if line and not line.startswith('#'):
-                # 순수 텍스트만 추출 (마크다운 제거)
-                excerpt = re.sub(r'[*_`\[\]()#]', '', line)
-                # 200자 제한
-                if len(excerpt) > 200:
-                    excerpt = excerpt[:197] + "..."
-                break
-
-        # 기본 태그
-        tag_mapping = {
-            "algorithm": ["알고리즘", "백준"],
-            "dev": ["개발", "프로젝트"],
-            "study": ["학습", "AI"]
-        }
-        tags = tag_mapping.get(draft_type, ["기타"])
-
-        # frontmatter 생성
-        frontmatter = f"""---
-title: "{title}"
-excerpt: "{excerpt}"
-tags: {tags}
-featured: false
----
-
-"""
-
-        return frontmatter + content
 
     def is_duplicate_draft(self, source_json: str, draft_type: str) -> bool:
         """
