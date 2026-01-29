@@ -270,7 +270,7 @@ class GeminiDraftGenerator:
         """블로그에 포스팅"""
         for draft_path in draft_paths:
             try:
-                # Draft 파일에서 frontmatter 포함한 모든 메타데이터 파싱
+                # Draft 파일에서 메타데이터 추출 (H1 제목, 첫 문단 등)
                 result = self.blog_client.create_post_from_draft(draft_path)
 
                 if result.get("success"):

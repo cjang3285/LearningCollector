@@ -89,6 +89,132 @@ class GitHubCollector:
 
         return baekjoon_files, dev_files
 
+    def collect_interactive(self, start_date: datetime, end_date: datetime) -> Tuple[List[str], List[str]]:
+        """
+        대화형으로 레포/브랜치 선택하여 커밋 수집
+
+        Returns:
+            Tuple[List[str], List[str]]: (백준 JSON 파일명 리스트, 개발 JSON 파일명 리스트)
+        """
+        username = os.getenv("GITHUB_USERNAME")
+
+        # 1. 레포 선택
+        print(f"\n📦 {username}의 레포지토리 조회 중...")
+        repos = self.github_client.fetch_repositories(username)
+
+        if not repos:
+            print("레포지토리가 없습니다.")
+            return [], []
+
+        print(f"\n총 {len(repos)}개의 레포지토리:")
+        for i, repo in enumerate(repos, 1):
+            print(f"  {i}. {repo['name']}")
+
+        # 레포 선택
+        while True:
+            try:
+                selection = input(f"\n레포 번호 입력 (1-{len(repos)}, 또는 'all'): ").strip()
+
+                if selection.lower() == 'all':
+                    selected_repos = repos
+                    break
+                else:
+                    idx = int(selection) - 1
+                    if 0 <= idx < len(repos):
+                        selected_repos = [repos[idx]]
+                        break
+                    else:
+                        print(f"1부터 {len(repos)} 사이의 숫자를 입력하세요.")
+            except ValueError:
+                print("올바른 숫자를 입력하세요.")
+
+        # 2. 선택된 레포별로 브랜치 선택
+        all_commits = []
+
+        for repo in selected_repos:
+            repo_name = repo['name']
+            owner = repo['owner']['login']
+
+            print(f"\n📂 {repo_name}의 브랜치 조회 중...")
+            branches = self.github_client.fetch_branches(owner, repo_name)
+
+            if not branches:
+                print(f"  브랜치가 없습니다.")
+                continue
+
+            print(f"\n  총 {len(branches)}개의 브랜치:")
+            for i, branch in enumerate(branches, 1):
+                print(f"    {i}. {branch}")
+
+            # 브랜치 선택
+            while True:
+                try:
+                    selection = input(f"  브랜치 번호 입력 (1-{len(branches)}, 또는 'all'): ").strip()
+
+                    if selection.lower() == 'all':
+                        selected_branches = branches
+                        break
+                    else:
+                        idx = int(selection) - 1
+                        if 0 <= idx < len(branches):
+                            selected_branches = [branches[idx]]
+                            break
+                        else:
+                            print(f"  1부터 {len(branches)} 사이의 숫자를 입력하세요.")
+                except ValueError:
+                    print("  올바른 숫자를 입력하세요.")
+
+            # 3. 선택된 브랜치에서 커밋 수집
+            for branch in selected_branches:
+                print(f"\n  🔍 {repo_name}/{branch} 커밋 수집 중...")
+                commits = self.github_client.fetch_branch_commits(
+                    owner, repo_name, branch, start_date, end_date
+                )
+
+                if commits:
+                    print(f"    {len(commits)}개 커밋 발견")
+                    all_commits.extend(commits)
+                else:
+                    print(f"    커밋 없음")
+
+        print(f"\n총 {len(all_commits)}개의 커밋 수집 완료")
+
+        # 4. 중복 체크
+        new_commits = []
+        duplicate_commits = []
+
+        for commit in all_commits:
+            sha = commit.get("oid")
+            message = commit.get("message", "")[:50]
+
+            if self.duplicate_checker.is_duplicate_baekjoon(sha) or self.duplicate_checker.is_duplicate_commit(sha):
+                duplicate_commits.append(f"{sha[:7]} - {message}")
+            else:
+                new_commits.append(commit)
+
+        if duplicate_commits:
+            print(f"\n  ⚠️  중복 제외: {len(duplicate_commits)}개 (이미 저장됨)")
+        else:
+            print(f"\n  ✓ 모든 커밋이 신규입니다")
+
+        # 5. 백준 / 개발 분류
+        baekjoon_commits = []
+        dev_commits = []
+
+        for commit in new_commits:
+            if self.classifier.is_baekjoon_commit(commit):
+                baekjoon_commits.append(commit)
+            else:
+                dev_commits.append(commit)
+
+        print(f"  분류 완료 - 백준: {len(baekjoon_commits)}, 개발: {len(dev_commits)}")
+
+        # 6. JSON 저장
+        baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
+        dev_files = self._save_dev_commits(dev_commits)
+
+        return baekjoon_files, dev_files
+
     def _save_baekjoon_commits(self, commits: List[dict]) -> List[str]:
         """백준 커밋을 JSON으로 저장"""
         saved_files = []

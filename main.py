@@ -6,6 +6,7 @@ LearningCollector - 메인 실행 파일
 """
 import os
 import sys
+import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 import getpass
@@ -57,8 +58,21 @@ def setup_env_cli():
 
 def main():
     """메인 실행 함수"""
+    # 명령행 인자 파싱
+    parser = argparse.ArgumentParser(description="LearningCollector - 학습 자료 수집 및 블로그 포스팅 자동화")
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="자동 모드 (모든 레포/브랜치 자동 조회, cron job용)"
+    )
+    args = parser.parse_args()
+
     print("="*60)
     print("LearningCollector 시작")
+    if args.auto:
+        print("(Auto 모드: 모든 레포/브랜치 자동 조회)")
+    else:
+        print("(Interactive 모드: 레포/브랜치 선택)")
     print("="*60)
 
     # 1. .env 파일 존재 여부 확인
@@ -105,7 +119,7 @@ def main():
     print("\n메인 수집 작업 시작...\n")
 
     try:
-        run_orchestrator()
+        run_orchestrator(auto=args.auto)
         print("\n모든 작업이 완료되었습니다.")
 
     except KeyboardInterrupt:

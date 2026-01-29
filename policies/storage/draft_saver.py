@@ -20,7 +20,7 @@ class DraftSaver:
 
     def save_draft(self, draft_type: str, content: str, source_json: str) -> str:
         """
-        Draft 저장
+        Draft 저장 (Gemini 출력 그대로)
 
         Args:
             draft_type: draft 종류 (algorithm, dev, study)
@@ -39,7 +39,7 @@ class DraftSaver:
         # 저장 경로
         file_path = self.draft_dir / draft_type / filename
 
-        # 저장
+        # 저장 (Gemini 출력 그대로)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 

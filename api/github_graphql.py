@@ -42,7 +42,7 @@ class GitHubGraphQLClient:
         print(f"    📅 수집 기간: {start_date.strftime('%Y-%m-%d %H:%M:%S')} ~ {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # 1. 사용자의 모든 레포지토리 조회
-        repositories = self._fetch_repositories(username)
+        repositories = self.fetch_repositories(username)
         print(f"    → {len(repositories)}개 레포지토리 발견")
 
         # 2. 각 레포지토리의 모든 브랜치에서 커밋 수집
@@ -50,7 +50,7 @@ class GitHubGraphQLClient:
             repo_name = repo["name"]
 
             # 레포의 모든 브랜치 조회
-            branches = self._fetch_branches(username, repo_name)
+            branches = self.fetch_branches(username, repo_name)
             print(f"    {repo_name}/")
 
             # 각 브랜치에서 커밋 수집
@@ -58,7 +58,7 @@ class GitHubGraphQLClient:
                 is_last_branch = (idx == len(branches) - 1)
                 branch_prefix = "    └─ " if is_last_branch else "    ├─ "
 
-                commits = self._fetch_branch_commits(
+                commits = self.fetch_branch_commits(
                     username, repo_name, branch, start_date, end_date
                 )
 
@@ -80,8 +80,8 @@ class GitHubGraphQLClient:
         print(f"    ✅ 총 수집: {len(all_commits)}개 커밋")
         return all_commits
 
-    def _fetch_repositories(self, username: str) -> List[dict]:
-        """사용자의 모든 레포지토리 조회"""
+    def fetch_repositories(self, username: str) -> List[dict]:
+        """사용자의 모든 레포지토리 조회 (public)"""
         query = """
         query($username: String!, $cursor: String) {
           user(login: $username) {
@@ -119,8 +119,8 @@ class GitHubGraphQLClient:
 
         return repositories
 
-    def _fetch_branches(self, owner: str, repo_name: str) -> List[str]:
-        """레포지토리의 모든 브랜치 조회"""
+    def fetch_branches(self, owner: str, repo_name: str) -> List[str]:
+        """레포지토리의 모든 브랜치 조회 (public)"""
         query = """
         query($owner: String!, $name: String!, $cursor: String) {
           repository(owner: $owner, name: $name) {
@@ -163,7 +163,7 @@ class GitHubGraphQLClient:
 
         return branches
 
-    def _fetch_branch_commits(
+    def fetch_branch_commits(
         self,
         owner: str,
         repo_name: str,
@@ -171,7 +171,7 @@ class GitHubGraphQLClient:
         start_date: datetime,
         end_date: datetime
     ) -> List[dict]:
-        """특정 브랜치의 커밋 조회 (since만 사용)"""
+        """특정 브랜치의 커밋 조회 (public)"""
         query = """
         query($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!) {
           repository(owner: $owner, name: $name) {
