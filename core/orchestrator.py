@@ -1,11 +1,11 @@
 """
 전체 흐름 조율 모듈 (Orchestrator)
-대화형 인터페이스로 수집 → 초안 작성 → 포스팅 진행
+대화형 인터페이스로 수집 → 번호 선택 → 초안 작성 → 포스팅
 """
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 # 콜렉터 임포트
 from core.ai_chat_collector import AIChatCollector
@@ -39,37 +39,19 @@ class Orchestrator:
         # 1. 데이터 수집
         ai_chat_jsons, baekjoon_jsons, commit_jsons = self._collect_all()
 
-        # 2. 수집 결과 요약 표시
+        # 2. 수집 결과 요약 및 처리
         total_new = len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons)
-        print("\n" + "=" * 50)
-        print("📊 수집 결과 요약")
-        print("=" * 50)
 
         if total_new == 0:
+            print("\n" + "=" * 50)
+            print("📊 수집 결과")
+            print("=" * 50)
             print("  새로 수집된 데이터가 없습니다.")
         else:
-            self._show_collection_summary(ai_chat_jsons, baekjoon_jsons, commit_jsons)
-
-        # 3. 미처리 JSON 확인
-        pending = self.json_saver.get_pending_jsons()
-        has_pending = len(pending["no_draft"]) > 0 or len(pending["no_post"]) > 0
-
-        if has_pending:
-            print("\n" + "-" * 50)
-            print("⏳ 미처리 항목")
-            print("-" * 50)
-            if pending["no_draft"]:
-                print(f"  초안 미작성: {len(pending['no_draft'])}개")
-            if pending["no_post"]:
-                print(f"  포스팅 미완료: {len(pending['no_post'])}개")
-
-        # 4. 대화형 처리
-        if self.auto:
-            # Auto 모드: 전체 자동 처리
-            self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pending)
-        else:
-            # Interactive 모드: 사용자에게 선택권 제공
-            self._interactive_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pending)
+            if self.auto:
+                self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons)
+            else:
+                self._interactive_process(ai_chat_jsons, baekjoon_jsons, commit_jsons)
 
         print("\n" + "=" * 50)
         print("LearningCollector 실행 완료")
@@ -94,14 +76,18 @@ class Orchestrator:
         start_date = min(baek_start, commit_start)
         end_date = max(baek_end, commit_end)
 
-        print(f"  📅 조회 기간: {start_date.strftime('%Y-%m-%d %H:%M')} ~ {end_date.strftime('%Y-%m-%d %H:%M')} UTC")
+        # UTC와 KST 둘 다 표시
+        start_kst = start_date + timedelta(hours=9)
+        end_kst = end_date + timedelta(hours=9)
+        print(f"  📅 조회 기간(UTC): {start_date.strftime('%Y-%m-%d %H:%M')} ~ {end_date.strftime('%Y-%m-%d %H:%M')}")
+        print(f"  📅 조회 기간(KST): {start_kst.strftime('%Y-%m-%d %H:%M')} ~ {end_kst.strftime('%Y-%m-%d %H:%M')}")
 
         if self.auto:
             baekjoon_jsons, commit_jsons = self.github_collector.collect(start_date, end_date)
         else:
             baekjoon_jsons, commit_jsons = self.github_collector.collect_interactive(start_date, end_date)
 
-        print(f"  → 백준: {len(baekjoon_jsons)}개, 개발: {len(commit_jsons)}개 JSON 저장 완료")
+        print(f"  → 백준허브: {len(baekjoon_jsons)}개, 개발사항: {len(commit_jsons)}개 JSON 저장 완료")
 
         # 성공적으로 수집된 소스만 시간 업데이트
         if baekjoon_jsons:
@@ -111,39 +97,10 @@ class Orchestrator:
 
         return ai_chat_jsons, baekjoon_jsons, commit_jsons
 
-    def _show_collection_summary(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
-        """수집 결과 요약 표시"""
-        if ai_chat_jsons:
-            print(f"\n  📝 AI Chat ({len(ai_chat_jsons)}개):")
-            for json_file in ai_chat_jsons[:5]:
-                summary = self.json_saver.get_json_summary(json_file)
-                print(f"    - [{summary.get('ai', '?')}] {summary.get('title', json_file)}")
-            if len(ai_chat_jsons) > 5:
-                print(f"    ... 외 {len(ai_chat_jsons) - 5}개")
-
-        if baekjoon_jsons:
-            print(f"\n  🏆 백준 ({len(baekjoon_jsons)}개):")
-            for json_file in baekjoon_jsons[:5]:
-                summary = self.json_saver.get_json_summary(json_file)
-                print(f"    - [{summary.get('number', '?')}] {summary.get('title', json_file)}")
-            if len(baekjoon_jsons) > 5:
-                print(f"    ... 외 {len(baekjoon_jsons) - 5}개")
-
-        if commit_jsons:
-            print(f"\n  💻 개발 커밋 ({len(commit_jsons)}개):")
-            for json_file in commit_jsons[:5]:
-                summary = self.json_saver.get_json_summary(json_file)
-                print(f"    - [{summary.get('repo', '?')}] {summary.get('title', json_file)}")
-            if len(commit_jsons) > 5:
-                print(f"    ... 외 {len(commit_jsons) - 5}개")
-
-    def _auto_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons, pending):
-        """Auto 모드: 새로 수집된 것만 자동 처리 (pending은 무시)"""
+    def _auto_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
+        """Auto 모드: 새로 수집된 것 전체 자동 처리"""
 
         all_new = ai_chat_jsons + baekjoon_jsons + commit_jsons
-        if not all_new:
-            print("\n[Auto] 새로 수집된 항목 없음")
-            return
 
         print("\n[Auto] 새 항목 블로그 초안 생성 및 포스팅 중...")
         drafts = self.draft_generator.generate_drafts(
@@ -159,157 +116,120 @@ class Orchestrator:
 
         print(f"  → {len(drafts)}개의 초안 생성 완료")
 
-        # pending 항목은 무시 (interactive에서만 처리)
-        no_draft = pending.get("no_draft", [])
-        no_post = pending.get("no_post", [])
-        if no_draft or no_post:
-            print(f"  ℹ️  미처리 항목 {len(no_draft) + len(no_post)}개는 수동 실행에서 처리하세요")
+    def _interactive_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
+        """Interactive 모드: 번호 선택 방식"""
 
-    def _interactive_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons, pending):
-        """Interactive 모드: 대화형 처리"""
-        all_new_jsons = ai_chat_jsons + baekjoon_jsons + commit_jsons
+        # 전체 항목 리스트 생성 (번호 부여)
+        all_items = []  # [(번호, 폴더, 파일명, 요약), ...]
 
-        # 새 JSON이 있는 경우
-        if all_new_jsons:
-            print("\n" + "-" * 50)
-            choice = input("📮 새로 수집된 항목을 포스팅하시겠습니까? (y/n): ").strip().lower()
+        print("\n" + "=" * 50)
+        print("📊 수집 결과 요약")
+        print("=" * 50)
 
-            if choice == 'y':
-                self._process_new_jsons(ai_chat_jsons, baekjoon_jsons, commit_jsons)
+        idx = 1
+
+        if ai_chat_jsons:
+            print(f"\n  📝 AI Chat ({len(ai_chat_jsons)}개):")
+            for json_file in ai_chat_jsons:
+                summary = self.json_saver.get_json_summary(json_file)
+                print(f"    {idx}. [{summary.get('ai', '?')}] {summary.get('title', json_file)[:40]}")
+                all_items.append((idx, "ai_chat", json_file, summary))
+                idx += 1
+
+        if baekjoon_jsons:
+            print(f"\n  🏆 백준허브 커밋 ({len(baekjoon_jsons)}개):")
+            for json_file in baekjoon_jsons:
+                summary = self.json_saver.get_json_summary(json_file)
+                print(f"    {idx}. [{summary.get('number', '?')}] {summary.get('title', json_file)[:40]}")
+                all_items.append((idx, "baekjoon", json_file, summary))
+                idx += 1
+
+        if commit_jsons:
+            print(f"\n  💻 개발사항 커밋 ({len(commit_jsons)}개):")
+            for json_file in commit_jsons:
+                summary = self.json_saver.get_json_summary(json_file)
+                print(f"    {idx}. [{summary.get('repo', '?')}] {summary.get('title', json_file)[:40]}")
+                all_items.append((idx, "commits", json_file, summary))
+                idx += 1
+
+        # 선택 입력
+        print("\n" + "-" * 50)
+        print("📮 초안 작성할 항목 번호 입력")
+        print("   - 번호 입력 (쉼표 구분): 1,3,5")
+        print("   - 전체 처리: all")
+        print("   - 전체 포기: n (선택 안 한 항목은 영구 포기)")
+        print("-" * 50)
+
+        choice = input("선택: ").strip().lower()
+
+        if choice == 'n' or choice == '':
+            # 전체 영구 포기
+            print("\n  ⏭️  전체 영구 포기 처리 중...")
+            for _, folder, filename, _ in all_items:
+                self.json_saver.update_status(filename, "skipped", True)
+                self.json_saver.update_status(filename, "draft_created", True)
+                self.json_saver.update_status(filename, "posted", True)
+            print(f"  → {len(all_items)}개 항목 영구 포기 완료")
+            return
+
+        if choice == 'all':
+            # 전체 처리
+            selected_indices = set(range(1, len(all_items) + 1))
+        else:
+            # 번호 파싱
+            try:
+                selected_indices = set()
+                for part in choice.split(','):
+                    part = part.strip()
+                    if '-' in part:
+                        # 범위 (1-5)
+                        start, end = part.split('-')
+                        selected_indices.update(range(int(start), int(end) + 1))
+                    else:
+                        selected_indices.add(int(part))
+            except ValueError:
+                print("  ⚠️  잘못된 입력. 전체 영구 포기 처리합니다.")
+                for _, folder, filename, _ in all_items:
+                    self.json_saver.update_status(filename, "skipped", True)
+                    self.json_saver.update_status(filename, "draft_created", True)
+                    self.json_saver.update_status(filename, "posted", True)
+                return
+
+        # 선택된 항목과 포기 항목 분리
+        selected_items = []
+        skipped_items = []
+
+        for item in all_items:
+            if item[0] in selected_indices:
+                selected_items.append(item)
             else:
-                print("  다음 실행에서 처리합니다.")
+                skipped_items.append(item)
 
-        # 미처리 항목이 있는 경우 (새 JSON과 별개로 항상 확인)
-        current_pending = self.json_saver.get_pending_jsons()
+        # 포기 항목 처리
+        if skipped_items:
+            for _, folder, filename, _ in skipped_items:
+                self.json_saver.update_status(filename, "skipped", True)
+                self.json_saver.update_status(filename, "draft_created", True)
+                self.json_saver.update_status(filename, "posted", True)
+            print(f"\n  ⏭️  {len(skipped_items)}개 항목 영구 포기")
 
-        if current_pending["no_draft"] or current_pending["no_post"]:
-            # 새 JSON 제외 (방금 처리하지 않기로 한 것들)
-            existing_no_draft = [
-                item for item in current_pending["no_draft"]
-                if item[1] not in all_new_jsons
-            ]
-            existing_no_post = [
-                item for item in current_pending["no_post"]
-                if item[1] not in all_new_jsons
-            ]
+        # 선택 항목 처리
+        if selected_items:
+            print(f"\n[처리] {len(selected_items)}개 항목 블로그 초안 생성 중...")
 
-            if existing_no_draft or existing_no_post:
-                filtered_pending = {
-                    "no_draft": existing_no_draft,
-                    "no_post": existing_no_post
-                }
-                self._handle_pending_items(filtered_pending)
+            # 폴더별로 분류
+            ai_chat = [f for _, folder, f, _ in selected_items if folder == "ai_chat"]
+            baekjoon = [f for _, folder, f, _ in selected_items if folder == "baekjoon"]
+            commits = [f for _, folder, f, _ in selected_items if folder == "commits"]
 
-    def _process_new_jsons(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
-        """새 JSON 처리 (초안 작성 및 포스팅)"""
-        print("\n[처리] 블로그 초안 생성 중...")
+            drafts = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
 
-        drafts = self.draft_generator.generate_drafts(
-            ai_chat_jsons,
-            baekjoon_jsons,
-            commit_jsons
-        )
+            # 상태 업데이트
+            for _, folder, filename, _ in selected_items:
+                self.json_saver.update_status(filename, "draft_created", True)
+                self.json_saver.update_status(filename, "posted", True)
 
-        # 성공한 것들의 상태 업데이트
-        for json_file in ai_chat_jsons:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
-        for json_file in baekjoon_jsons:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
-        for json_file in commit_jsons:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
-
-        print(f"  → {len(drafts)}개의 초안 생성 및 포스팅 완료")
-
-    def _handle_pending_items(self, pending):
-        """미처리 항목 처리"""
-        no_draft = pending["no_draft"]
-        no_post = pending["no_post"]
-
-        if no_draft:
-            print("\n" + "-" * 50)
-            print(f"📋 초안 미작성 항목 ({len(no_draft)}개):")
-            for i, (folder, filename) in enumerate(no_draft[:10], 1):
-                summary = self.json_saver.get_json_summary(filename)
-                print(f"  {i}. [{summary.get('type', '?')}] {summary.get('title', filename)}")
-            if len(no_draft) > 10:
-                print(f"  ... 외 {len(no_draft) - 10}개")
-
-            print("\n옵션:")
-            print("  1. 지금 초안 작성 및 포스팅")
-            print("  2. 다음 실행에서 처리")
-            print("  3. 영구 포기 (이 항목들 다시 묻지 않음)")
-
-            choice = input("선택 (1/2/3): ").strip()
-
-            if choice == '1':
-                self._retry_drafts(no_draft)
-            elif choice == '3':
-                self._skip_items(no_draft)
-            else:
-                print("  다음 실행에서 처리합니다.")
-
-        if no_post:
-            print("\n" + "-" * 50)
-            print(f"📋 포스팅 미완료 항목 ({len(no_post)}개):")
-            for i, (folder, filename) in enumerate(no_post[:10], 1):
-                summary = self.json_saver.get_json_summary(filename)
-                print(f"  {i}. [{summary.get('type', '?')}] {summary.get('title', filename)}")
-            if len(no_post) > 10:
-                print(f"  ... 외 {len(no_post) - 10}개")
-
-            print("\n옵션:")
-            print("  1. 지금 재시도")
-            print("  2. 다음 실행에서 처리")
-            print("  3. 영구 포기")
-
-            choice = input("선택 (1/2/3): ").strip()
-
-            if choice == '1':
-                self._retry_posts(no_post)
-            elif choice == '3':
-                self._skip_items(no_post)
-            else:
-                print("  다음 실행에서 처리합니다.")
-
-    def _retry_drafts(self, items: List[Tuple[str, str]]):
-        """초안 작성 재시도"""
-        ai_chat = [f for folder, f in items if folder == "ai_chat"]
-        baekjoon = [f for folder, f in items if folder == "baekjoon"]
-        commits = [f for folder, f in items if folder == "commits"]
-
-        print("\n[재시도] 초안 생성 중...")
-        drafts = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
-
-        # 상태 업데이트
-        for folder, filename in items:
-            self.json_saver.update_status(filename, "draft_created", True)
-            self.json_saver.update_status(filename, "posted", True)
-
-        print(f"  → {len(drafts)}개 처리 완료")
-
-    def _retry_posts(self, items: List[Tuple[str, str]]):
-        """포스팅 재시도"""
-        print("\n[재시도] 포스팅 중...")
-
-        for folder, filename in items:
-            # 기존 draft 파일 찾아서 포스팅
-            summary = self.json_saver.get_json_summary(filename)
-            print(f"  처리 중: {summary.get('title', filename)}")
-            self.json_saver.update_status(filename, "posted", True)
-
-        print(f"  → {len(items)}개 처리 완료")
-
-    def _skip_items(self, items: List[Tuple[str, str]]):
-        """항목 영구 포기"""
-        for folder, filename in items:
-            self.json_saver.update_status(filename, "skipped", True)
-            self.json_saver.update_status(filename, "draft_created", True)
-            self.json_saver.update_status(filename, "posted", True)
-
-        print(f"  → {len(items)}개 항목을 영구 포기로 표시했습니다.")
+            print(f"  → {len(drafts)}개의 초안 생성 및 포스팅 완료")
 
 
 def run_orchestrator(auto=False):

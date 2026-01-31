@@ -32,21 +32,21 @@ class CollectionPeriodManager:
 
     def get_baekjoon_period(self) -> tuple:
         """
-        백준 커밋 수집 기간 계산
+        백준허브 커밋 수집 기간 계산
 
         Returns:
             tuple: (start_date, end_date) - UTC datetime
         """
-        return self._get_source_period(self.baekjoon_log, "백준")
+        return self._get_source_period(self.baekjoon_log, "백준허브 커밋")
 
     def get_commits_period(self) -> tuple:
         """
-        개발 커밋 수집 기간 계산
+        개발사항 커밋 수집 기간 계산
 
         Returns:
             tuple: (start_date, end_date) - UTC datetime
         """
-        return self._get_source_period(self.commits_log, "개발 커밋")
+        return self._get_source_period(self.commits_log, "개발사항 커밋")
 
     def _get_source_period(self, log_path: Path, source_name: str) -> tuple:
         """
