@@ -92,8 +92,12 @@ class StartupRegister:
         """Linux cron에 등록"""
         from crontab import CronTab
 
-        python_path = sys.executable
-        script_path = str(self.script_path.absolute())
+        # 실제 프로젝트 경로 (라즈베리파이 기준)
+        project_dir = "/home/jcw/LearningCollector_v1.0"
+        log_file = f"{project_dir}/log/cron.log"
+
+        # 가상환경 활성화 + 스크립트 실행 명령
+        command = f"cd {project_dir} && source venv/bin/activate && python main.py --auto >> {log_file} 2>&1"
 
         try:
             # 사용자 crontab 가져오기
@@ -104,7 +108,7 @@ class StartupRegister:
 
             # 새 작업 추가 (매일 자정, auto 모드)
             job = cron.new(
-                command=f"{python_path} {script_path} --auto",
+                command=command,
                 comment="LearningCollector"
             )
             job.setall("0 0 * * *")  # 매일 자정
@@ -113,6 +117,8 @@ class StartupRegister:
             cron.write()
 
             print("Linux cron에 등록 완료 (매일 자정 실행)")
+            print(f"  경로: {project_dir}")
+            print(f"  로그: {log_file}")
             return True
 
         except Exception as e:
