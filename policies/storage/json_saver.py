@@ -242,9 +242,12 @@ class JSONSaver:
 
         return False
 
-    def get_pending_jsons(self) -> dict:
+    def get_pending_jsons(self, verbose: bool = False) -> dict:
         """
         처리되지 않은 JSON 파일들 조회
+
+        Args:
+            verbose: True면 상세 로그 출력
 
         Returns:
             dict: {
@@ -260,9 +263,15 @@ class JSONSaver:
         for subdir in ["baekjoon", "commits", "ai_chat"]:
             folder = self.data_dir / subdir
             if not folder.exists():
+                if verbose:
+                    print(f"  [DEBUG] 폴더 없음: {folder}")
                 continue
 
-            for json_file in folder.glob("*.json"):
+            json_files = list(folder.glob("*.json"))
+            if verbose:
+                print(f"  [DEBUG] {subdir}/: {len(json_files)}개 JSON 발견")
+
+            for json_file in json_files:
                 try:
                     with open(json_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
@@ -271,16 +280,27 @@ class JSONSaver:
 
                     # skipped면 무시
                     if status.get("skipped", False):
+                        if verbose:
+                            print(f"    [SKIP] {json_file.name}: skipped=True")
                         continue
 
                     # 초안 미작성
                     if not status.get("draft_created", False):
                         result["no_draft"].append((subdir, json_file.name))
+                        if verbose:
+                            print(f"    [PENDING] {json_file.name}: draft_created=False")
                     # 초안은 작성됐지만 포스팅 미완료
                     elif not status.get("posted", False):
                         result["no_post"].append((subdir, json_file.name))
+                        if verbose:
+                            print(f"    [PENDING] {json_file.name}: posted=False")
+                    else:
+                        if verbose:
+                            print(f"    [DONE] {json_file.name}: 처리 완료")
 
-                except Exception:
+                except Exception as e:
+                    if verbose:
+                        print(f"    [ERROR] {json_file.name}: {e}")
                     continue
 
         return result

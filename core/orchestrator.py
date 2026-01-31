@@ -66,7 +66,7 @@ class Orchestrator:
         # 4. 대화형 처리
         if self.auto:
             # Auto 모드: 전체 자동 처리
-            self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons)
+            self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pending)
         else:
             # Interactive 모드: 사용자에게 선택권 제공
             self._interactive_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pending)
@@ -137,31 +137,49 @@ class Orchestrator:
             if len(commit_jsons) > 5:
                 print(f"    ... 외 {len(commit_jsons) - 5}개")
 
-    def _auto_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
-        """Auto 모드: 전체 자동 처리"""
-        all_jsons = ai_chat_jsons + baekjoon_jsons + commit_jsons
-        if not all_jsons:
-            return
+    def _auto_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons, pending):
+        """Auto 모드: 전체 자동 처리 (새 JSON + pending 항목)"""
 
-        print("\n[Auto] 블로그 초안 생성 및 포스팅 중...")
-        drafts = self.draft_generator.generate_drafts(
-            ai_chat_jsons,
-            baekjoon_jsons,
-            commit_jsons
-        )
+        # 1. 새 JSON 처리
+        all_new = ai_chat_jsons + baekjoon_jsons + commit_jsons
+        if all_new:
+            print("\n[Auto] 새 항목 블로그 초안 생성 및 포스팅 중...")
+            drafts = self.draft_generator.generate_drafts(
+                ai_chat_jsons,
+                baekjoon_jsons,
+                commit_jsons
+            )
 
-        # 상태 업데이트
-        for json_file in ai_chat_jsons:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
-        for json_file in baekjoon_jsons:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
-        for json_file in commit_jsons:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
+            # 상태 업데이트
+            for json_file in ai_chat_jsons + baekjoon_jsons + commit_jsons:
+                self.json_saver.update_status(json_file, "draft_created", True)
+                self.json_saver.update_status(json_file, "posted", True)
 
-        print(f"  → {len(drafts)}개의 초안 생성 완료")
+            print(f"  → {len(drafts)}개의 초안 생성 완료")
+
+        # 2. Pending 항목 처리
+        no_draft = pending.get("no_draft", [])
+        no_post = pending.get("no_post", [])
+
+        if no_draft:
+            print(f"\n[Auto] 미작성 초안 {len(no_draft)}개 처리 중...")
+            ai_chat = [f for folder, f in no_draft if folder == "ai_chat"]
+            baekjoon = [f for folder, f in no_draft if folder == "baekjoon"]
+            commits = [f for folder, f in no_draft if folder == "commits"]
+
+            drafts = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
+
+            for folder, filename in no_draft:
+                self.json_saver.update_status(filename, "draft_created", True)
+                self.json_saver.update_status(filename, "posted", True)
+
+            print(f"  → {len(drafts)}개 처리 완료")
+
+        if no_post:
+            print(f"\n[Auto] 미포스팅 {len(no_post)}개 처리 중...")
+            for folder, filename in no_post:
+                self.json_saver.update_status(filename, "posted", True)
+            print(f"  → {len(no_post)}개 처리 완료")
 
     def _interactive_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons, pending):
         """Interactive 모드: 대화형 처리"""
@@ -175,14 +193,34 @@ class Orchestrator:
             if choice == 'y':
                 self._process_new_jsons(ai_chat_jsons, baekjoon_jsons, commit_jsons)
             elif choice == 'q':
-                print("  포스팅을 건너뜁니다.")
+                print("  전체 건너뜁니다.")
                 return
             else:
                 print("  다음 실행에서 처리합니다.")
+                # 새 JSON들을 pending 목록에 즉시 추가하지 않아도
+                # 다음 실행 시 get_pending_jsons()에서 조회됨
 
-        # 미처리 항목이 있는 경우
-        if pending["no_draft"] or pending["no_post"]:
-            self._handle_pending_items(pending)
+        # 미처리 항목이 있는 경우 (새 JSON과 별개로 항상 확인)
+        # pending을 다시 조회 (새 JSON이 방금 저장됐을 수 있으므로)
+        current_pending = self.json_saver.get_pending_jsons()
+
+        if current_pending["no_draft"] or current_pending["no_post"]:
+            # 새 JSON 제외 (방금 처리하지 않기로 한 것들)
+            existing_no_draft = [
+                item for item in current_pending["no_draft"]
+                if item[1] not in all_new_jsons
+            ]
+            existing_no_post = [
+                item for item in current_pending["no_post"]
+                if item[1] not in all_new_jsons
+            ]
+
+            if existing_no_draft or existing_no_post:
+                filtered_pending = {
+                    "no_draft": existing_no_draft,
+                    "no_post": existing_no_post
+                }
+                self._handle_pending_items(filtered_pending)
 
     def _process_new_jsons(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
         """새 JSON 처리 (초안 작성 및 포스팅)"""
