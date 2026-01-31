@@ -107,11 +107,12 @@ class CollectionPeriodManager:
         return None
 
     def _init_log_file(self, log_path: Path, source_name: str):
-        """로그 파일 초기화 (현재 KST 시간 기록)"""
-        kst_now = self._get_kst_now()
+        """로그 파일 초기화 (현재 UTC 시간 기록)"""
+        utc_now = self._get_utc_now()
         try:
             with open(log_path, "w", encoding="utf-8") as f:
-                f.write(f"# {source_name} 수집 시간 로그 (첫 실행: {kst_now.isoformat()})\n")
+                f.write(f"# {source_name} 수집 시간 로그\n")
+                f.write(f"{utc_now.isoformat()}\n")  # 초기 시간 기록
             print(f"  📁 [{source_name}] 로그 파일 생성: {log_path.name}")
         except Exception as e:
             print(f"  ⚠️  로그 파일 생성 실패: {e}")
