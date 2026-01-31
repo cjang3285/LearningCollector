@@ -337,33 +337,54 @@ class GitHubCollector:
                 ".cs": "C#"
             }
 
-            # files 배열을 한 번만 순회하며 모든 정보 추출
+            # 코드 파일과 README 분리
+            code_file = None
+            readme_file = None
+
             for file in files:
                 filename = file.get("filename", "")
+                if "백준/" in filename:
+                    if filename.endswith("README.md"):
+                        readme_file = file
+                    elif not code_file:  # 첫 번째 코드 파일만
+                        for ext in extension_to_language:
+                            if filename.endswith(ext):
+                                code_file = file
+                                break
 
-                # 백준 폴더 내의 코드 파일인지 확인 (README.md 제외)
-                if "백준/" in filename and not filename.endswith("README.md"):
-                    # 문제 번호 추출 (여러 패턴 시도)
-                    problem_number = self._extract_problem_number_from_path(filename)
-                    if problem_number:
-                        result["문제_번호"] = problem_number
+            # 코드 파일에서 언어, 풀이 코드 추출
+            if code_file:
+                filename = code_file.get("filename", "")
 
-                    # 언어 추출 (확장자)
-                    for ext, lang in extension_to_language.items():
-                        if filename.endswith(ext):
-                            result["언어"] = lang
-                            break
+                # 문제 번호 추출 (경로에서 시도)
+                problem_number = self._extract_problem_number_from_path(filename)
+                if problem_number:
+                    result["문제_번호"] = problem_number
 
-                    # 풀이 코드 추출 (raw_url로 별도 요청)
-                    raw_url = file.get("raw_url")
-                    if raw_url:
-                        # REST API 호출 #2: 파일 내용
-                        raw_response = requests.get(raw_url, headers=headers, timeout=10)
-                        if raw_response.status_code == 200:
-                            result["풀이_코드"] = raw_response.text
+                # 언어 추출 (확장자)
+                for ext, lang in extension_to_language.items():
+                    if filename.endswith(ext):
+                        result["언어"] = lang
+                        break
 
-                    # 코드 파일 찾았으면 종료
-                    break
+                # 풀이 코드 추출
+                raw_url = code_file.get("raw_url")
+                if raw_url:
+                    raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                    if raw_response.status_code == 200:
+                        result["풀이_코드"] = raw_response.text
+
+            # 경로에서 번호 못 찾으면 README에서 추출
+            if result["문제_번호"] == "Unknown" and readme_file:
+                raw_url = readme_file.get("raw_url")
+                if raw_url:
+                    raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                    if raw_response.status_code == 200:
+                        readme_content = raw_response.text
+                        # README 형식: # [티어] 문제명 - 1629
+                        match = re.search(r'#\s*\[.*?\].*?-\s*(\d+)', readme_content)
+                        if match:
+                            result["문제_번호"] = match.group(1)
 
             return result
 
