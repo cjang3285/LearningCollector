@@ -87,16 +87,20 @@ class CollectionPeriodManager:
         return start_date, end_date
 
     def _read_last_time(self, log_path: Path) -> datetime:
-        """로그 파일에서 마지막 시간 읽기"""
+        """로그 파일에서 마지막 시간 읽기 (주석 제외)"""
         if not log_path.exists():
             return None
 
         try:
             with open(log_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-                if lines:
-                    last_line = lines[-1].strip()
-                    return datetime.fromisoformat(last_line)
+
+                # 뒤에서부터 주석 아닌 줄 찾기
+                for line in reversed(lines):
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        return datetime.fromisoformat(line)
+
         except Exception as e:
             print(f"  ⚠️  로그 읽기 실패 ({log_path.name}): {e}")
 
