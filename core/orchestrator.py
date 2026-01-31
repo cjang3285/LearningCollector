@@ -188,20 +188,14 @@ class Orchestrator:
         # 새 JSON이 있는 경우
         if all_new_jsons:
             print("\n" + "-" * 50)
-            choice = input("📮 새로 수집된 항목을 포스팅하시겠습니까? (y/n/q): ").strip().lower()
+            choice = input("📮 새로 수집된 항목을 포스팅하시겠습니까? (y/n): ").strip().lower()
 
             if choice == 'y':
                 self._process_new_jsons(ai_chat_jsons, baekjoon_jsons, commit_jsons)
-            elif choice == 'q':
-                print("  전체 건너뜁니다.")
-                return
             else:
                 print("  다음 실행에서 처리합니다.")
-                # 새 JSON들을 pending 목록에 즉시 추가하지 않아도
-                # 다음 실행 시 get_pending_jsons()에서 조회됨
 
         # 미처리 항목이 있는 경우 (새 JSON과 별개로 항상 확인)
-        # pending을 다시 조회 (새 JSON이 방금 저장됐을 수 있으므로)
         current_pending = self.json_saver.get_pending_jsons()
 
         if current_pending["no_draft"] or current_pending["no_post"]:
