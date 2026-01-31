@@ -129,7 +129,7 @@ class JSONSaver:
     def save_ai_chat(self, data: dict) -> str:
         """
         AI Chat JSON 저장
-        파일명: AI종류_대화제목.json (시간 제외)
+        파일명: AI종류_파일제목_exported시간.json
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -141,11 +141,15 @@ class JSONSaver:
             return None
 
         ai_type = data.get("AI_종류")
-        title = data.get("대화_제목", "NoTitle")
+        file_title = data.get("파일_제목", "NoTitle")  # 파일명 기반 제목 사용
+        exported_time = data.get("Exported_시간", "")
 
-        # 파일명: AI종류_대화제목.json
-        safe_title = self._sanitize_filename(title)
-        filename = f"{ai_type}_{safe_title}.json"
+        # Exported 시간 파싱하여 파일명용 형식으로 변환
+        formatted_time = self._format_exported_time(exported_time)
+
+        # 파일명: AI종류_파일제목_시간.json
+        safe_title = self._sanitize_filename(file_title)
+        filename = f"{ai_type}_{safe_title}_{formatted_time}.json"
 
         # 저장
         file_path = self.data_dir / "ai_chat" / filename
@@ -153,6 +157,36 @@ class JSONSaver:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         return filename
+
+    def _format_exported_time(self, exported_time: str) -> str:
+        """
+        Exported 시간을 파일명용 형식으로 변환
+        다양한 형식 지원: ISO 8601, 자연어 등
+        """
+        if not exported_time:
+            return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        try:
+            # ISO 8601 형식 시도
+            if "T" in exported_time:
+                exported_time = exported_time.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(exported_time)
+                return dt.strftime("%Y-%m-%d_%H-%M-%S")
+
+            # 일반적인 날짜/시간 형식 시도
+            for fmt in ["%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S", "%m/%d/%Y %H:%M:%S"]:
+                try:
+                    dt = datetime.strptime(exported_time, fmt)
+                    return dt.strftime("%Y-%m-%d_%H-%M-%S")
+                except ValueError:
+                    continue
+
+            # 파싱 실패 시 특수문자 제거하고 반환
+            safe_time = exported_time.replace(":", "-").replace(" ", "_").replace("/", "-")
+            return self._sanitize_filename(safe_time)[:25]
+
+        except Exception:
+            return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     def _sanitize_filename(self, filename: str) -> str:
         """파일명에서 특수문자 제거"""

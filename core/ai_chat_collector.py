@@ -114,9 +114,13 @@ class AIChatCollector:
         # AI 종류 추출 (파일명에서)
         ai_type = self._extract_ai_type(md_file.name)
 
+        # 파일명에서 AI 접두사 제거한 제목 추출
+        file_title = self._extract_file_title(md_file.name)
+
         # JSON 데이터 생성
         ai_chat_data = {
             "대화_제목": title,
+            "파일_제목": file_title,  # 파일명 기반 제목 추가
             "모든_대화_내용": conversation,
             "Exported_시간": exported_time,
             "AI_종류": ai_type,
@@ -175,6 +179,23 @@ class AIChatCollector:
         elif filename.startswith("Claude-"):
             return "Claude"
         return "Unknown"
+
+    def _extract_file_title(self, filename: str) -> str:
+        """
+        파일명에서 AI 접두사를 제거한 제목 추출
+        예: ChatGPT-TypeScript_Learning.md -> TypeScript_Learning
+        """
+        # .md 확장자 제거
+        name = filename.replace(".md", "")
+
+        # AI 접두사 제거
+        prefixes = ["ChatGPT-", "Gemini-", "Claude-"]
+        for prefix in prefixes:
+            if name.startswith(prefix):
+                name = name[len(prefix):]
+                break
+
+        return name
 
 
 class AIChatWatchdog(FileSystemEventHandler):

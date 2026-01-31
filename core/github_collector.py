@@ -343,10 +343,10 @@ class GitHubCollector:
 
                 # 백준 폴더 내의 코드 파일인지 확인 (README.md 제외)
                 if "백준/" in filename and not filename.endswith("README.md"):
-                    # 문제 번호 추출: 백준/{티어}/{번호. 문제명}/
-                    match = re.search(r'백준/[^/]+/(\d+)\.', filename)
-                    if match:
-                        result["문제_번호"] = match.group(1)
+                    # 문제 번호 추출 (여러 패턴 시도)
+                    problem_number = self._extract_problem_number_from_path(filename)
+                    if problem_number:
+                        result["문제_번호"] = problem_number
 
                     # 언어 추출 (확장자)
                     for ext, lang in extension_to_language.items():
@@ -460,6 +460,35 @@ class GitHubCollector:
             return f"{match.group(1)} KB"
 
         return ""
+
+    def _extract_problem_number_from_path(self, filepath: str) -> str:
+        """
+        파일 경로에서 백준 문제 번호 추출 (여러 패턴 지원)
+
+        지원 형식:
+        - 백준/티어/12345. 문제명/solution.py
+        - 백준/티어/12345/solution.py
+        - 백준/티어/12345/문제명.py
+        - 백준/티어/12345_문제명/solution.py
+        """
+        import re
+
+        # 다양한 패턴 시도 (우선순위 순)
+        patterns = [
+            r'백준/[^/]+/(\d+)\.',      # 백준/티어/12345.문제명/
+            r'백준/[^/]+/(\d+)/',       # 백준/티어/12345/
+            r'백준/[^/]+/(\d+)_',       # 백준/티어/12345_문제명/
+            r'/(\d{4,5})\.',            # 아무 경로에서 4-5자리 숫자.
+            r'/(\d{4,5})/',             # 아무 경로에서 4-5자리 숫자/
+            r'/(\d{4,5})_',             # 아무 경로에서 4-5자리 숫자_
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, filepath)
+            if match:
+                return match.group(1)
+
+        return None
 
 
 if __name__ == "__main__":
