@@ -1,108 +1,160 @@
 """
-통합 수집 기간 계산 및 관리 모듈
-첫 실행: 한달 전부터 당일까지
-이후 실행: 마지막 실행 시간부터 현재 시간까지
+소스별 수집 기간 관리 모듈
+- baekjoon_collected_time.log: 백준 커밋 수집 시간
+- commits_collected_time.log: 개발 커밋 수집 시간
+- 각 소스별로 새 데이터가 수집됐을 때만 시간 기록
+- AI Chat은 시간 기반 수집이 아니므로 제외
 """
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
 class CollectionPeriodManager:
-    """수집 기간 관리 클래스"""
+    """소스별 수집 기간 관리 클래스"""
 
     def __init__(self):
         self.log_dir = Path(__file__).parent.parent / "log"
-        self.exec_log_path = self.log_dir / "exec_date.log"
-
-        # 로그 디렉터리 생성
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
-    def get_collection_period(self) -> tuple:
+        # 소스별 로그 파일 경로
+        self.baekjoon_log = self.log_dir / "baekjoon_collected_time.log"
+        self.commits_log = self.log_dir / "commits_collected_time.log"
+
+    def _get_kst_now(self) -> datetime:
+        """현재 한국 시간 (KST) 반환"""
+        utc_now = datetime.now(timezone.utc)
+        kst_now = utc_now + timedelta(hours=9)
+        return kst_now.replace(tzinfo=None, microsecond=0)
+
+    def _get_utc_now(self) -> datetime:
+        """현재 UTC 시간 반환"""
+        return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+
+    def get_baekjoon_period(self) -> tuple:
         """
-        수집 기간 계산 (UTC 기준)
+        백준 커밋 수집 기간 계산
+
+        Returns:
+            tuple: (start_date, end_date) - UTC datetime
+        """
+        return self._get_source_period(self.baekjoon_log, "백준")
+
+    def get_commits_period(self) -> tuple:
+        """
+        개발 커밋 수집 기간 계산
+
+        Returns:
+            tuple: (start_date, end_date) - UTC datetime
+        """
+        return self._get_source_period(self.commits_log, "개발 커밋")
+
+    def _get_source_period(self, log_path: Path, source_name: str) -> tuple:
+        """
+        특정 소스의 수집 기간 계산
+
+        Args:
+            log_path: 로그 파일 경로
+            source_name: 소스 이름 (로깅용)
 
         Returns:
             tuple: (start_date, end_date) - UTC datetime
         """
         import os
-        end_date = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)  # UTC, naive, 마이크로초 제거
+        end_date = self._get_utc_now()
 
         # 환경변수로 강제 30일 수집 (테스트용)
-        force_full_collection = os.getenv("FORCE_FULL_COLLECTION", "false").lower() == "true"
-
-        if force_full_collection:
+        force_full = os.getenv("FORCE_FULL_COLLECTION", "false").lower() == "true"
+        if force_full:
             start_date = end_date - timedelta(days=30)
-            print(f"  🔄 강제 전체 수집 모드: 최근 30일")
+            print(f"  🔄 [{source_name}] 강제 전체 수집: 최근 30일")
             return start_date, end_date
 
-        # 마지막 실행 시간 확인
-        last_exec_time = self._get_last_execution_time()
+        # 마지막 수집 시간 확인
+        last_time = self._read_last_time(log_path)
 
-        if last_exec_time is None:
-            # 첫 실행: 한달 전부터
+        if last_time is None:
+            # 첫 실행: 로그 파일 생성 (현재 KST 시간 기록)
+            self._init_log_file(log_path, source_name)
+            # 30일 전부터 수집
             start_date = end_date - timedelta(days=30)
-            print(f"  📌 첫 실행: 최근 30일 수집")
+            print(f"  📌 [{source_name}] 첫 실행: 최근 30일 수집")
         else:
-            # 이후 실행: 마지막 실행 시간부터
-            start_date = last_exec_time
+            start_date = last_time
             duration = end_date - start_date
-            print(f"  📌 증분 수집: 마지막 실행 이후 ({duration.total_seconds() / 60:.1f}분)")
-            print(f"     exec_date.log 위치: {self.exec_log_path}")
+            hours = duration.total_seconds() / 3600
+            print(f"  📌 [{source_name}] 마지막 수집 이후: {hours:.1f}시간")
 
         return start_date, end_date
 
-    def _get_last_execution_time(self) -> datetime:
-        """
-        마지막 실행 시간 조회
-
-        Returns:
-            datetime: 마지막 실행 시간 (없으면 None)
-        """
-        if not self.exec_log_path.exists():
+    def _read_last_time(self, log_path: Path) -> datetime:
+        """로그 파일에서 마지막 시간 읽기"""
+        if not log_path.exists():
             return None
 
         try:
-            with open(self.exec_log_path, "r", encoding="utf-8") as f:
+            with open(log_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 if lines:
-                    # 마지막 줄 읽기
                     last_line = lines[-1].strip()
                     return datetime.fromisoformat(last_line)
         except Exception as e:
-            print(f"경고: exec_date.log 읽기 실패 - {str(e)}")
+            print(f"  ⚠️  로그 읽기 실패 ({log_path.name}): {e}")
 
         return None
 
-    def update_last_execution(self):
-        """현재 시간을 마지막 실행 시간으로 기록 (UTC)"""
-        current_time = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+    def _init_log_file(self, log_path: Path, source_name: str):
+        """로그 파일 초기화 (현재 KST 시간 기록)"""
+        kst_now = self._get_kst_now()
+        try:
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write(f"# {source_name} 수집 시간 로그 (첫 실행: {kst_now.isoformat()})\n")
+            print(f"  📁 [{source_name}] 로그 파일 생성: {log_path.name}")
+        except Exception as e:
+            print(f"  ⚠️  로그 파일 생성 실패: {e}")
+
+    def update_baekjoon_time(self):
+        """백준 커밋 수집 성공 시 시간 기록"""
+        self._update_source_time(self.baekjoon_log, "백준")
+
+    def update_commits_time(self):
+        """개발 커밋 수집 성공 시 시간 기록"""
+        self._update_source_time(self.commits_log, "개발 커밋")
+
+    def _update_source_time(self, log_path: Path, source_name: str):
+        """특정 소스의 수집 시간 업데이트 (UTC)"""
+        current_time = self._get_utc_now()
 
         try:
-            with open(self.exec_log_path, "a", encoding="utf-8") as f:
+            with open(log_path, "a", encoding="utf-8") as f:
                 f.write(f"{current_time.isoformat()}\n")
-            print(f"\n실행 시간 기록: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"  ✅ [{source_name}] 수집 시간 기록: {current_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
         except Exception as e:
-            print(f"경고: exec_date.log 쓰기 실패 - {str(e)}")
+            print(f"  ⚠️  수집 시간 기록 실패 ({source_name}): {e}")
 
-    def get_execution_history(self) -> list:
+    def get_history(self, source: str) -> list:
         """
-        실행 히스토리 조회
+        특정 소스의 수집 히스토리 조회
+
+        Args:
+            source: "baekjoon" 또는 "commits"
 
         Returns:
-            list: 실행 시간 리스트
+            list: 수집 시간 리스트
         """
-        if not self.exec_log_path.exists():
+        log_path = self.baekjoon_log if source == "baekjoon" else self.commits_log
+
+        if not log_path.exists():
             return []
 
         history = []
         try:
-            with open(self.exec_log_path, "r", encoding="utf-8") as f:
+            with open(log_path, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
-                    if line:
+                    if line and not line.startswith("#"):
                         history.append(datetime.fromisoformat(line))
         except Exception as e:
-            print(f"경고: exec_date.log 읽기 실패 - {str(e)}")
+            print(f"  ⚠️  히스토리 읽기 실패: {e}")
 
         return history
 
@@ -110,13 +162,10 @@ class CollectionPeriodManager:
 if __name__ == "__main__":
     manager = CollectionPeriodManager()
 
-    # 수집 기간 확인
-    start, end = manager.get_collection_period()
-    print(f"수집 기간: {start} ~ {end}")
+    # 백준 수집 기간
+    baek_start, baek_end = manager.get_baekjoon_period()
+    print(f"백준 수집 기간: {baek_start} ~ {baek_end}")
 
-    # 실행 히스토리
-    history = manager.get_execution_history()
-    print(f"실행 히스토리: {len(history)}회")
-
-    # 실행 시간 업데이트
-    manager.update_last_execution()
+    # 개발 커밋 수집 기간
+    commit_start, commit_end = manager.get_commits_period()
+    print(f"개발 커밋 수집 기간: {commit_start} ~ {commit_end}")

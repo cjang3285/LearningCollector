@@ -1,6 +1,7 @@
 """
 JSON 저장 모듈
 중복 체크 후 data/ 폴더에 JSON 저장
+각 JSON에 상태 필드 포함: draft_created, posted, skipped
 """
 import json
 from pathlib import Path
@@ -20,6 +21,14 @@ class JSONSaver:
         (self.data_dir / "baekjoon").mkdir(parents=True, exist_ok=True)
         (self.data_dir / "commits").mkdir(parents=True, exist_ok=True)
         (self.data_dir / "ai_chat").mkdir(parents=True, exist_ok=True)
+
+    def _get_default_status(self) -> dict:
+        """기본 상태 필드 반환"""
+        return {
+            "draft_created": False,  # 초안 작성 여부
+            "posted": False,         # 포스팅 여부
+            "skipped": False         # 영구 포기 여부
+        }
 
     def _utc_to_kst(self, utc_time_str: str) -> str:
         """
@@ -71,6 +80,9 @@ class JSONSaver:
         safe_name = self._sanitize_filename(f"{tier}_{problem_number}_{problem_name}_{kst_time}")
         filename = f"{safe_name}.json"
 
+        # 상태 필드 추가
+        data["_status"] = self._get_default_status()
+
         # 저장
         file_path = self.data_dir / "baekjoon" / filename
         with open(file_path, "w", encoding="utf-8") as f:
@@ -119,6 +131,9 @@ class JSONSaver:
         )
         filename = f"{safe_name}.json"
 
+        # 상태 필드 추가
+        data["_status"] = self._get_default_status()
+
         # 저장
         file_path = self.data_dir / "commits" / filename
         with open(file_path, "w", encoding="utf-8") as f:
@@ -150,6 +165,9 @@ class JSONSaver:
         # 파일명: AI종류_파일제목_시간.json
         safe_title = self._sanitize_filename(file_title)
         filename = f"{ai_type}_{safe_title}_{formatted_time}.json"
+
+        # 상태 필드 추가
+        data["_status"] = self._get_default_status()
 
         # 저장
         file_path = self.data_dir / "ai_chat" / filename
@@ -187,6 +205,128 @@ class JSONSaver:
 
         except Exception:
             return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    def update_status(self, json_filename: str, field: str, value: bool) -> bool:
+        """
+        JSON 파일의 상태 필드 업데이트
+
+        Args:
+            json_filename: JSON 파일명
+            field: 업데이트할 필드 (draft_created, posted, skipped)
+            value: 설정할 값
+
+        Returns:
+            bool: 성공 여부
+        """
+        # 모든 폴더에서 파일 찾기
+        for subdir in ["baekjoon", "commits", "ai_chat"]:
+            file_path = self.data_dir / subdir / json_filename
+            if file_path.exists():
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+
+                    # _status 필드가 없으면 생성
+                    if "_status" not in data:
+                        data["_status"] = self._get_default_status()
+
+                    data["_status"][field] = value
+
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+
+                    return True
+                except Exception as e:
+                    print(f"  ⚠️  상태 업데이트 실패 ({json_filename}): {e}")
+                    return False
+
+        return False
+
+    def get_pending_jsons(self) -> dict:
+        """
+        처리되지 않은 JSON 파일들 조회
+
+        Returns:
+            dict: {
+                "no_draft": [(폴더, 파일명), ...],  # 초안 미작성
+                "no_post": [(폴더, 파일명), ...]    # 포스팅 미완료
+            }
+        """
+        result = {
+            "no_draft": [],
+            "no_post": []
+        }
+
+        for subdir in ["baekjoon", "commits", "ai_chat"]:
+            folder = self.data_dir / subdir
+            if not folder.exists():
+                continue
+
+            for json_file in folder.glob("*.json"):
+                try:
+                    with open(json_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+
+                    status = data.get("_status", {})
+
+                    # skipped면 무시
+                    if status.get("skipped", False):
+                        continue
+
+                    # 초안 미작성
+                    if not status.get("draft_created", False):
+                        result["no_draft"].append((subdir, json_file.name))
+                    # 초안은 작성됐지만 포스팅 미완료
+                    elif not status.get("posted", False):
+                        result["no_post"].append((subdir, json_file.name))
+
+                except Exception:
+                    continue
+
+        return result
+
+    def get_json_summary(self, json_filename: str) -> dict:
+        """
+        JSON 파일의 요약 정보 반환
+
+        Args:
+            json_filename: JSON 파일명
+
+        Returns:
+            dict: 요약 정보
+        """
+        for subdir in ["baekjoon", "commits", "ai_chat"]:
+            file_path = self.data_dir / subdir / json_filename
+            if file_path.exists():
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+
+                    if subdir == "baekjoon":
+                        return {
+                            "type": "백준",
+                            "title": f"{data.get('티어', 'Unknown')} - {data.get('문제명', 'Unknown')}",
+                            "number": data.get("문제_번호", "Unknown"),
+                            "status": data.get("_status", {})
+                        }
+                    elif subdir == "commits":
+                        return {
+                            "type": "개발",
+                            "title": data.get("커밋_메시지", "Unknown")[:50],
+                            "repo": data.get("레포지토리", "Unknown"),
+                            "status": data.get("_status", {})
+                        }
+                    else:  # ai_chat
+                        return {
+                            "type": "AI Chat",
+                            "title": data.get("대화_제목", "Unknown")[:50],
+                            "ai": data.get("AI_종류", "Unknown"),
+                            "status": data.get("_status", {})
+                        }
+                except Exception:
+                    pass
+
+        return {"type": "Unknown", "title": json_filename}
 
     def _sanitize_filename(self, filename: str) -> str:
         """파일명에서 특수문자 제거"""
