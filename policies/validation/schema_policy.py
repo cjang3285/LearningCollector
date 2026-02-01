@@ -120,6 +120,24 @@ class SchemaPolicy:
             "pattern": None,  # 리스트는 별도 검증
             "description": "변경된 파일 경로 리스트"
         },
+        "추가_라인": {
+            "required": False,
+            "type": int,
+            "pattern": None,
+            "description": "총 추가된 라인 수"
+        },
+        "삭제_라인": {
+            "required": False,
+            "type": int,
+            "pattern": None,
+            "description": "총 삭제된 라인 수"
+        },
+        "변경_내용": {
+            "required": False,
+            "type": list,
+            "pattern": None,
+            "description": "상위 5개 코드 파일의 패치 (파일명, 추가, 삭제, 패치)"
+        },
         "커밋_날짜": {
             "required": True,
             "type": str,
@@ -243,6 +261,13 @@ class SchemaPolicy:
 
         # 리스트는 별도 처리
         if expected_type == list:
+            # 변경_내용은 빈 리스트 허용 (패치 없는 경우)
+            if field_name == "변경_내용":
+                for item in value:
+                    if not isinstance(item, dict):
+                        return False, f"변경_내용 항목이 dict가 아님: {type(item).__name__}"
+                return True, ""
+            # 일반 리스트
             if not value:  # 빈 리스트 체크
                 return False, "빈 리스트"
             for item in value:
