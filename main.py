@@ -102,15 +102,18 @@ def main():
 
     print("환경변수 검증 완료")
 
-    # 4. 시작프로그램 등록 (첫 실행 시 또는 필요 시)
+    # 4. 시작프로그램 등록 (첫 실행 시)
     log_dir = Path(__file__).parent / "log"
-    exec_log = log_dir / "exec_date.log"
+    startup_marker = log_dir / ".startup_registered"
 
-    if not exec_log.exists():
+    if not startup_marker.exists():
         print("\n첫 실행 감지: 시작프로그램 등록 중...")
         success = register_startup()
 
         if success:
+            # 마커 파일 생성
+            log_dir.mkdir(parents=True, exist_ok=True)
+            startup_marker.touch()
             print("시작프로그램 등록 완료 (매일 자정 실행)")
         else:
             print("경고: 시작프로그램 등록 실패")

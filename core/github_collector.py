@@ -262,14 +262,17 @@ class GitHubCollector:
         for idx, commit in enumerate(commits, 1):
             print(f"    개발 커밋 처리 중: {idx}/{total}", end='\r', flush=True)
 
-            # REST API 1번 호출로 파일 목록 가져오기
-            changed_files = self._fetch_changed_files(commit)
+            # REST API 1번 호출로 파일 상세 정보 가져오기
+            file_details = self._fetch_changed_files(commit)
 
             # 개발 커밋 정보 추출
             dev_data = {
                 "커밋_메시지": commit.get("message"),
                 "SHA": commit.get("oid"),
-                "변경된_파일_목록": changed_files,
+                "변경된_파일_목록": file_details["파일_목록"],
+                "추가_라인": file_details["추가_라인"],
+                "삭제_라인": file_details["삭제_라인"],
+                "변경_내용": file_details["변경_내용"],
                 "커밋_날짜": commit.get("committedDate"),
                 "레포지토리": commit.get("repository"),
                 "브랜치": commit.get("branch", "unknown")
@@ -392,16 +395,33 @@ class GitHubCollector:
             print(f"  REST API 호출 실패 (SHA: {sha[:7]}): {str(e)}")
             return result
 
-    def _fetch_changed_files(self, commit: dict) -> list:
-        """REST API로 변경된 파일 목록 가져오기 (1번 호출)"""
+    def _fetch_changed_files(self, commit: dict) -> dict:
+        """
+        REST API로 변경된 파일 상세 정보 가져오기 (1번 호출)
+
+        Returns:
+            dict: {
+                "파일_목록": List[str],      # 전체 변경 파일명 리스트
+                "추가_라인": int,             # 총 추가 라인
+                "삭제_라인": int,             # 총 삭제 라인
+                "변경_내용": List[dict]       # 상위 5개 코드 파일의 패치
+            }
+        """
         import requests
 
         owner = os.getenv("GITHUB_USERNAME")
         repo = commit.get("repository")
         sha = commit.get("oid")
 
+        result = {
+            "파일_목록": [],
+            "추가_라인": 0,
+            "삭제_라인": 0,
+            "변경_내용": []
+        }
+
         if not all([owner, repo, sha]):
-            return []
+            return result
 
         try:
             token = os.getenv("GITHUB_TOKEN")
@@ -412,17 +432,65 @@ class GitHubCollector:
             response = requests.get(url, headers=headers, timeout=10)
 
             if response.status_code != 200:
-                return []
+                return result
 
             commit_data = response.json()
             files = commit_data.get("files", [])
 
-            # 파일명 리스트 반환
-            return [file.get("filename") for file in files]
+            # 전체 파일명 리스트
+            result["파일_목록"] = [file.get("filename") for file in files]
+
+            # 코드 파일 확장자 (바이너리/비코드 제외)
+            code_extensions = {
+                ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".kt", ".go",
+                ".cpp", ".cc", ".c", ".h", ".hpp", ".cs", ".rb", ".rs",
+                ".swift", ".scala", ".php", ".vue", ".svelte", ".html",
+                ".css", ".scss", ".sass", ".less", ".sql", ".sh", ".bash",
+                ".zsh", ".yaml", ".yml", ".json", ".xml", ".md", ".txt"
+            }
+
+            # 코드 파일만 필터링 및 변경량 기준 정렬
+            code_files = []
+            for file in files:
+                filename = file.get("filename", "")
+                # 확장자 체크
+                ext = ""
+                if "." in filename:
+                    ext = "." + filename.rsplit(".", 1)[-1].lower()
+
+                if ext in code_extensions:
+                    additions = file.get("additions", 0)
+                    deletions = file.get("deletions", 0)
+                    patch = file.get("patch", "")
+
+                    # 패치가 있는 파일만 추가
+                    if patch:
+                        code_files.append({
+                            "파일명": filename,
+                            "추가": additions,
+                            "삭제": deletions,
+                            "패치": patch
+                        })
+
+            # 변경량 기준 정렬 (additions + deletions)
+            code_files.sort(key=lambda x: x["추가"] + x["삭제"], reverse=True)
+
+            # 상위 5개만 선택
+            top_files = code_files[:5]
+
+            # 총 라인 수 계산 (전체 파일 기준)
+            for file in files:
+                result["추가_라인"] += file.get("additions", 0)
+                result["삭제_라인"] += file.get("deletions", 0)
+
+            # 변경 내용 구성
+            result["변경_내용"] = top_files
+
+            return result
 
         except Exception as e:
             print(f"  파일 목록 조회 실패 (SHA: {sha[:7]}): {str(e)}")
-            return []
+            return result
 
     def _extract_problem_name(self, commit: dict) -> str:
         """
