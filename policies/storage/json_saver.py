@@ -93,7 +93,7 @@ class JSONSaver:
     def save_commit(self, data: dict) -> str:
         """
         개발 커밋 JSON 저장
-        파일명: 레포_브랜치_메시지핵심_커밋시간_수집시간_SHA.json
+        파일명: 레포_브랜치_메시지핵심_커밋시간_SHA.json
 
         Returns:
             str: 저장된 파일명 (중복이면 None)
@@ -122,12 +122,9 @@ class JSONSaver:
         else:
             kst_commit_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-        # 수집된 시간 (현재 시간, KST)
-        collected_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-        # 파일명: 레포_브랜치_메시지_커밋시간_수집시간_SHA.json
+        # 파일명: 레포_브랜치_메시지_커밋시간_SHA.json
         safe_name = self._sanitize_filename(
-            f"{repo}_{branch}_{message_core}_{kst_commit_time}_{collected_time}_{short_sha}"
+            f"{repo}_{branch}_{message_core}_{kst_commit_time}_{short_sha}"
         )
         filename = f"{safe_name}.json"
 
