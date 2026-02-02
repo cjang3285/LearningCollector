@@ -336,7 +336,7 @@ class JSONSaver:
                     else:  # ai_chat
                         return {
                             "type": "AI Chat",
-                            "title": data.get("대화_제목", "Unknown")[:50],
+                            "title": data.get("파일_제목", data.get("대화_제목", "Unknown"))[:50],
                             "ai": data.get("AI_종류", "Unknown"),
                             "status": data.get("_status", {})
                         }
