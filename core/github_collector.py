@@ -13,7 +13,6 @@ from api.github_graphql import GitHubGraphQLClient
 from policies.storage.json_saver import JSONSaver
 from policies.storage.duplicate_checker import DuplicateChecker
 from policies.collection_rules import CollectionRules
-from core.classifier import CommitClassifier
 
 
 class GitHubCollector:
@@ -21,13 +20,12 @@ class GitHubCollector:
 
     def __init__(self):
         self.github_client = GitHubGraphQLClient()
-        self.classifier = CommitClassifier()
         self.duplicate_checker = DuplicateChecker()
         self.json_saver = JSONSaver()
 
     def collect(self, start_date: datetime, end_date: datetime) -> Tuple[List[str], List[str]]:
         """
-        GitHub에서 커밋 수집
+        GitHub에서 커밋 수집 (auto 모드)
 
         Returns:
             Tuple[List[str], List[str]]: (백준 JSON 파일명 리스트, 개발 JSON 파일명 리스트)
@@ -39,52 +37,37 @@ class GitHubCollector:
         commits = self.github_client.fetch_commits(username, start_date, end_date)
         print(f"  총 {len(commits)}개의 커밋 발견")
 
-        # 2. ⭐ 중복 체크 먼저 (SHA만으로 판단)
-        new_commits = []
-        duplicate_commits = []
+        # 2. 레포 기반으로 백준/개발 분류 + 중복 체크
+        baekjoon_commits = []
+        dev_commits = []
+        duplicate_count = 0
 
         for commit in commits:
             sha = commit.get("oid")
-            message = commit.get("message", "")[:50]  # 메시지 첫 50자
+            repo_name = commit.get("repository", "")
 
-            # 백준/개발 구분 없이 SHA로 중복 체크
-            if self.duplicate_checker.is_duplicate_baekjoon(sha) or self.duplicate_checker.is_duplicate_commit(sha):
-                duplicate_commits.append(f"{sha[:7]} - {message}")
+            # 레포 이름으로 백준/개발 판단
+            is_baekjoon_repo = CollectionRules.is_baekjoon_repo(repo_name)
+
+            if is_baekjoon_repo:
+                # 백준 레포 커밋 → 백준 중복 체크
+                if self.duplicate_checker.is_duplicate_baekjoon(sha):
+                    duplicate_count += 1
+                else:
+                    baekjoon_commits.append(commit)
             else:
-                new_commits.append(commit)
+                # 개발 레포 커밋 → 개발 중복 체크
+                if self.duplicate_checker.is_duplicate_commit(sha):
+                    duplicate_count += 1
+                else:
+                    dev_commits.append(commit)
 
-        # 중복 커밋 로깅
-        if duplicate_commits:
-            print(f"  ⚠️  중복 제외: {len(duplicate_commits)}개 (이미 저장됨)")
-            if len(duplicate_commits) <= 10:
-                # 10개 이하면 전부 출력
-                for dup in duplicate_commits:
-                    print(f"    - {dup}")
-            else:
-                # 10개 초과면 처음 5개, 마지막 5개만 출력
-                print(f"    처음 5개:")
-                for dup in duplicate_commits[:5]:
-                    print(f"    - {dup}")
-                print(f"    ... ({len(duplicate_commits) - 10}개 생략) ...")
-                print(f"    마지막 5개:")
-                for dup in duplicate_commits[-5:]:
-                    print(f"    - {dup}")
-        else:
-            print(f"  ✓ 모든 커밋이 신규입니다")
-
-        # 3. 백준 / 개발 분류 (새 커밋만)
-        baekjoon_commits = []
-        dev_commits = []
-
-        for commit in new_commits:
-            if self.classifier.is_baekjoon_commit(commit):
-                baekjoon_commits.append(commit)
-            else:
-                dev_commits.append(commit)
-
+        # 3. 결과 출력
         print(f"  분류 완료 - 백준: {len(baekjoon_commits)}, 개발: {len(dev_commits)}")
+        if duplicate_count > 0:
+            print(f"  ⚠️  중복 제외: {duplicate_count}개 (이미 저장됨)")
 
-        # 4. JSON 저장 (백준 커밋 → 즉시 REST 조회)
+        # 4. JSON 저장
         baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
         dev_files = self._save_dev_commits(dev_commits)
 
@@ -117,7 +100,10 @@ class GitHubCollector:
             else:
                 dev_repos.append(repo)
 
-        all_commits = []
+        # 레포 분리 시점에서 바로 백준/개발 커밋 분리
+        baekjoon_commits = []
+        dev_commits = []
+        duplicate_count = 0
 
         # 2. 백준 레포 자동 수집 (모든 브랜치)
         if baekjoon_repos:
@@ -134,7 +120,13 @@ class GitHubCollector:
                     )
                     if commits:
                         print(f"    {branch}: {len(commits)}개 커밋")
-                        all_commits.extend(commits)
+                        # 중복 체크 후 바로 백준 커밋에 추가
+                        for commit in commits:
+                            sha = commit.get("oid")
+                            if self.duplicate_checker.is_duplicate_baekjoon(sha):
+                                duplicate_count += 1
+                            else:
+                                baekjoon_commits.append(commit)
 
         # 3. 개발 레포 선택
         if not dev_repos:
@@ -208,43 +200,23 @@ class GitHubCollector:
 
                     if commits:
                         print(f"    {len(commits)}개 커밋 발견")
-                        all_commits.extend(commits)
+                        # 중복 체크 후 바로 개발 커밋에 추가
+                        for commit in commits:
+                            sha = commit.get("oid")
+                            if self.duplicate_checker.is_duplicate_commit(sha):
+                                duplicate_count += 1
+                            else:
+                                dev_commits.append(commit)
                     else:
                         print(f"    커밋 없음")
 
-        print(f"\n총 {len(all_commits)}개의 커밋 수집 완료")
+        # 6. 결과 출력
+        total_new = len(baekjoon_commits) + len(dev_commits)
+        print(f"\n수집 완료 - 백준: {len(baekjoon_commits)}, 개발: {len(dev_commits)}")
+        if duplicate_count > 0:
+            print(f"  ⚠️  중복 제외: {duplicate_count}개 (이미 저장됨)")
 
-        # 6. 중복 체크
-        new_commits = []
-        duplicate_commits = []
-
-        for commit in all_commits:
-            sha = commit.get("oid")
-            message = commit.get("message", "")[:50]
-
-            if self.duplicate_checker.is_duplicate_baekjoon(sha) or self.duplicate_checker.is_duplicate_commit(sha):
-                duplicate_commits.append(f"{sha[:7]} - {message}")
-            else:
-                new_commits.append(commit)
-
-        if duplicate_commits:
-            print(f"\n  ⚠️  중복 제외: {len(duplicate_commits)}개 (이미 저장됨)")
-        else:
-            print(f"\n  ✓ 모든 커밋이 신규입니다")
-
-        # 7. 백준 / 개발 분류
-        baekjoon_commits = []
-        dev_commits = []
-
-        for commit in new_commits:
-            if self.classifier.is_baekjoon_commit(commit):
-                baekjoon_commits.append(commit)
-            else:
-                dev_commits.append(commit)
-
-        print(f"  분류 완료 - 백준: {len(baekjoon_commits)}, 개발: {len(dev_commits)}")
-
-        # 8. JSON 저장
+        # 7. JSON 저장
         baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
         dev_files = self._save_dev_commits(dev_commits)
 
