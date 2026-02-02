@@ -287,12 +287,16 @@ class GitHubCollector:
             print()  # 줄바꿈
         return saved_files
 
-    def _fetch_baekjoon_rest_info(self, commit: dict) -> dict:
+    def _fetch_baekjoon_rest_info(self, commit: dict, use_latest: bool = True) -> dict:
         """
         REST API 호출로 백준 정보 추출 (1-2번 호출)
         - 문제 번호 (파일 경로에서)
         - 언어 (확장자에서)
-        - 풀이 코드 (raw_url에서)
+        - 풀이 코드 (raw_url 또는 최신 파일에서)
+
+        Args:
+            commit: 커밋 정보
+            use_latest: True면 최신 파일 내용, False면 해당 커밋 시점 내용
         """
         import re
         import requests
@@ -371,11 +375,24 @@ class GitHubCollector:
                         break
 
                 # 풀이 코드 추출
-                raw_url = code_file.get("raw_url")
-                if raw_url:
-                    raw_response = requests.get(raw_url, headers=headers, timeout=10)
-                    if raw_response.status_code == 200:
-                        result["풀이_코드"] = raw_response.text
+                if use_latest:
+                    # 최신 파일 내용 가져오기 (Contents API)
+                    contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filename}"
+                    contents_response = requests.get(contents_url, headers=headers, timeout=10)
+                    if contents_response.status_code == 200:
+                        contents_data = contents_response.json()
+                        download_url = contents_data.get("download_url")
+                        if download_url:
+                            raw_response = requests.get(download_url, headers=headers, timeout=10)
+                            if raw_response.status_code == 200:
+                                result["풀이_코드"] = raw_response.text
+                else:
+                    # 커밋 시점 파일 내용 가져오기
+                    raw_url = code_file.get("raw_url")
+                    if raw_url:
+                        raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                        if raw_response.status_code == 200:
+                            result["풀이_코드"] = raw_response.text
 
             # 경로에서 번호 못 찾으면 README에서 추출
             if result["문제_번호"] == "Unknown" and readme_file:
