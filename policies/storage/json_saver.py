@@ -327,9 +327,12 @@ class JSONSaver:
                             "status": data.get("_status", {})
                         }
                     elif subdir == "commits":
+                        # 커밋 메시지 첫 줄만 추출 (본문 제외)
+                        commit_msg = data.get("커밋_메시지", "Unknown")
+                        first_line = commit_msg.split('\n')[0]
                         return {
                             "type": "개발",
-                            "title": data.get("커밋_메시지", "Unknown")[:50],
+                            "title": first_line[:50],
                             "repo": data.get("레포지토리", "Unknown"),
                             "status": data.get("_status", {})
                         }
