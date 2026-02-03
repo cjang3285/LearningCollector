@@ -102,9 +102,6 @@ class AIChatCollector:
         with open(md_file, "r", encoding="utf-8") as f:
             content = f.read()
 
-        # 대화 제목 추출 (첫 번째 # 제목)
-        title = self._extract_title(content)
-
         # Exported 시간 추출
         exported_time = self._extract_exported_time(content)
 
@@ -119,8 +116,7 @@ class AIChatCollector:
 
         # JSON 데이터 생성
         ai_chat_data = {
-            "대화_제목": title,
-            "파일_제목": file_title,  # 파일명 기반 제목 추가
+            "대화_제목": file_title,  # 파일명 기반 제목 사용
             "모든_대화_내용": conversation,
             "Exported_시간": exported_time,
             "AI_종류": ai_type,
@@ -130,14 +126,6 @@ class AIChatCollector:
         # JSON 저장 (중복 체크 포함)
         json_filename = self.json_saver.save_ai_chat(ai_chat_data)
         return json_filename
-
-    def _extract_title(self, content: str) -> str:
-        """마크다운에서 제목 추출"""
-        lines = content.split("\n")
-        for line in lines:
-            if line.startswith("# "):
-                return line[2:].strip()
-        return "제목 없음"
 
     def _extract_exported_time(self, content: str) -> str:
         """Exported 시간 추출"""
