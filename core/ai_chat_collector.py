@@ -117,6 +117,7 @@ class AIChatCollector:
         # JSON 데이터 생성
         ai_chat_data = {
             "대화_제목": file_title,  # 파일명 기반 제목 사용
+            "파일_제목": file_title,  # 파일명 기반 제목 (AI 접두사 제외)
             "모든_대화_내용": conversation,
             "Exported_시간": exported_time,
             "AI_종류": ai_type,
