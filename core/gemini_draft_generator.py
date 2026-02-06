@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 # API 모듈 임포트
-from api.gemini_client import GeminiClient
+from api.ai_client import AIClient
 from api.blog_api import BlogAPIClient
 
 # 정책 모듈 임포트
@@ -19,7 +19,7 @@ class GeminiDraftGenerator:
     """Gemini를 사용한 초안 생성 클래스"""
 
     def __init__(self):
-        self.gemini_client = GeminiClient()
+        self.ai_client = AIClient()
         self.blog_client = BlogAPIClient()
         self.draft_saver = DraftSaver()
         self.editor_command = os.getenv("EDITOR_COMMAND", "nano")
@@ -110,12 +110,12 @@ class GeminiDraftGenerator:
             prompt = self._load_prompt("알고리즘_풀이_포스팅_프롬프트.md")
             json_content = self._load_json(json_file)
 
-            draft_content = self.gemini_client.generate_draft(prompt, json_content)
+            draft_content = self.ai_client.generate_draft(prompt, json_content)
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                self.quota_exhausted = True  # 한도 초과로 간주
-                print(f"    ⚠️  API 한도 초과. 나머지 백준 draft 생성 중단")
+                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                print(f"    ⚠️  AI API 모두 실패. 나머지 백준 draft 생성 중단")
                 break
 
             # Draft 저장
@@ -166,12 +166,12 @@ class GeminiDraftGenerator:
             prompt = self._load_prompt("프로젝트_진척_및_의사결정_요약_프롬프트.md")
             json_content = self._load_json(json_file)
 
-            draft_content = self.gemini_client.generate_draft(prompt, json_content)
+            draft_content = self.ai_client.generate_draft(prompt, json_content)
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                self.quota_exhausted = True  # 한도 초과로 간주
-                print(f"    ⚠️  API 한도 초과. 나머지 개발 draft 생성 중단")
+                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                print(f"    ⚠️  AI API 모두 실패. 나머지 개발 draft 생성 중단")
                 break
 
             # Draft 저장
@@ -222,12 +222,12 @@ class GeminiDraftGenerator:
             prompt = self._load_prompt("당일_공부_요약_프롬프트.md")
             json_content = self._load_json(json_file)
 
-            draft_content = self.gemini_client.generate_draft(prompt, json_content)
+            draft_content = self.ai_client.generate_draft(prompt, json_content)
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                self.quota_exhausted = True  # 한도 초과로 간주
-                print(f"    ⚠️  API 한도 초과. 나머지 학습 draft 생성 중단")
+                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                print(f"    ⚠️  AI API 모두 실패. 나머지 학습 draft 생성 중단")
                 break
 
             # Draft 저장
