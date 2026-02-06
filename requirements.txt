@@ -11,6 +11,9 @@ PyGithub>=2.1.1
 # Gemini AI (최신 패키지)
 google-genai>=0.2.0
 
+# Perplexity AI (OpenAI SDK 호환, 폴백용)
+openai>=1.0.0
+
 # Scheduling (Linux)
 python-crontab>=3.0.0; platform_system == "Linux"
 

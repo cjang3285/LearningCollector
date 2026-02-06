@@ -5,10 +5,10 @@ Gemini Draft 생성 모듈 (메인 흐름)
 import os
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 # API 모듈 임포트
-from api.gemini_client import GeminiClient
+from api.ai_client import AIClient
 from api.blog_api import BlogAPIClient
 
 # 정책 모듈 임포트
@@ -19,7 +19,7 @@ class GeminiDraftGenerator:
     """Gemini를 사용한 초안 생성 클래스"""
 
     def __init__(self):
-        self.gemini_client = GeminiClient()
+        self.ai_client = AIClient()
         self.blog_client = BlogAPIClient()
         self.draft_saver = DraftSaver()
         self.editor_command = os.getenv("EDITOR_COMMAND", "nano")
@@ -30,7 +30,7 @@ class GeminiDraftGenerator:
         ai_chat_jsons: List[str],
         baekjoon_jsons: List[str],
         commit_jsons: List[str]
-    ) -> List[str]:
+    ) -> Tuple[List[str], List[str]]:
         """
         3가지 초안 생성
         1. 백준 풀이 초안
@@ -38,29 +38,35 @@ class GeminiDraftGenerator:
         3. AI 대화 공부 초안
 
         Returns:
-            List[str]: 생성된 draft 파일 경로 리스트
+            Tuple[List[str], List[str]]:
+                - 생성된 draft 파일 경로 리스트
+                - 초안 생성에 성공한 JSON 파일명 리스트
         """
         all_drafts = []
+        all_succeeded_jsons = []
 
         # 1. 백준 풀이 초안 작성
         if baekjoon_jsons:
             print(f"  백준 풀이 초안 생성 중... ({len(baekjoon_jsons)}개)")
-            baekjoon_drafts = self._generate_baekjoon_drafts(baekjoon_jsons)
+            baekjoon_drafts, succeeded = self._generate_baekjoon_drafts(baekjoon_jsons)
             all_drafts.extend(baekjoon_drafts)
+            all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(baekjoon_drafts)}개 생성 완료")
 
         # 2. 개발 진척 초안 작성
         if commit_jsons:
             print(f"  개발 진척 초안 생성 중... ({len(commit_jsons)}개)")
-            dev_drafts = self._generate_dev_drafts(commit_jsons)
+            dev_drafts, succeeded = self._generate_dev_drafts(commit_jsons)
             all_drafts.extend(dev_drafts)
+            all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(dev_drafts)}개 생성 완료")
 
         # 3. AI 대화 공부 초안 작성
         if ai_chat_jsons:
             print(f"  AI 대화 공부 초안 생성 중... ({len(ai_chat_jsons)}개)")
-            study_drafts = self._generate_study_drafts(ai_chat_jsons)
+            study_drafts, succeeded = self._generate_study_drafts(ai_chat_jsons)
             all_drafts.extend(study_drafts)
+            all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(study_drafts)}개 생성 완료")
 
         # 4. 블로그 포스팅 (초안 생성 직후)
@@ -72,13 +78,17 @@ class GeminiDraftGenerator:
         if all_drafts:
             self._open_in_editor(all_drafts)
 
-        return all_drafts
+        return all_drafts, all_succeeded_jsons
 
-    def _generate_baekjoon_drafts(self, json_files: List[str]) -> List[str]:
-        """백준 풀이 초안 생성"""
+    def _generate_baekjoon_drafts(self, json_files: List[str]) -> Tuple[List[str], List[str]]:
+        """백준 풀이 초안 생성
+
+        Returns:
+            Tuple[List[str], List[str]]: (draft 파일 경로 리스트, 성공한 JSON 파일명 리스트)
+        """
         drafts = []
+        succeeded_jsons = []
         duplicates = []
-        processed = []
 
         print(f"    총 {len(json_files)}개의 백준 JSON 발견")
 
@@ -91,21 +101,21 @@ class GeminiDraftGenerator:
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "algorithm"):
                 duplicates.append(json_file)
+                succeeded_jsons.append(json_file)
                 continue
 
-            processed.append(json_file)
             print(f"    처리 중: {json_file}")
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("알고리즘_풀이_포스팅_프롬프트.md")
             json_content = self._load_json(json_file)
 
-            draft_content = self.gemini_client.generate_draft(prompt, json_content)
+            draft_content = self.ai_client.generate_draft(prompt, json_content)
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                self.quota_exhausted = True  # 한도 초과로 간주
-                print(f"    ⚠️  API 한도 초과. 나머지 백준 draft 생성 중단")
+                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                print(f"    ⚠️  AI API 모두 실패. 나머지 백준 draft 생성 중단")
                 break
 
             # Draft 저장
@@ -115,6 +125,7 @@ class GeminiDraftGenerator:
                 source_json=json_file
             )
             drafts.append(draft_path)
+            succeeded_jsons.append(json_file)
             print(f"    ✅ 성공: {draft_path}")
 
         # 중복 로깅
@@ -123,13 +134,17 @@ class GeminiDraftGenerator:
             for dup in duplicates:
                 print(f"      - {dup}")
 
-        return drafts
+        return drafts, succeeded_jsons
 
-    def _generate_dev_drafts(self, json_files: List[str]) -> List[str]:
-        """개발 진척 초안 생성"""
+    def _generate_dev_drafts(self, json_files: List[str]) -> Tuple[List[str], List[str]]:
+        """개발 진척 초안 생성
+
+        Returns:
+            Tuple[List[str], List[str]]: (draft 파일 경로 리스트, 성공한 JSON 파일명 리스트)
+        """
         drafts = []
+        succeeded_jsons = []
         duplicates = []
-        processed = []
 
         print(f"    총 {len(json_files)}개의 개발 커밋 JSON 발견")
 
@@ -142,21 +157,21 @@ class GeminiDraftGenerator:
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "dev"):
                 duplicates.append(json_file)
+                succeeded_jsons.append(json_file)
                 continue
 
-            processed.append(json_file)
             print(f"    처리 중: {json_file}")
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("프로젝트_진척_및_의사결정_요약_프롬프트.md")
             json_content = self._load_json(json_file)
 
-            draft_content = self.gemini_client.generate_draft(prompt, json_content)
+            draft_content = self.ai_client.generate_draft(prompt, json_content)
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                self.quota_exhausted = True  # 한도 초과로 간주
-                print(f"    ⚠️  API 한도 초과. 나머지 개발 draft 생성 중단")
+                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                print(f"    ⚠️  AI API 모두 실패. 나머지 개발 draft 생성 중단")
                 break
 
             # Draft 저장
@@ -166,6 +181,7 @@ class GeminiDraftGenerator:
                 source_json=json_file
             )
             drafts.append(draft_path)
+            succeeded_jsons.append(json_file)
             print(f"    ✅ 성공: {draft_path}")
 
         # 중복 로깅
@@ -174,13 +190,17 @@ class GeminiDraftGenerator:
             for dup in duplicates:
                 print(f"      - {dup}")
 
-        return drafts
+        return drafts, succeeded_jsons
 
-    def _generate_study_drafts(self, json_files: List[str]) -> List[str]:
-        """AI 대화 공부 초안 생성"""
+    def _generate_study_drafts(self, json_files: List[str]) -> Tuple[List[str], List[str]]:
+        """AI 대화 공부 초안 생성
+
+        Returns:
+            Tuple[List[str], List[str]]: (draft 파일 경로 리스트, 성공한 JSON 파일명 리스트)
+        """
         drafts = []
+        succeeded_jsons = []
         duplicates = []
-        processed = []
 
         print(f"    총 {len(json_files)}개의 AI Chat JSON 발견")
 
@@ -193,21 +213,21 @@ class GeminiDraftGenerator:
             # 중복 체크
             if self.draft_saver.is_duplicate_draft(json_file, "study"):
                 duplicates.append(json_file)
+                succeeded_jsons.append(json_file)
                 continue
 
-            processed.append(json_file)
             print(f"    처리 중: {json_file}")
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("당일_공부_요약_프롬프트.md")
             json_content = self._load_json(json_file)
 
-            draft_content = self.gemini_client.generate_draft(prompt, json_content)
+            draft_content = self.ai_client.generate_draft(prompt, json_content)
 
             # 생성 실패 시 스킵
             if draft_content is None:
-                self.quota_exhausted = True  # 한도 초과로 간주
-                print(f"    ⚠️  API 한도 초과. 나머지 학습 draft 생성 중단")
+                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                print(f"    ⚠️  AI API 모두 실패. 나머지 학습 draft 생성 중단")
                 break
 
             # Draft 저장
@@ -217,6 +237,7 @@ class GeminiDraftGenerator:
                 source_json=json_file
             )
             drafts.append(draft_path)
+            succeeded_jsons.append(json_file)
             print(f"    ✅ 성공: {draft_path}")
 
         # 중복 로깅
@@ -225,7 +246,7 @@ class GeminiDraftGenerator:
             for dup in duplicates:
                 print(f"      - {dup}")
 
-        return drafts
+        return drafts, succeeded_jsons
 
     def _load_prompt(self, prompt_filename: str) -> str:
         """프롬프트 파일 로드"""

@@ -39,14 +39,19 @@ class Orchestrator:
         # 1. 데이터 수집
         ai_chat_jsons, baekjoon_jsons, commit_jsons = self._collect_all()
 
-        # 2. 수집 결과 요약 및 처리
-        total_new = len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons)
+        # 2. 이전 실행에서 실패한 pending 항목 병합
+        ai_chat_jsons, baekjoon_jsons, commit_jsons = self._merge_pending(
+            ai_chat_jsons, baekjoon_jsons, commit_jsons
+        )
 
-        if total_new == 0:
+        # 3. 수집 결과 요약 및 처리
+        total = len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons)
+
+        if total == 0:
             print("\n" + "=" * 50)
             print("📊 수집 결과")
             print("=" * 50)
-            print("  새로 수집된 데이터가 없습니다.")
+            print("  처리할 데이터가 없습니다.")
         else:
             if self.auto:
                 self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons)
@@ -97,24 +102,57 @@ class Orchestrator:
 
         return ai_chat_jsons, baekjoon_jsons, commit_jsons
 
+    def _merge_pending(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
+        """이전 실행에서 초안 생성 실패한 pending 항목을 병합"""
+        pending = self.json_saver.get_pending_jsons()
+        no_draft = pending["no_draft"]  # [(subdir, filename), ...]
+
+        if not no_draft:
+            return ai_chat_jsons, baekjoon_jsons, commit_jsons
+
+        # 이번에 새로 수집된 파일명 (중복 방지)
+        new_set = set(ai_chat_jsons + baekjoon_jsons + commit_jsons)
+
+        pending_count = 0
+        for subdir, filename in no_draft:
+            if filename in new_set:
+                continue
+            pending_count += 1
+            if subdir == "ai_chat":
+                ai_chat_jsons.append(filename)
+            elif subdir == "baekjoon":
+                baekjoon_jsons.append(filename)
+            elif subdir == "commits":
+                commit_jsons.append(filename)
+
+        if pending_count > 0:
+            print(f"\n  📋 이전 실행에서 미처리된 항목 {pending_count}개 발견 (재시도 대상)")
+
+        return ai_chat_jsons, baekjoon_jsons, commit_jsons
+
     def _auto_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
         """Auto 모드: 새로 수집된 것 전체 자동 처리"""
 
         all_new = ai_chat_jsons + baekjoon_jsons + commit_jsons
 
         print("\n[Auto] 새 항목 블로그 초안 생성 및 포스팅 중...")
-        drafts = self.draft_generator.generate_drafts(
+        drafts, succeeded_jsons = self.draft_generator.generate_drafts(
             ai_chat_jsons,
             baekjoon_jsons,
             commit_jsons
         )
 
-        # 상태 업데이트
+        # 상태 업데이트 (성공한 JSON만)
+        succeeded_set = set(succeeded_jsons)
         for json_file in all_new:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
+            if json_file in succeeded_set:
+                self.json_saver.update_status(json_file, "draft_created", True)
+                self.json_saver.update_status(json_file, "posted", True)
 
+        failed_count = len(all_new) - len(succeeded_set)
         print(f"  → {len(drafts)}개의 초안 생성 완료")
+        if failed_count > 0:
+            print(f"  → {failed_count}개 항목 초안 생성 실패 (다음 실행에서 재시도)")
 
     def _interactive_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
         """Interactive 모드: 번호 선택 방식"""
@@ -222,14 +260,19 @@ class Orchestrator:
             baekjoon = [f for _, folder, f, _ in selected_items if folder == "baekjoon"]
             commits = [f for _, folder, f, _ in selected_items if folder == "commits"]
 
-            drafts = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
+            drafts, succeeded_jsons = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
 
-            # 상태 업데이트
+            # 상태 업데이트 (성공한 JSON만)
+            succeeded_set = set(succeeded_jsons)
             for _, folder, filename, _ in selected_items:
-                self.json_saver.update_status(filename, "draft_created", True)
-                self.json_saver.update_status(filename, "posted", True)
+                if filename in succeeded_set:
+                    self.json_saver.update_status(filename, "draft_created", True)
+                    self.json_saver.update_status(filename, "posted", True)
 
+            failed_count = len(selected_items) - len(succeeded_set)
             print(f"  → {len(drafts)}개의 초안 생성 및 포스팅 완료")
+            if failed_count > 0:
+                print(f"  → {failed_count}개 항목 초안 생성 실패 (다음 실행에서 재시도)")
 
 
 def run_orchestrator(auto=False):
