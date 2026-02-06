@@ -103,18 +103,23 @@ class Orchestrator:
         all_new = ai_chat_jsons + baekjoon_jsons + commit_jsons
 
         print("\n[Auto] 새 항목 블로그 초안 생성 및 포스팅 중...")
-        drafts = self.draft_generator.generate_drafts(
+        drafts, succeeded_jsons = self.draft_generator.generate_drafts(
             ai_chat_jsons,
             baekjoon_jsons,
             commit_jsons
         )
 
-        # 상태 업데이트
+        # 상태 업데이트 (성공한 JSON만)
+        succeeded_set = set(succeeded_jsons)
         for json_file in all_new:
-            self.json_saver.update_status(json_file, "draft_created", True)
-            self.json_saver.update_status(json_file, "posted", True)
+            if json_file in succeeded_set:
+                self.json_saver.update_status(json_file, "draft_created", True)
+                self.json_saver.update_status(json_file, "posted", True)
 
+        failed_count = len(all_new) - len(succeeded_set)
         print(f"  → {len(drafts)}개의 초안 생성 완료")
+        if failed_count > 0:
+            print(f"  → {failed_count}개 항목 초안 생성 실패 (다음 실행에서 재시도)")
 
     def _interactive_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
         """Interactive 모드: 번호 선택 방식"""
@@ -222,14 +227,19 @@ class Orchestrator:
             baekjoon = [f for _, folder, f, _ in selected_items if folder == "baekjoon"]
             commits = [f for _, folder, f, _ in selected_items if folder == "commits"]
 
-            drafts = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
+            drafts, succeeded_jsons = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
 
-            # 상태 업데이트
+            # 상태 업데이트 (성공한 JSON만)
+            succeeded_set = set(succeeded_jsons)
             for _, folder, filename, _ in selected_items:
-                self.json_saver.update_status(filename, "draft_created", True)
-                self.json_saver.update_status(filename, "posted", True)
+                if filename in succeeded_set:
+                    self.json_saver.update_status(filename, "draft_created", True)
+                    self.json_saver.update_status(filename, "posted", True)
 
+            failed_count = len(selected_items) - len(succeeded_set)
             print(f"  → {len(drafts)}개의 초안 생성 및 포스팅 완료")
+            if failed_count > 0:
+                print(f"  → {failed_count}개 항목 초안 생성 실패 (다음 실행에서 재시도)")
 
 
 def run_orchestrator(auto=False):
