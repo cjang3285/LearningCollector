@@ -39,14 +39,19 @@ class Orchestrator:
         # 1. 데이터 수집
         ai_chat_jsons, baekjoon_jsons, commit_jsons = self._collect_all()
 
-        # 2. 수집 결과 요약 및 처리
-        total_new = len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons)
+        # 2. 이전 실행에서 실패한 pending 항목 병합
+        ai_chat_jsons, baekjoon_jsons, commit_jsons = self._merge_pending(
+            ai_chat_jsons, baekjoon_jsons, commit_jsons
+        )
 
-        if total_new == 0:
+        # 3. 수집 결과 요약 및 처리
+        total = len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons)
+
+        if total == 0:
             print("\n" + "=" * 50)
             print("📊 수집 결과")
             print("=" * 50)
-            print("  새로 수집된 데이터가 없습니다.")
+            print("  처리할 데이터가 없습니다.")
         else:
             if self.auto:
                 self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons)
@@ -94,6 +99,34 @@ class Orchestrator:
             self.period_manager.update_baekjoon_time()
         if commit_jsons:
             self.period_manager.update_commits_time()
+
+        return ai_chat_jsons, baekjoon_jsons, commit_jsons
+
+    def _merge_pending(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
+        """이전 실행에서 초안 생성 실패한 pending 항목을 병합"""
+        pending = self.json_saver.get_pending_jsons()
+        no_draft = pending["no_draft"]  # [(subdir, filename), ...]
+
+        if not no_draft:
+            return ai_chat_jsons, baekjoon_jsons, commit_jsons
+
+        # 이번에 새로 수집된 파일명 (중복 방지)
+        new_set = set(ai_chat_jsons + baekjoon_jsons + commit_jsons)
+
+        pending_count = 0
+        for subdir, filename in no_draft:
+            if filename in new_set:
+                continue
+            pending_count += 1
+            if subdir == "ai_chat":
+                ai_chat_jsons.append(filename)
+            elif subdir == "baekjoon":
+                baekjoon_jsons.append(filename)
+            elif subdir == "commits":
+                commit_jsons.append(filename)
+
+        if pending_count > 0:
+            print(f"\n  📋 이전 실행에서 미처리된 항목 {pending_count}개 발견 (재시도 대상)")
 
         return ai_chat_jsons, baekjoon_jsons, commit_jsons
 
