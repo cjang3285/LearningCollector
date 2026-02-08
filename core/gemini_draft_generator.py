@@ -13,6 +13,7 @@ from api.blog_api import BlogAPIClient
 
 # 정책 모듈 임포트
 from policies.storage.draft_saver import DraftSaver
+from core import structured_logger as slog
 
 
 class GeminiDraftGenerator:
@@ -105,6 +106,7 @@ class GeminiDraftGenerator:
                 continue
 
             print(f"    처리 중: {json_file}")
+            slog.draft_start("algorithm", json_file)
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("알고리즘_풀이_포스팅_프롬프트.md")
@@ -115,6 +117,8 @@ class GeminiDraftGenerator:
             # 생성 실패 시 스킵
             if draft_content is None:
                 self.quota_exhausted = True  # 모든 AI 제공자 실패
+                slog.draft_failure("algorithm", json_file,
+                                   "all_ai_providers_failed")
                 print(f"    ⚠️  AI API 모두 실패. 나머지 백준 draft 생성 중단")
                 break
 
@@ -126,6 +130,7 @@ class GeminiDraftGenerator:
             )
             drafts.append(draft_path)
             succeeded_jsons.append(json_file)
+            slog.draft_success("algorithm", json_file, draft_path)
             print(f"    ✅ 성공: {draft_path}")
 
         # 중복 로깅
@@ -133,6 +138,10 @@ class GeminiDraftGenerator:
             print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
             for dup in duplicates:
                 print(f"      - {dup}")
+
+        slog.draft_summary("algorithm", total=len(json_files),
+                           success=len(drafts), failed=len(json_files) - len(drafts) - len(duplicates),
+                           duplicates=len(duplicates))
 
         return drafts, succeeded_jsons
 
@@ -161,6 +170,7 @@ class GeminiDraftGenerator:
                 continue
 
             print(f"    처리 중: {json_file}")
+            slog.draft_start("dev", json_file)
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("프로젝트_진척_및_의사결정_요약_프롬프트.md")
@@ -171,6 +181,8 @@ class GeminiDraftGenerator:
             # 생성 실패 시 스킵
             if draft_content is None:
                 self.quota_exhausted = True  # 모든 AI 제공자 실패
+                slog.draft_failure("dev", json_file,
+                                   "all_ai_providers_failed")
                 print(f"    ⚠️  AI API 모두 실패. 나머지 개발 draft 생성 중단")
                 break
 
@@ -182,6 +194,7 @@ class GeminiDraftGenerator:
             )
             drafts.append(draft_path)
             succeeded_jsons.append(json_file)
+            slog.draft_success("dev", json_file, draft_path)
             print(f"    ✅ 성공: {draft_path}")
 
         # 중복 로깅
@@ -189,6 +202,10 @@ class GeminiDraftGenerator:
             print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
             for dup in duplicates:
                 print(f"      - {dup}")
+
+        slog.draft_summary("dev", total=len(json_files),
+                           success=len(drafts), failed=len(json_files) - len(drafts) - len(duplicates),
+                           duplicates=len(duplicates))
 
         return drafts, succeeded_jsons
 
@@ -217,6 +234,7 @@ class GeminiDraftGenerator:
                 continue
 
             print(f"    처리 중: {json_file}")
+            slog.draft_start("study", json_file)
 
             # Gemini로 초안 생성
             prompt = self._load_prompt("당일_공부_요약_프롬프트.md")
@@ -227,6 +245,8 @@ class GeminiDraftGenerator:
             # 생성 실패 시 스킵
             if draft_content is None:
                 self.quota_exhausted = True  # 모든 AI 제공자 실패
+                slog.draft_failure("study", json_file,
+                                   "all_ai_providers_failed")
                 print(f"    ⚠️  AI API 모두 실패. 나머지 학습 draft 생성 중단")
                 break
 
@@ -238,6 +258,7 @@ class GeminiDraftGenerator:
             )
             drafts.append(draft_path)
             succeeded_jsons.append(json_file)
+            slog.draft_success("study", json_file, draft_path)
             print(f"    ✅ 성공: {draft_path}")
 
         # 중복 로깅
@@ -245,6 +266,10 @@ class GeminiDraftGenerator:
             print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
             for dup in duplicates:
                 print(f"      - {dup}")
+
+        slog.draft_summary("study", total=len(json_files),
+                           success=len(drafts), failed=len(json_files) - len(drafts) - len(duplicates),
+                           duplicates=len(duplicates))
 
         return drafts, succeeded_jsons
 
@@ -299,10 +324,13 @@ class GeminiDraftGenerator:
                     if result.get("url"):
                         print(f"       URL: {result['url']}")
                 else:
+                    slog.blog_post_failure(draft_path,
+                                           result.get("message", "Unknown error"))
                     print(f"    ❌ 블로그 포스팅 실패: {draft_path}")
                     print(f"       오류: {result.get('message', 'Unknown error')}")
 
             except Exception as e:
+                slog.blog_post_failure(draft_path, str(e))
                 print(f"    ❌ 블로그 포스팅 예외 발생: {draft_path} - {str(e)}")
 
     def _extract_title(self, markdown_content: str) -> str:

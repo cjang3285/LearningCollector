@@ -15,6 +15,7 @@ import getpass
 from core.env_validator import validate_env
 from core.startup_register import register_startup
 from core.orchestrator import run_orchestrator
+from core import structured_logger as slog
 
 
 def setup_env_cli():
@@ -66,6 +67,10 @@ def main():
         help="자동 모드 (모든 레포/브랜치 자동 조회, cron job용)"
     )
     args = parser.parse_args()
+
+    mode = "auto" if args.auto else "interactive"
+    pipeline_timer = slog.start_timer()
+    slog.pipeline_start(mode=mode)
 
     print("="*60)
     print("LearningCollector 시작")
@@ -123,13 +128,21 @@ def main():
 
     try:
         run_orchestrator(auto=args.auto)
+        slog.pipeline_end(mode=mode, success=True,
+                          duration_ms=slog.elapsed_ms(pipeline_timer))
         print("\n모든 작업이 완료되었습니다.")
 
     except KeyboardInterrupt:
+        slog.pipeline_end(mode=mode, success=False,
+                          duration_ms=slog.elapsed_ms(pipeline_timer),
+                          error="KeyboardInterrupt")
         print("\n\n사용자에 의해 중단되었습니다.")
         sys.exit(0)
 
     except Exception as e:
+        slog.pipeline_end(mode=mode, success=False,
+                          duration_ms=slog.elapsed_ms(pipeline_timer),
+                          error=str(e))
         print(f"\n오류 발생: {str(e)}")
         import traceback
         traceback.print_exc()

@@ -6,6 +6,7 @@ OpenAI SDK 호환 (base_url만 변경)
 import os
 import time
 from openai import OpenAI
+from core import structured_logger as slog
 
 
 class PerplexityClient:
@@ -52,6 +53,7 @@ class PerplexityClient:
 """
 
         for attempt in range(self.max_retries):
+            t = slog.start_timer()
             try:
                 response = self.client.chat.completions.create(
                     model="sonar",
@@ -60,9 +62,18 @@ class PerplexityClient:
                     ]
                 )
 
-                return response.choices[0].message.content
+                duration = slog.elapsed_ms(t)
+                result_text = response.choices[0].message.content
+                slog.api_call("perplexity", "POST", "chat.completions",
+                              200, duration, True,
+                              model="sonar",
+                              prompt_len=len(full_prompt),
+                              response_len=len(result_text) if result_text else 0,
+                              attempt=attempt + 1)
+                return result_text
 
             except Exception as e:
+                duration = slog.elapsed_ms(t)
                 error_msg = str(e)
 
                 is_rate_limit = any(keyword in error_msg.lower() for keyword in
@@ -70,10 +81,17 @@ class PerplexityClient:
 
                 if is_rate_limit and attempt < self.max_retries - 1:
                     wait_time = self.retry_delay * (2 ** attempt)
+                    slog.warn("api_call", "api", api="perplexity",
+                              method="POST", endpoint="chat.completions",
+                              reason="rate_limit_retry",
+                              attempt=attempt + 1, wait_seconds=wait_time)
                     print(f"      ⏳ Perplexity rate limit. {wait_time}초 대기 후 재시도... ({attempt + 1}/{self.max_retries})")
                     time.sleep(wait_time)
                     continue
                 else:
+                    slog.api_error("perplexity", "POST", "chat.completions",
+                                   duration, error_msg[:200],
+                                   attempt=attempt + 1)
                     print(f"      ❌ Perplexity API 호출 실패: {error_msg[:200]}")
                     return None
 

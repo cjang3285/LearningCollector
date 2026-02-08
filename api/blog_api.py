@@ -6,6 +6,7 @@ import re
 import requests
 from pathlib import Path
 from typing import List, Optional, Dict
+from core import structured_logger as slog
 
 
 class BlogAPIClient:
@@ -61,6 +62,7 @@ class BlogAPIClient:
         if featured:
             payload["featured"] = featured
 
+        t = slog.start_timer()
         try:
             # API 호출
             response = requests.post(
@@ -68,18 +70,27 @@ class BlogAPIClient:
                 json=payload,
                 timeout=30
             )
+            duration = slog.elapsed_ms(t)
 
             # 응답 확인
             if response.status_code == 201:
                 response_data = response.json()
+                post_url = response_data.get("slug", "")
+                slog.api_call("blog", "POST", "/api/posts",
+                              response.status_code, duration, True,
+                              title=title)
+                slog.blog_post_success(title=title, url=post_url)
                 return {
                     "success": True,
                     "message": "포스트 생성 성공",
                     "title": title,  # 제목 포함
                     "data": response_data,
-                    "url": response_data.get("slug", "")  # URL 포함 (있으면)
+                    "url": post_url  # URL 포함 (있으면)
                 }
             else:
+                slog.api_call("blog", "POST", "/api/posts",
+                              response.status_code, duration, False,
+                              title=title, error=response.text[:200])
                 return {
                     "success": False,
                     "message": f"포스트 생성 실패: HTTP {response.status_code}",
@@ -88,6 +99,9 @@ class BlogAPIClient:
                 }
 
         except requests.exceptions.RequestException as e:
+            duration = slog.elapsed_ms(t)
+            slog.api_error("blog", "POST", "/api/posts",
+                           duration, str(e), title=title)
             return {
                 "success": False,
                 "message": "API 요청 실패",

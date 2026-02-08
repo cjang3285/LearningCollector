@@ -3,6 +3,7 @@ GitHub 수집 모듈 (메인 흐름)
 GraphQL로 수집 정책에서 도출된 수집 기간 동안 나와 claude가 한 커밋들을 모든 레포, 모든 브랜치에서 찾아온다
 """
 import os
+import time
 from datetime import datetime
 from typing import List, Tuple
 
@@ -13,6 +14,7 @@ from api.github_graphql import GitHubGraphQLClient
 from policies.storage.json_saver import JSONSaver
 from policies.storage.duplicate_checker import DuplicateChecker
 from policies.collection_rules import CollectionRules
+from core import structured_logger as slog
 
 
 class GitHubCollector:
@@ -67,9 +69,19 @@ class GitHubCollector:
         if duplicate_count > 0:
             print(f"  ⚠️  중복 제외: {duplicate_count}개 (이미 저장됨)")
 
+        slog.info("github_classify", "github_collector",
+                  total_commits=len(commits),
+                  baekjoon=len(baekjoon_commits), dev=len(dev_commits),
+                  duplicates=duplicate_count)
+
         # 4. JSON 저장
         baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
         dev_files = self._save_dev_commits(dev_commits)
+
+        slog.json_save_summary("baekjoon", saved=len(baekjoon_files),
+                               duplicates=0)
+        slog.json_save_summary("commits", saved=len(dev_files),
+                               duplicates=0)
 
         return baekjoon_files, dev_files
 
@@ -216,9 +228,19 @@ class GitHubCollector:
         if duplicate_count > 0:
             print(f"  ⚠️  중복 제외: {duplicate_count}개 (이미 저장됨)")
 
+        slog.info("github_classify", "github_collector",
+                  total_commits=len(baekjoon_commits) + len(dev_commits) + duplicate_count,
+                  baekjoon=len(baekjoon_commits), dev=len(dev_commits),
+                  duplicates=duplicate_count)
+
         # 7. JSON 저장
         baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
         dev_files = self._save_dev_commits(dev_commits)
+
+        slog.json_save_summary("baekjoon", saved=len(baekjoon_files),
+                               duplicates=0)
+        slog.json_save_summary("commits", saved=len(dev_files),
+                               duplicates=0)
 
         return baekjoon_files, dev_files
 
@@ -323,7 +345,12 @@ class GitHubCollector:
 
             # REST API 호출 #1: 커밋 상세 정보 (파일 목록)
             url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
+            t = slog.start_timer()
             response = requests.get(url, headers=headers, timeout=10)
+            slog.api_call("github_rest", "GET",
+                          f"/repos/{owner}/{repo}/commits/{sha[:7]}",
+                          response.status_code, slog.elapsed_ms(t),
+                          response.status_code == 200)
 
             if response.status_code != 200:
                 return result
@@ -380,7 +407,11 @@ class GitHubCollector:
                 # 풀이 코드 추출
                 raw_url = code_file.get("raw_url")
                 if raw_url:
+                    t = slog.start_timer()
                     raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                    slog.api_call("github_rest", "GET", "raw_content/code",
+                                  raw_response.status_code, slog.elapsed_ms(t),
+                                  raw_response.status_code == 200)
                     if raw_response.status_code == 200:
                         result["풀이_코드"] = raw_response.text
 
@@ -388,7 +419,11 @@ class GitHubCollector:
             if result["문제_번호"] == "Unknown" and readme_file:
                 raw_url = readme_file.get("raw_url")
                 if raw_url:
+                    t = slog.start_timer()
                     raw_response = requests.get(raw_url, headers=headers, timeout=10)
+                    slog.api_call("github_rest", "GET", "raw_content/readme",
+                                  raw_response.status_code, slog.elapsed_ms(t),
+                                  raw_response.status_code == 200)
                     if raw_response.status_code == 200:
                         readme_content = raw_response.text
                         # README 형식: # [티어] 문제명 - 1629
@@ -399,6 +434,9 @@ class GitHubCollector:
             return result
 
         except Exception as e:
+            slog.api_error("github_rest", "GET",
+                           f"/repos/{owner}/{repo}/commits/{sha[:7]}",
+                           0, str(e))
             print(f"  REST API 호출 실패 (SHA: {sha[:7]}): {str(e)}")
             return result
 
@@ -436,7 +474,12 @@ class GitHubCollector:
 
             # REST API 호출: 커밋 상세 정보
             url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
+            t = slog.start_timer()
             response = requests.get(url, headers=headers, timeout=10)
+            slog.api_call("github_rest", "GET",
+                          f"/repos/{owner}/{repo}/commits/{sha[:7]}",
+                          response.status_code, slog.elapsed_ms(t),
+                          response.status_code == 200)
 
             if response.status_code != 200:
                 return result
@@ -496,6 +539,9 @@ class GitHubCollector:
             return result
 
         except Exception as e:
+            slog.api_error("github_rest", "GET",
+                           f"/repos/{owner}/{repo}/commits/{sha[:7]}",
+                           0, str(e))
             print(f"  파일 목록 조회 실패 (SHA: {sha[:7]}): {str(e)}")
             return result
 

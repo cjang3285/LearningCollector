@@ -11,6 +11,7 @@ from typing import List, Tuple, Dict
 from core.ai_chat_collector import AIChatCollector
 from core.github_collector import GitHubCollector
 from core.gemini_draft_generator import GeminiDraftGenerator
+from core import structured_logger as slog
 
 # 정책 임포트
 from policies.collection_period import CollectionPeriodManager
@@ -37,7 +38,13 @@ class Orchestrator:
         print("=" * 50)
 
         # 1. 데이터 수집
+        collect_timer = slog.start_timer()
         ai_chat_jsons, baekjoon_jsons, commit_jsons = self._collect_all()
+        slog.info("collection_phase_end", "orchestrator",
+                  ai_chat=len(ai_chat_jsons), baekjoon=len(baekjoon_jsons),
+                  commits=len(commit_jsons),
+                  total=len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons),
+                  duration_ms=slog.elapsed_ms(collect_timer))
 
         # 2. 이전 실행에서 실패한 pending 항목 병합
         ai_chat_jsons, baekjoon_jsons, commit_jsons = self._merge_pending(
@@ -67,11 +74,20 @@ class Orchestrator:
 
         # 1. AI Chat 수집 (시간 무관)
         print("\n[1/2] AI Chat 수집 중...")
+        slog.collection_start("ai_chat")
+        ai_chat_timer = slog.start_timer()
         ai_chat_jsons = self.ai_chat_collector.collect(None, None)
         print(f"  → {len(ai_chat_jsons)}개의 AI Chat JSON 저장 완료")
 
+        # ai_chat 수집 종료 로그 (collector 내부에서 detailed log를 남기므로 여기선 duration만)
+        slog.collection_end("ai_chat", total_found=0, duplicates=0,
+                            saved=len(ai_chat_jsons),
+                            duration_ms=slog.elapsed_ms(ai_chat_timer))
+
         # 2. GitHub 수집 (소스별 기간)
         print("\n[2/2] GitHub 수집 중...")
+        slog.collection_start("github")
+        github_timer = slog.start_timer()
 
         # 백준/개발 커밋 수집 기간 (더 이른 시작 시간 사용)
         baek_start, baek_end = self.period_manager.get_baekjoon_period()
@@ -93,6 +109,11 @@ class Orchestrator:
             baekjoon_jsons, commit_jsons = self.github_collector.collect_interactive(start_date, end_date)
 
         print(f"  → 백준허브: {len(baekjoon_jsons)}개, 개발사항: {len(commit_jsons)}개 JSON 저장 완료")
+        slog.collection_end("github", total_found=0, duplicates=0,
+                            saved=len(baekjoon_jsons) + len(commit_jsons),
+                            duration_ms=slog.elapsed_ms(github_timer),
+                            baekjoon=len(baekjoon_jsons),
+                            commits=len(commit_jsons))
 
         # 성공적으로 수집된 소스만 시간 업데이트
         if baekjoon_jsons:
@@ -136,6 +157,7 @@ class Orchestrator:
         all_new = ai_chat_jsons + baekjoon_jsons + commit_jsons
 
         print("\n[Auto] 새 항목 블로그 초안 생성 및 포스팅 중...")
+        process_timer = slog.start_timer()
         drafts, succeeded_jsons = self.draft_generator.generate_drafts(
             ai_chat_jsons,
             baekjoon_jsons,
@@ -150,6 +172,11 @@ class Orchestrator:
                 self.json_saver.update_status(json_file, "posted", True)
 
         failed_count = len(all_new) - len(succeeded_set)
+        slog.info("process_phase_end", "orchestrator",
+                  mode="auto", total=len(all_new),
+                  drafts_created=len(drafts), succeeded=len(succeeded_set),
+                  failed=failed_count,
+                  duration_ms=slog.elapsed_ms(process_timer))
         print(f"  → {len(drafts)}개의 초안 생성 완료")
         if failed_count > 0:
             print(f"  → {failed_count}개 항목 초안 생성 실패 (다음 실행에서 재시도)")
