@@ -13,6 +13,7 @@ from watchdog.events import FileSystemEventHandler
 
 # 정책 모듈 임포트
 from policies.storage.json_saver import JSONSaver
+from core import structured_logger as slog
 
 
 class AIChatCollector:
@@ -66,8 +67,15 @@ class AIChatCollector:
 
         if errors:
             print(f"  오류 발생: {len(errors)}개")
-            for error in errors:
-                print(f"    - {error}")
+            for err in errors:
+                print(f"    - {err}")
+
+        slog.json_save_summary("ai_chat", saved=len(saved_jsons),
+                               duplicates=len(duplicates))
+        if errors:
+            slog.warn("ai_chat_parse_errors", "ai_chat_collector",
+                      error_count=len(errors),
+                      errors=errors[:5])
 
         return saved_jsons
 

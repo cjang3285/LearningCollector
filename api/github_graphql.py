@@ -6,6 +6,7 @@ import os
 import requests
 from datetime import datetime
 from typing import List
+from core import structured_logger as slog
 
 
 class GitHubGraphQLClient:
@@ -251,16 +252,29 @@ class GitHubGraphQLClient:
             "variables": variables
         }
 
+        # 쿼리 타입 추출 (query($...) { user / repository })
+        query_type = "unknown"
+        for keyword in ["repositories", "refs", "history"]:
+            if keyword in query:
+                query_type = keyword
+                break
+
+        t = slog.start_timer()
         response = requests.post(
             self.api_url,
             headers=self.headers,
             json=payload,
             timeout=30
         )
+        duration = slog.elapsed_ms(t)
 
         if response.status_code != 200:
+            slog.api_call("github_graphql", "POST", query_type,
+                          response.status_code, duration, False)
             raise Exception(f"GitHub API 오류: HTTP {response.status_code}")
 
+        slog.api_call("github_graphql", "POST", query_type,
+                      response.status_code, duration, True)
         return response.json()
 
 
