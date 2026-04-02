@@ -94,7 +94,7 @@ def main():
             sys.exit(1)
 
     # 2. 환경변수 로드
-    load_dotenv(dotenv_path=env_path)
+    load_dotenv(dotenv_path=env_path, override=True)
     print("\n환경변수 로드 완료")
 
     # 3. 환경변수 검증
