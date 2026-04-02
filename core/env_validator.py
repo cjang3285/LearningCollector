@@ -43,7 +43,11 @@ class EnvValidator:
             headers = {"Authorization": f"token {token}"}
             response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
             if response.status_code != 200:
-                self.errors.append("GITHUB_TOKEN이 유효하지 않습니다. (API 응답 실패)")
+                reason = response.json().get("message", response.text) if response.content else response.reason
+                self.errors.append(
+                    f"GITHUB_TOKEN이 유효하지 않습니다. "
+                    f"(HTTP {response.status_code}: {reason})"
+                )
         except Exception as e:
             self.errors.append(f"GITHUB_TOKEN 검증 중 오류 발생: {str(e)}")
 
