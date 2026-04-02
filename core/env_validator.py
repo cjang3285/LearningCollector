@@ -38,17 +38,12 @@ class EnvValidator:
             self.errors.append("GITHUB_TOKEN이 설정되지 않았습니다.")
             return
 
-        # GitHub API로 토큰 유효성 확인 (Bearer 및 token 방식 모두 시도)
+        # GitHub API로 토큰 유효성 확인
         try:
-            for auth_scheme in ("Bearer", "token"):
-                headers = {"Authorization": f"{auth_scheme} {token}"}
-                response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
-                if response.status_code == 200:
-                    return
-            self.errors.append("GITHUB_TOKEN이 유효하지 않습니다. (API 응답 실패)")
-        except requests.exceptions.ConnectionError:
-            # 네트워크 연결 불가 시 경고만 출력하고 계속 진행
-            print("  ⚠ 네트워크 연결 불가로 GITHUB_TOKEN 온라인 검증을 건너뜁니다.")
+            headers = {"Authorization": f"token {token}"}
+            response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
+            if response.status_code != 200:
+                self.errors.append("GITHUB_TOKEN이 유효하지 않습니다. (API 응답 실패)")
         except Exception as e:
             self.errors.append(f"GITHUB_TOKEN 검증 중 오류 발생: {str(e)}")
 
