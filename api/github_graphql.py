@@ -4,9 +4,14 @@ GitHub GraphQL API 클라이언트
 """
 import os
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import List
 from core import structured_logger as slog
+
+# 레포별 GraphQL 조회 병렬 실행 수 (서로 독립적인 요청이라 동시 실행 가능,
+# GitHub API에 과도한 동시 요청을 보내지 않도록 적당히 제한)
+MAX_CONCURRENT_REPO_FETCHES = 5
 
 
 class GitHubGraphQLClient:
@@ -29,6 +34,11 @@ class GitHubGraphQLClient:
         """
         사용자의 모든 레포, 모든 브랜치에서 커밋 수집
 
+        레포마다 "이번 기간에 푸시된 적 있는지(pushedAt)"로 먼저 걸러내고,
+        살아있는 레포에 대해서만 브랜치+커밋을 조회한다 (그마저도 브랜치별로
+        따로 요청하지 않고 레포당 요청 1번으로 묶음). 레포별 조회는 서로
+        독립적이므로 병렬로 실행한다.
+
         Args:
             username: GitHub 사용자명
             start_date: 수집 시작 날짜
@@ -42,26 +52,47 @@ class GitHubGraphQLClient:
         # 디버그: 수집 기간 출력
         print(f"    📅 수집 기간: {start_date.strftime('%Y-%m-%d %H:%M:%S')} ~ {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        # 1. 사용자의 모든 레포지토리 조회
+        # 1. 사용자의 모든 레포지토리 조회 (pushedAt 포함)
         repositories = self.fetch_repositories(username)
         print(f"    → {len(repositories)}개 레포지토리 발견")
 
-        # 2. 각 레포지토리의 모든 브랜치에서 커밋 수집
+        # 2. 이번 수집 기간 이후로 푸시된 적 없는 레포는 브랜치/커밋 조회 자체를 스킵
+        active_repos = []
         for repo in repositories:
-            repo_name = repo["name"]
+            pushed_at = self.parse_github_timestamp(repo.get("pushedAt"))
+            if pushed_at is not None and pushed_at < start_date:
+                print(f"    {repo['name']}/ (수집 기간 내 변경 없음, 스킵)")
+                continue
+            active_repos.append(repo)
 
-            # 레포의 모든 브랜치 조회
-            branches = self.fetch_branches(username, repo_name)
+        # 3. 살아있는 레포만 병렬로 (브랜치+커밋을 레포당 요청 1번에) 조회
+        results = {}
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REPO_FETCHES) as executor:
+            future_to_repo = {
+                executor.submit(
+                    self.fetch_repo_branch_commits,
+                    repo["owner"]["login"], repo["name"], start_date, end_date
+                ): repo["name"]
+                for repo in active_repos
+            }
+            for future in as_completed(future_to_repo):
+                repo_name = future_to_repo[future]
+                try:
+                    results[repo_name] = future.result()
+                except Exception:
+                    results[repo_name] = {}
+
+        # 4. 레포 원래 순서대로 출력 + 결과 취합
+        for repo in active_repos:
+            repo_name = repo["name"]
+            branch_commits = results.get(repo_name, {})
             print(f"    {repo_name}/")
 
-            # 각 브랜치에서 커밋 수집
-            for idx, branch in enumerate(branches):
-                is_last_branch = (idx == len(branches) - 1)
+            branch_names = list(branch_commits.keys())
+            for idx, branch in enumerate(branch_names):
+                commits = branch_commits[branch]
+                is_last_branch = (idx == len(branch_names) - 1)
                 branch_prefix = "    └─ " if is_last_branch else "    ├─ "
-
-                commits = self.fetch_branch_commits(
-                    username, repo_name, branch, start_date, end_date
-                )
 
                 if commits:
                     print(f"{branch_prefix}{branch}: {len(commits)}개")
@@ -82,17 +113,27 @@ class GitHubGraphQLClient:
         return all_commits
 
     def fetch_repositories(self, username: str) -> List[dict]:
-        """사용자의 모든 레포지토리 조회 (public)"""
+        """
+        개인 레포뿐 아니라 소속된 조직(organization)의 레포까지 포함해서 조회.
+
+        `user(login: $username)`으로 조회하면 개인 소유 레포만 나오고 조직
+        레포는 아예 빠지기 때문에, 토큰 소유자 기준(`viewer`) + affiliations로
+        조회해서 "내가 커밋/PR을 올리는 조직 레포"도 잡히게 함.
+        """
         query = """
-        query($username: String!, $cursor: String) {
-          user(login: $username) {
-            repositories(first: 100, after: $cursor) {
+        query($cursor: String) {
+          viewer {
+            repositories(
+              first: 100, after: $cursor,
+              ownerAffiliations: [OWNER, ORGANIZATION_MEMBER, COLLABORATOR]
+            ) {
               pageInfo {
                 hasNextPage
                 endCursor
               }
               nodes {
                 name
+                pushedAt
                 owner {
                   login
                 }
@@ -106,10 +147,10 @@ class GitHubGraphQLClient:
         cursor = None
 
         while True:
-            variables = {"username": username, "cursor": cursor}
+            variables = {"cursor": cursor}
             response = self._execute_query(query, variables)
 
-            repos_data = response["data"]["user"]["repositories"]
+            repos_data = response["data"]["viewer"]["repositories"]
             repositories.extend(repos_data["nodes"])
 
             page_info = repos_data["pageInfo"]
@@ -119,6 +160,228 @@ class GitHubGraphQLClient:
             cursor = page_info["endCursor"]
 
         return repositories
+
+    def parse_github_timestamp(self, timestamp: str):
+        """GitHub GraphQL의 ISO 8601 타임스탬프(...Z)를 naive UTC datetime으로 변환"""
+        if not timestamp:
+            return None
+        try:
+            return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).replace(tzinfo=None)
+        except (ValueError, TypeError):
+            return None
+
+    def fetch_repo_branch_commits(
+        self,
+        owner: str,
+        repo_name: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> dict:
+        """
+        레포의 모든 브랜치와 각 브랜치의 커밋을 요청 1번(페이지네이션 시 여러 번)으로 조회.
+        기존에는 브랜치 목록 조회 1번 + 브랜치별 커밋 조회 N번이 필요했지만,
+        GraphQL의 중첩 조회(refs → target → history)를 이용해 하나로 합침.
+
+        Returns:
+            dict: {브랜치명: [커밋, ...]}
+        """
+        query = """
+        query($owner: String!, $name: String!, $since: GitTimestamp!, $cursor: String) {
+          repository(owner: $owner, name: $name) {
+            refs(refPrefix: "refs/heads/", first: 100, after: $cursor) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                name
+                target {
+                  ... on Commit {
+                    history(first: 100, since: $since) {
+                      nodes {
+                        oid
+                        message
+                        committedDate
+                        additions
+                        deletions
+                        changedFiles
+                        author {
+                          name
+                          email
+                          user {
+                            login
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        since_param = start_date.replace(microsecond=0).isoformat() + "Z"
+        branch_commits = {}
+        cursor = None
+
+        try:
+            while True:
+                variables = {
+                    "owner": owner, "name": repo_name,
+                    "since": since_param, "cursor": cursor
+                }
+                response = self._execute_query(query, variables)
+
+                if "errors" in response:
+                    break
+
+                repo_data = response.get("data", {}).get("repository")
+                if not repo_data:
+                    break
+
+                refs_data = repo_data["refs"]
+                for node in refs_data["nodes"]:
+                    branch_name = node["name"]
+                    target = node.get("target") or {}
+                    history = target.get("history")
+
+                    if not history:
+                        branch_commits[branch_name] = []
+                        continue
+
+                    filtered_commits = []
+                    for commit in history["nodes"]:
+                        commit_date_str = commit["committedDate"].replace("Z", "+00:00")
+                        commit_date_naive = datetime.fromisoformat(commit_date_str).replace(tzinfo=None)
+
+                        if commit_date_naive <= end_date:
+                            commit["repository"] = repo_name
+                            commit["repo_owner"] = owner
+                            commit["branch"] = branch_name
+                            filtered_commits.append(commit)
+
+                    branch_commits[branch_name] = filtered_commits
+
+                page_info = refs_data["pageInfo"]
+                if not page_info["hasNextPage"]:
+                    break
+
+                cursor = page_info["endCursor"]
+
+        except Exception:
+            pass
+
+        return branch_commits
+
+    def fetch_pull_requests(
+        self,
+        owner: str,
+        repo_name: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[dict]:
+        """
+        레포의 PR 목록 조회 (최근 업데이트 순으로 페이지네이션하다가, 이번
+        수집 기간보다 오래된 PR이 나오면 그 이후는 조회할 필요가 없으므로 중단).
+
+        Returns:
+            List[dict]: PR 리스트 (병합되었거나 닫힌 PR만 - 아직 열려있는
+                        PR은 나중에 커밋이 더 붙을 수 있으므로 여기서는 제외)
+        """
+        query = """
+        query($owner: String!, $name: String!, $cursor: String) {
+          repository(owner: $owner, name: $name) {
+            pullRequests(
+              first: 30, after: $cursor,
+              orderBy: {field: UPDATED_AT, direction: DESC}
+            ) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                id
+                number
+                title
+                body
+                state
+                url
+                createdAt
+                updatedAt
+                mergedAt
+                additions
+                deletions
+                changedFiles
+                headRefName
+                baseRefName
+                author {
+                  login
+                }
+                commits(first: 30) {
+                  totalCount
+                  nodes {
+                    commit {
+                      oid
+                      message
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        prs = []
+        cursor = None
+
+        try:
+            while True:
+                variables = {"owner": owner, "name": repo_name, "cursor": cursor}
+                response = self._execute_query(query, variables)
+
+                if "errors" in response:
+                    break
+
+                repo_data = response.get("data", {}).get("repository")
+                if not repo_data:
+                    break
+
+                pr_data = repo_data["pullRequests"]
+                stop_paging = False
+
+                for node in pr_data["nodes"]:
+                    updated_at = self.parse_github_timestamp(node.get("updatedAt"))
+
+                    # UPDATED_AT DESC로 정렬했으므로, 수집 기간보다 오래 전에
+                    # 업데이트된 PR이 나오면 그 이후는 전부 더 오래된 것 -> 중단
+                    if updated_at is not None and updated_at < start_date:
+                        stop_paging = True
+                        break
+
+                    # 아직 열려있는 PR은 나중에 커밋/설명이 더 바뀔 수 있으므로 제외
+                    if node.get("state") == "OPEN":
+                        continue
+
+                    node["repository"] = repo_name
+                    node["repo_owner"] = owner
+                    prs.append(node)
+
+                if stop_paging:
+                    break
+
+                page_info = pr_data["pageInfo"]
+                if not page_info["hasNextPage"]:
+                    break
+
+                cursor = page_info["endCursor"]
+
+        except Exception:
+            pass
+
+        return prs
 
     def fetch_branches(self, owner: str, repo_name: str) -> List[str]:
         """레포지토리의 모든 브랜치 조회 (public)"""
@@ -237,6 +500,7 @@ class GitHubGraphQLClient:
 
                 if commit_date_naive <= end_date:
                     commit["repository"] = repo_name
+                    commit["repo_owner"] = owner
                     commit["branch"] = branch  # 브랜치 정보 추가
                     filtered_commits.append(commit)
 

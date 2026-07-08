@@ -21,6 +21,7 @@ class JSONSaver:
         (self.data_dir / "baekjoon").mkdir(parents=True, exist_ok=True)
         (self.data_dir / "commits").mkdir(parents=True, exist_ok=True)
         (self.data_dir / "ai_chat").mkdir(parents=True, exist_ok=True)
+        (self.data_dir / "prs").mkdir(parents=True, exist_ok=True)
 
     def _get_default_status(self) -> dict:
         """기본 상태 필드 반환"""
@@ -173,6 +174,45 @@ class JSONSaver:
 
         return filename
 
+    def save_pr(self, data: dict) -> str:
+        """
+        PR JSON 저장
+        파일명: 레포_PR번호_제목핵심_병합일.json
+
+        Returns:
+            str: 저장된 파일명 (중복이면 None)
+        """
+        pr_id = data.get("PR_ID")
+
+        # 중복 체크
+        if self.duplicate_checker.is_duplicate_pr(pr_id):
+            return None
+
+        repo = data.get("레포지토리", "unknown")
+        pr_number = data.get("PR_번호", "0")
+        title = data.get("제목", "")
+        merged_time = data.get("병합일") or data.get("생성일") or ""
+
+        title_core = title[:30]
+
+        if merged_time:
+            kst_time = self._utc_to_kst(merged_time)
+        else:
+            kst_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        safe_name = self._sanitize_filename(f"{repo}_PR{pr_number}_{title_core}_{kst_time}")
+        filename = f"{safe_name}.json"
+
+        # 상태 필드 추가
+        data["_status"] = self._get_default_status()
+
+        # 저장
+        file_path = self.data_dir / "prs" / filename
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        return filename
+
     def _format_exported_time(self, exported_time: str) -> str:
         """
         Exported 시간을 파일명용 형식으로 변환
@@ -216,7 +256,7 @@ class JSONSaver:
             bool: 성공 여부
         """
         # 모든 폴더에서 파일 찾기
-        for subdir in ["baekjoon", "commits", "ai_chat"]:
+        for subdir in ["baekjoon", "commits", "ai_chat", "prs"]:
             file_path = self.data_dir / subdir / json_filename
             if file_path.exists():
                 try:
@@ -257,7 +297,7 @@ class JSONSaver:
             "no_post": []
         }
 
-        for subdir in ["baekjoon", "commits", "ai_chat"]:
+        for subdir in ["baekjoon", "commits", "ai_chat", "prs"]:
             folder = self.data_dir / subdir
             if not folder.exists():
                 if verbose:
@@ -312,7 +352,7 @@ class JSONSaver:
         Returns:
             dict: 요약 정보
         """
-        for subdir in ["baekjoon", "commits", "ai_chat"]:
+        for subdir in ["baekjoon", "commits", "ai_chat", "prs"]:
             file_path = self.data_dir / subdir / json_filename
             if file_path.exists():
                 try:
@@ -333,6 +373,13 @@ class JSONSaver:
                         return {
                             "type": "개발",
                             "title": first_line[:50],
+                            "repo": data.get("레포지토리", "Unknown"),
+                            "status": data.get("_status", {})
+                        }
+                    elif subdir == "prs":
+                        return {
+                            "type": "PR",
+                            "title": f"#{data.get('PR_번호', '?')} {data.get('제목', 'Unknown')}"[:50],
                             "repo": data.get("레포지토리", "Unknown"),
                             "status": data.get("_status", {})
                         }

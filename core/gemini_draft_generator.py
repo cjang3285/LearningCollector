@@ -30,19 +30,22 @@ class GeminiDraftGenerator:
         self,
         ai_chat_jsons: List[str],
         baekjoon_jsons: List[str],
-        commit_jsons: List[str]
+        commit_jsons: List[str],
+        pr_jsons: List[str] = None
     ) -> Tuple[List[str], List[str]]:
         """
-        3가지 초안 생성
+        4가지 초안 생성
         1. 백준 풀이 초안
         2. 개발 진척 초안
         3. AI 대화 공부 초안
+        4. PR 요약 초안
 
         Returns:
             Tuple[List[str], List[str]]:
                 - 생성된 draft 파일 경로 리스트
                 - 초안 생성에 성공한 JSON 파일명 리스트
         """
+        pr_jsons = pr_jsons or []
         all_drafts = []
         all_succeeded_jsons = []
 
@@ -70,12 +73,20 @@ class GeminiDraftGenerator:
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(study_drafts)}개 생성 완료")
 
-        # 4. 블로그 포스팅 (초안 생성 직후)
+        # 4. PR 요약 초안 작성
+        if pr_jsons:
+            print(f"  PR 요약 초안 생성 중... ({len(pr_jsons)}개)")
+            pr_drafts, succeeded = self._generate_pr_drafts(pr_jsons)
+            all_drafts.extend(pr_drafts)
+            all_succeeded_jsons.extend(succeeded)
+            print(f"    → {len(pr_drafts)}개 생성 완료")
+
+        # 5. 블로그 포스팅 (초안 생성 직후)
         if all_drafts:
             print(f"\n  블로그 포스팅 중... ({len(all_drafts)}개)")
             self._post_to_blog(all_drafts)
 
-        # 5. 에디터로 열기 (맨 마지막)
+        # 6. 에디터로 열기 (맨 마지막)
         if all_drafts:
             self._open_in_editor(all_drafts)
 
@@ -114,13 +125,20 @@ class GeminiDraftGenerator:
 
             draft_content = self.ai_client.generate_draft(prompt, json_content)
 
-            # 생성 실패 시 스킵
+            # 생성 실패 시 처리
             if draft_content is None:
-                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                if self.ai_client.last_error_permanent:
+                    # 일일 한도/결제 초과 등 이번 실행 내내 재시도해도 소용없는 실패
+                    self.quota_exhausted = True
+                    slog.draft_failure("algorithm", json_file,
+                                       "all_ai_providers_permanently_failed")
+                    print(f"    ⚠️  AI API 한도 초과. 나머지 백준 draft 생성 중단")
+                    break
+                # 일시적 오류 - 이 항목만 실패, 다음 항목은 계속 시도 (다음 실행에서 재시도됨)
                 slog.draft_failure("algorithm", json_file,
-                                   "all_ai_providers_failed")
-                print(f"    ⚠️  AI API 모두 실패. 나머지 백준 draft 생성 중단")
-                break
+                                   "transient_ai_failure")
+                print(f"    ⚠️  일시적 오류로 실패, 다음 항목 계속 진행: {json_file}")
+                continue
 
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
@@ -178,13 +196,18 @@ class GeminiDraftGenerator:
 
             draft_content = self.ai_client.generate_draft(prompt, json_content)
 
-            # 생성 실패 시 스킵
+            # 생성 실패 시 처리
             if draft_content is None:
-                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                if self.ai_client.last_error_permanent:
+                    self.quota_exhausted = True
+                    slog.draft_failure("dev", json_file,
+                                       "all_ai_providers_permanently_failed")
+                    print(f"    ⚠️  AI API 한도 초과. 나머지 개발 draft 생성 중단")
+                    break
                 slog.draft_failure("dev", json_file,
-                                   "all_ai_providers_failed")
-                print(f"    ⚠️  AI API 모두 실패. 나머지 개발 draft 생성 중단")
-                break
+                                   "transient_ai_failure")
+                print(f"    ⚠️  일시적 오류로 실패, 다음 항목 계속 진행: {json_file}")
+                continue
 
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
@@ -242,13 +265,18 @@ class GeminiDraftGenerator:
 
             draft_content = self.ai_client.generate_draft(prompt, json_content)
 
-            # 생성 실패 시 스킵
+            # 생성 실패 시 처리
             if draft_content is None:
-                self.quota_exhausted = True  # 모든 AI 제공자 실패
+                if self.ai_client.last_error_permanent:
+                    self.quota_exhausted = True
+                    slog.draft_failure("study", json_file,
+                                       "all_ai_providers_permanently_failed")
+                    print(f"    ⚠️  AI API 한도 초과. 나머지 학습 draft 생성 중단")
+                    break
                 slog.draft_failure("study", json_file,
-                                   "all_ai_providers_failed")
-                print(f"    ⚠️  AI API 모두 실패. 나머지 학습 draft 생성 중단")
-                break
+                                   "transient_ai_failure")
+                print(f"    ⚠️  일시적 오류로 실패, 다음 항목 계속 진행: {json_file}")
+                continue
 
             # Draft 저장
             draft_path = self.draft_saver.save_draft(
@@ -273,6 +301,75 @@ class GeminiDraftGenerator:
 
         return drafts, succeeded_jsons
 
+    def _generate_pr_drafts(self, json_files: List[str]) -> Tuple[List[str], List[str]]:
+        """PR 요약 초안 생성
+
+        Returns:
+            Tuple[List[str], List[str]]: (draft 파일 경로 리스트, 성공한 JSON 파일명 리스트)
+        """
+        drafts = []
+        succeeded_jsons = []
+        duplicates = []
+
+        print(f"    총 {len(json_files)}개의 PR JSON 발견")
+
+        for json_file in json_files:
+            # 일일 한도 초과 시 나머지 스킵
+            if self.quota_exhausted:
+                print(f"    한도 초과로 스킵: {json_file}")
+                continue
+
+            # 중복 체크
+            if self.draft_saver.is_duplicate_draft(json_file, "pr"):
+                duplicates.append(json_file)
+                succeeded_jsons.append(json_file)
+                continue
+
+            print(f"    처리 중: {json_file}")
+            slog.draft_start("pr", json_file)
+
+            # Gemini로 초안 생성
+            prompt = self._load_prompt("PR_리뷰_및_병합_요약_프롬프트.md")
+            json_content = self._load_json(json_file)
+
+            draft_content = self.ai_client.generate_draft(prompt, json_content)
+
+            # 생성 실패 시 처리
+            if draft_content is None:
+                if self.ai_client.last_error_permanent:
+                    self.quota_exhausted = True
+                    slog.draft_failure("pr", json_file,
+                                       "all_ai_providers_permanently_failed")
+                    print(f"    ⚠️  AI API 한도 초과. 나머지 PR draft 생성 중단")
+                    break
+                slog.draft_failure("pr", json_file,
+                                   "transient_ai_failure")
+                print(f"    ⚠️  일시적 오류로 실패, 다음 항목 계속 진행: {json_file}")
+                continue
+
+            # Draft 저장
+            draft_path = self.draft_saver.save_draft(
+                draft_type="pr",
+                content=draft_content,
+                source_json=json_file
+            )
+            drafts.append(draft_path)
+            succeeded_jsons.append(json_file)
+            slog.draft_success("pr", json_file, draft_path)
+            print(f"    ✅ 성공: {draft_path}")
+
+        # 중복 로깅
+        if duplicates:
+            print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
+            for dup in duplicates:
+                print(f"      - {dup}")
+
+        slog.draft_summary("pr", total=len(json_files),
+                           success=len(drafts), failed=len(json_files) - len(drafts) - len(duplicates),
+                           duplicates=len(duplicates))
+
+        return drafts, succeeded_jsons
+
     def _load_prompt(self, prompt_filename: str) -> str:
         """프롬프트 파일 로드"""
         prompt_path = Path(__file__).parent.parent / "prompts" / prompt_filename
@@ -284,8 +381,8 @@ class GeminiDraftGenerator:
         # data/ 폴더에서 JSON 파일 찾기
         data_dir = Path(__file__).parent.parent / "data"
 
-        # baekjoon, commits, ai_chat 폴더에서 검색
-        for subdir in ["baekjoon", "commits", "ai_chat"]:
+        # baekjoon, commits, ai_chat, prs 폴더에서 검색
+        for subdir in ["baekjoon", "commits", "ai_chat", "prs"]:
             json_path = data_dir / subdir / json_filename
             if json_path.exists():
                 with open(json_path, "r", encoding="utf-8") as f:
