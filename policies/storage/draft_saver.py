@@ -17,6 +17,7 @@ class DraftSaver:
         (self.draft_dir / "algorithm").mkdir(parents=True, exist_ok=True)
         (self.draft_dir / "dev").mkdir(parents=True, exist_ok=True)
         (self.draft_dir / "study").mkdir(parents=True, exist_ok=True)
+        (self.draft_dir / "pr").mkdir(parents=True, exist_ok=True)
 
     def save_draft(self, draft_type: str, content: str, source_json: str) -> str:
         """
@@ -51,6 +52,9 @@ class DraftSaver:
         첨부파일 이름으로 중복 판단
         오류 draft는 자동으로 삭제
 
+        save_draft()가 항상 "{draft_type}_{source_name}.md" 형식으로 저장하므로,
+        폴더 전체를 훑는 대신 예상 경로를 바로 계산해 존재 여부만 확인한다.
+
         Args:
             source_json: 첨부파일 이름 (JSON 파일명)
             draft_type: draft 종류 (algorithm, dev, study)
@@ -58,26 +62,20 @@ class DraftSaver:
         Returns:
             bool: 중복이면 True (단, 오류 draft는 삭제 후 False 반환)
         """
-        draft_type_dir = self.draft_dir / draft_type
-
-        if not draft_type_dir.exists():
-            return False
-
         # source_json에서 .json 제거
         source_name = source_json.replace(".json", "")
+        draft_file = self.draft_dir / draft_type / f"{draft_type}_{source_name}.md"
 
-        # 해당 타입의 모든 draft 파일 확인
-        for draft_file in draft_type_dir.glob("*.md"):
-            # 파일명이 source_name으로 끝나는지 확인
-            if draft_file.stem.endswith(source_name):
-                # 오류 draft인지 확인
-                if self._is_error_draft(draft_file):
-                    print(f"    🗑️  오류 draft 삭제: {draft_file.name}")
-                    draft_file.unlink()  # 삭제
-                    return False  # 삭제했으므로 중복 아님
-                return True
+        if not draft_file.exists():
+            return False
 
-        return False
+        # 오류 draft인지 확인
+        if self._is_error_draft(draft_file):
+            print(f"    🗑️  오류 draft 삭제: {draft_file.name}")
+            draft_file.unlink()  # 삭제
+            return False  # 삭제했으므로 중복 아님
+
+        return True
 
     def _is_error_draft(self, draft_path: Path) -> bool:
         """
@@ -141,7 +139,7 @@ class DraftSaver:
         """
         all_drafts = []
 
-        for draft_type in ["algorithm", "dev", "study"]:
+        for draft_type in ["algorithm", "dev", "study", "pr"]:
             all_drafts.extend(self.get_drafts_by_type(draft_type))
 
         return all_drafts
@@ -158,7 +156,7 @@ class DraftSaver:
         """
         all_drafts = []
 
-        for draft_type in ["algorithm", "dev", "study"]:
+        for draft_type in ["algorithm", "dev", "study", "pr"]:
             draft_type_dir = self.draft_dir / draft_type
             if draft_type_dir.exists():
                 all_drafts.extend(draft_type_dir.glob("*.md"))

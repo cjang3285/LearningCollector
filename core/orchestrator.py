@@ -39,20 +39,20 @@ class Orchestrator:
 
         # 1. 데이터 수집
         collect_timer = slog.start_timer()
-        ai_chat_jsons, baekjoon_jsons, commit_jsons = self._collect_all()
+        ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons = self._collect_all()
         slog.info("collection_phase_end", "orchestrator",
                   ai_chat=len(ai_chat_jsons), baekjoon=len(baekjoon_jsons),
-                  commits=len(commit_jsons),
-                  total=len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons),
+                  commits=len(commit_jsons), prs=len(pr_jsons),
+                  total=len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons) + len(pr_jsons),
                   duration_ms=slog.elapsed_ms(collect_timer))
 
         # 2. 이전 실행에서 실패한 pending 항목 병합
-        ai_chat_jsons, baekjoon_jsons, commit_jsons = self._merge_pending(
-            ai_chat_jsons, baekjoon_jsons, commit_jsons
+        ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons = self._merge_pending(
+            ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons
         )
 
         # 3. 수집 결과 요약 및 처리
-        total = len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons)
+        total = len(ai_chat_jsons) + len(baekjoon_jsons) + len(commit_jsons) + len(pr_jsons)
 
         if total == 0:
             print("\n" + "=" * 50)
@@ -61,15 +61,15 @@ class Orchestrator:
             print("  처리할 데이터가 없습니다.")
         else:
             if self.auto:
-                self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons)
+                self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons)
             else:
-                self._interactive_process(ai_chat_jsons, baekjoon_jsons, commit_jsons)
+                self._interactive_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons)
 
         print("\n" + "=" * 50)
         print("LearningCollector 실행 완료")
         print("=" * 50)
 
-    def _collect_all(self) -> Tuple[List[str], List[str], List[str]]:
+    def _collect_all(self) -> Tuple[List[str], List[str], List[str], List[str]]:
         """모든 소스에서 데이터 수집"""
 
         # 1. AI Chat 수집 (시간 무관)
@@ -89,13 +89,13 @@ class Orchestrator:
         slog.collection_start("github")
         github_timer = slog.start_timer()
 
-        # 백준/개발 커밋 수집 기간 (더 이른 시작 시간 사용)
-        baek_start, baek_end = self.period_manager.get_baekjoon_period()
+        # 백준 서비스 종료로 백준 커밋 수집 기간 계산은 비활성화함 (github_collector가
+        # 백준 레포 커밋을 더 이상 수집하지 않으므로 여기서도 조회할 필요가 없음)
+        # baek_start, baek_end = self.period_manager.get_baekjoon_period()
         commit_start, commit_end = self.period_manager.get_commits_period()
 
-        # 더 이른 시작 시간으로 조회 (API 호출 최적화)
-        start_date = min(baek_start, commit_start)
-        end_date = max(baek_end, commit_end)
+        start_date = commit_start
+        end_date = commit_end
 
         # UTC와 KST 둘 다 표시
         start_kst = start_date + timedelta(hours=9)
@@ -104,35 +104,37 @@ class Orchestrator:
         print(f"  📅 조회 기간(KST): {start_kst.strftime('%Y-%m-%d %H:%M')} ~ {end_kst.strftime('%Y-%m-%d %H:%M')}")
 
         if self.auto:
-            baekjoon_jsons, commit_jsons = self.github_collector.collect(start_date, end_date)
+            baekjoon_jsons, commit_jsons, pr_jsons = self.github_collector.collect(start_date, end_date)
         else:
-            baekjoon_jsons, commit_jsons = self.github_collector.collect_interactive(start_date, end_date)
+            baekjoon_jsons, commit_jsons, pr_jsons = self.github_collector.collect_interactive(start_date, end_date)
 
-        print(f"  → 백준허브: {len(baekjoon_jsons)}개, 개발사항: {len(commit_jsons)}개 JSON 저장 완료")
+        print(f"  → 백준허브: {len(baekjoon_jsons)}개, 개발사항: {len(commit_jsons)}개, PR: {len(pr_jsons)}개 JSON 저장 완료")
         slog.collection_end("github", total_found=0, duplicates=0,
-                            saved=len(baekjoon_jsons) + len(commit_jsons),
+                            saved=len(baekjoon_jsons) + len(commit_jsons) + len(pr_jsons),
                             duration_ms=slog.elapsed_ms(github_timer),
                             baekjoon=len(baekjoon_jsons),
-                            commits=len(commit_jsons))
+                            commits=len(commit_jsons),
+                            prs=len(pr_jsons))
 
         # 성공적으로 수집된 소스만 시간 업데이트
-        if baekjoon_jsons:
-            self.period_manager.update_baekjoon_time()
+        # (백준은 서비스 종료로 비활성화 - baekjoon_jsons는 항상 빈 리스트)
+        # if baekjoon_jsons:
+        #     self.period_manager.update_baekjoon_time()
         if commit_jsons:
             self.period_manager.update_commits_time()
 
-        return ai_chat_jsons, baekjoon_jsons, commit_jsons
+        return ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons
 
-    def _merge_pending(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
+    def _merge_pending(self, ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons):
         """이전 실행에서 초안 생성 실패한 pending 항목을 병합"""
         pending = self.json_saver.get_pending_jsons()
         no_draft = pending["no_draft"]  # [(subdir, filename), ...]
 
         if not no_draft:
-            return ai_chat_jsons, baekjoon_jsons, commit_jsons
+            return ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons
 
         # 이번에 새로 수집된 파일명 (중복 방지)
-        new_set = set(ai_chat_jsons + baekjoon_jsons + commit_jsons)
+        new_set = set(ai_chat_jsons + baekjoon_jsons + commit_jsons + pr_jsons)
 
         pending_count = 0
         for subdir, filename in no_draft:
@@ -145,23 +147,26 @@ class Orchestrator:
                 baekjoon_jsons.append(filename)
             elif subdir == "commits":
                 commit_jsons.append(filename)
+            elif subdir == "prs":
+                pr_jsons.append(filename)
 
         if pending_count > 0:
             print(f"\n  📋 이전 실행에서 미처리된 항목 {pending_count}개 발견 (재시도 대상)")
 
-        return ai_chat_jsons, baekjoon_jsons, commit_jsons
+        return ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons
 
-    def _auto_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
+    def _auto_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons):
         """Auto 모드: 새로 수집된 것 전체 자동 처리"""
 
-        all_new = ai_chat_jsons + baekjoon_jsons + commit_jsons
+        all_new = ai_chat_jsons + baekjoon_jsons + commit_jsons + pr_jsons
 
         print("\n[Auto] 새 항목 블로그 초안 생성 및 포스팅 중...")
         process_timer = slog.start_timer()
         drafts, succeeded_jsons = self.draft_generator.generate_drafts(
             ai_chat_jsons,
             baekjoon_jsons,
-            commit_jsons
+            commit_jsons,
+            pr_jsons
         )
 
         # 상태 업데이트 (성공한 JSON만)
@@ -181,7 +186,7 @@ class Orchestrator:
         if failed_count > 0:
             print(f"  → {failed_count}개 항목 초안 생성 실패 (다음 실행에서 재시도)")
 
-    def _interactive_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons):
+    def _interactive_process(self, ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons):
         """Interactive 모드: 번호 선택 방식"""
 
         # 전체 항목 리스트 생성 (번호 부여)
@@ -215,6 +220,14 @@ class Orchestrator:
                 summary = self.json_saver.get_json_summary(json_file)
                 print(f"    {idx}. [{summary.get('repo', '?')}] {summary.get('title', json_file)[:40]}")
                 all_items.append((idx, "commits", json_file, summary))
+                idx += 1
+
+        if pr_jsons:
+            print(f"\n  🔀 PR ({len(pr_jsons)}개):")
+            for json_file in pr_jsons:
+                summary = self.json_saver.get_json_summary(json_file)
+                print(f"    {idx}. [{summary.get('repo', '?')}] {summary.get('title', json_file)[:40]}")
+                all_items.append((idx, "prs", json_file, summary))
                 idx += 1
 
         # 선택 입력
@@ -286,8 +299,9 @@ class Orchestrator:
             ai_chat = [f for _, folder, f, _ in selected_items if folder == "ai_chat"]
             baekjoon = [f for _, folder, f, _ in selected_items if folder == "baekjoon"]
             commits = [f for _, folder, f, _ in selected_items if folder == "commits"]
+            prs = [f for _, folder, f, _ in selected_items if folder == "prs"]
 
-            drafts, succeeded_jsons = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits)
+            drafts, succeeded_jsons = self.draft_generator.generate_drafts(ai_chat, baekjoon, commits, prs)
 
             # 상태 업데이트 (성공한 JSON만)
             succeeded_set = set(succeeded_jsons)

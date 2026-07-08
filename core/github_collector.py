@@ -4,6 +4,7 @@ GraphQL로 수집 정책에서 도출된 수집 기간 동안 나와 claude가 �
 """
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import List, Tuple
 
@@ -16,6 +17,9 @@ from policies.storage.duplicate_checker import DuplicateChecker
 from policies.collection_rules import CollectionRules
 from core import structured_logger as slog
 
+# 커밋별 REST 상세 조회 병렬 실행 수 (서로 독립적인 요청)
+MAX_CONCURRENT_REST_FETCHES = 5
+
 
 class GitHubCollector:
     """GitHub 수집 클래스"""
@@ -25,12 +29,13 @@ class GitHubCollector:
         self.duplicate_checker = DuplicateChecker()
         self.json_saver = JSONSaver()
 
-    def collect(self, start_date: datetime, end_date: datetime) -> Tuple[List[str], List[str]]:
+    def collect(self, start_date: datetime, end_date: datetime) -> Tuple[List[str], List[str], List[str]]:
         """
         GitHub에서 커밋 수집 (auto 모드)
 
         Returns:
-            Tuple[List[str], List[str]]: (백준 JSON 파일명 리스트, 개발 JSON 파일명 리스트)
+            Tuple[List[str], List[str], List[str]]:
+                (백준 JSON 파일명 리스트, 개발 JSON 파일명 리스트, PR JSON 파일명 리스트)
         """
         username = os.getenv("GITHUB_USERNAME")
 
@@ -48,21 +53,29 @@ class GitHubCollector:
             sha = commit.get("oid")
             repo_name = commit.get("repository", "")
 
-            # 레포 이름으로 백준/개발 판단
-            is_baekjoon_repo = CollectionRules.is_baekjoon_repo(repo_name)
+            # 백준 서비스 종료로 백준 레포 수집을 비활성화함 (아래 원래 분류 로직은
+            # 주석 처리만 해두고 남겨둠. 필요해지면 이 블록을 되살리면 됨)
+            # is_baekjoon_repo = CollectionRules.is_baekjoon_repo(repo_name)
+            # if is_baekjoon_repo:
+            #     # 백준 레포 커밋 → 백준 중복 체크
+            #     if self.duplicate_checker.is_duplicate_baekjoon(sha):
+            #         duplicate_count += 1
+            #     else:
+            #         baekjoon_commits.append(commit)
+            # else:
+            #     # 개발 레포 커밋 → 개발 중복 체크
+            #     if self.duplicate_checker.is_duplicate_commit(sha):
+            #         duplicate_count += 1
+            #     else:
+            #         dev_commits.append(commit)
+            if CollectionRules.is_baekjoon_repo(repo_name):
+                continue  # 백준 레포는 더 이상 수집하지 않음
 
-            if is_baekjoon_repo:
-                # 백준 레포 커밋 → 백준 중복 체크
-                if self.duplicate_checker.is_duplicate_baekjoon(sha):
-                    duplicate_count += 1
-                else:
-                    baekjoon_commits.append(commit)
+            # 개발 레포 커밋 → 개발 중복 체크
+            if self.duplicate_checker.is_duplicate_commit(sha):
+                duplicate_count += 1
             else:
-                # 개발 레포 커밋 → 개발 중복 체크
-                if self.duplicate_checker.is_duplicate_commit(sha):
-                    duplicate_count += 1
-                else:
-                    dev_commits.append(commit)
+                dev_commits.append(commit)
 
         # 3. 결과 출력
         print(f"  분류 완료 - 백준: {len(baekjoon_commits)}, 개발: {len(dev_commits)}")
@@ -83,15 +96,55 @@ class GitHubCollector:
         slog.json_save_summary("commits", saved=len(dev_files),
                                duplicates=0)
 
-        return baekjoon_files, dev_files
+        # 5. PR 수집 (병합/닫힌 PR만 - 조직 레포 포함)
+        prs = self._collect_prs(username, start_date, end_date)
+        pr_files = self._save_prs(prs)
 
-    def collect_interactive(self, start_date: datetime, end_date: datetime) -> Tuple[List[str], List[str]]:
+        slog.json_save_summary("prs", saved=len(pr_files), duplicates=0)
+
+        return baekjoon_files, dev_files, pr_files
+
+    def _collect_prs(self, username: str, start_date: datetime, end_date: datetime) -> List[dict]:
+        """
+        이번 수집 기간에 활동이 있었던 레포들의 병합/닫힌 PR을 조회
+        (열려있는 PR은 나중에 커밋이 더 붙을 수 있어서 fetch_pull_requests에서 이미 제외됨)
+        """
+        print("  PR 조회 중...")
+        repositories = self.github_client.fetch_repositories(username)
+
+        active_repos = []
+        for repo in repositories:
+            pushed_at = self.github_client.parse_github_timestamp(repo.get("pushedAt"))
+            if pushed_at is not None and pushed_at < start_date:
+                continue
+            active_repos.append(repo)
+
+        all_prs = []
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REST_FETCHES) as executor:
+            future_to_repo = {
+                executor.submit(
+                    self.github_client.fetch_pull_requests,
+                    repo["owner"]["login"], repo["name"], start_date, end_date
+                ): repo["name"]
+                for repo in active_repos
+            }
+            for future in as_completed(future_to_repo):
+                try:
+                    all_prs.extend(future.result())
+                except Exception:
+                    pass
+
+        print(f"  → {len(all_prs)}개의 PR(병합/닫힘) 발견")
+        return all_prs
+
+    def collect_interactive(self, start_date: datetime, end_date: datetime) -> Tuple[List[str], List[str], List[str]]:
         """
         대화형으로 레포/브랜치 선택하여 커밋 수집
         백준 레포는 자동 수집하고, 개발 레포만 선택지에 표시
 
         Returns:
-            Tuple[List[str], List[str]]: (백준 JSON 파일명 리스트, 개발 JSON 파일명 리스트)
+            Tuple[List[str], List[str], List[str]]:
+                (백준 JSON 파일명 리스트, 개발 JSON 파일명 리스트, PR JSON 파일명 리스트)
         """
         username = os.getenv("GITHUB_USERNAME")
 
@@ -101,44 +154,48 @@ class GitHubCollector:
 
         if not repos:
             print("레포지토리가 없습니다.")
-            return [], []
+            return [], [], []
 
-        # 백준 레포와 개발 레포 분리
-        baekjoon_repos = []
-        dev_repos = []
-        for repo in repos:
-            if CollectionRules.is_baekjoon_repo(repo['name']):
-                baekjoon_repos.append(repo)
-            else:
-                dev_repos.append(repo)
+        # 백준 서비스 종료로 백준 레포는 수집 대상에서 완전히 제외함
+        # (원래는 아래처럼 baekjoon_repos/dev_repos로 나눠서 백준 레포를 자동 수집했음.
+        #  그 블록은 통째로 주석 처리해두고, dev_repos만 남김. 필요해지면 복구하면 됨)
+        # baekjoon_repos = []
+        # dev_repos = []
+        # for repo in repos:
+        #     if CollectionRules.is_baekjoon_repo(repo['name']):
+        #         baekjoon_repos.append(repo)
+        #     else:
+        #         dev_repos.append(repo)
+        dev_repos = [r for r in repos if not CollectionRules.is_baekjoon_repo(r['name'])]
 
         # 레포 분리 시점에서 바로 백준/개발 커밋 분리
         baekjoon_commits = []
         dev_commits = []
+        prs = []
         duplicate_count = 0
 
-        # 2. 백준 레포 자동 수집 (모든 브랜치)
-        if baekjoon_repos:
-            print(f"\n🎯 백준 레포 자동 수집 ({len(baekjoon_repos)}개)")
-            for repo in baekjoon_repos:
-                repo_name = repo['name']
-                owner = repo['owner']['login']
-                print(f"  📂 {repo_name} 수집 중...")
-
-                branches = self.github_client.fetch_branches(owner, repo_name)
-                for branch in branches:
-                    commits = self.github_client.fetch_branch_commits(
-                        owner, repo_name, branch, start_date, end_date
-                    )
-                    if commits:
-                        print(f"    {branch}: {len(commits)}개 커밋")
-                        # 중복 체크 후 바로 백준 커밋에 추가
-                        for commit in commits:
-                            sha = commit.get("oid")
-                            if self.duplicate_checker.is_duplicate_baekjoon(sha):
-                                duplicate_count += 1
-                            else:
-                                baekjoon_commits.append(commit)
+        # 2. 백준 레포 자동 수집 (모든 브랜치) - 백준 서비스 종료로 비활성화
+        # if baekjoon_repos:
+        #     print(f"\n🎯 백준 레포 자동 수집 ({len(baekjoon_repos)}개)")
+        #     for repo in baekjoon_repos:
+        #         repo_name = repo['name']
+        #         owner = repo['owner']['login']
+        #         print(f"  📂 {repo_name} 수집 중...")
+        #
+        #         branches = self.github_client.fetch_branches(owner, repo_name)
+        #         for branch in branches:
+        #             commits = self.github_client.fetch_branch_commits(
+        #                 owner, repo_name, branch, start_date, end_date
+        #             )
+        #             if commits:
+        #                 print(f"    {branch}: {len(commits)}개 커밋")
+        #                 # 중복 체크 후 바로 백준 커밋에 추가
+        #                 for commit in commits:
+        #                     sha = commit.get("oid")
+        #                     if self.duplicate_checker.is_duplicate_baekjoon(sha):
+        #                         duplicate_count += 1
+        #                     else:
+        #                         baekjoon_commits.append(commit)
 
         # 3. 개발 레포 선택
         if not dev_repos:
@@ -222,6 +279,13 @@ class GitHubCollector:
                     else:
                         print(f"    커밋 없음")
 
+                # 선택된 레포의 병합/닫힌 PR도 함께 수집
+                print(f"  🔀 {repo_name}의 PR 조회 중...")
+                repo_prs = self.github_client.fetch_pull_requests(owner, repo_name, start_date, end_date)
+                if repo_prs:
+                    print(f"    {len(repo_prs)}개 PR(병합/닫힘) 발견")
+                    prs.extend(repo_prs)
+
         # 6. 결과 출력
         total_new = len(baekjoon_commits) + len(dev_commits)
         print(f"\n수집 완료 - 백준: {len(baekjoon_commits)}, 개발: {len(dev_commits)}")
@@ -236,13 +300,15 @@ class GitHubCollector:
         # 7. JSON 저장
         baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
         dev_files = self._save_dev_commits(dev_commits)
+        pr_files = self._save_prs(prs)
 
         slog.json_save_summary("baekjoon", saved=len(baekjoon_files),
                                duplicates=0)
         slog.json_save_summary("commits", saved=len(dev_files),
                                duplicates=0)
+        slog.json_save_summary("prs", saved=len(pr_files), duplicates=0)
 
-        return baekjoon_files, dev_files
+        return baekjoon_files, dev_files, pr_files
 
     def _save_baekjoon_commits(self, commits: List[dict]) -> List[str]:
         """백준 커밋을 JSON으로 저장"""
@@ -288,11 +354,33 @@ class GitHubCollector:
         saved_files = []
         total = len(commits)
 
+        # 커밋별 REST 상세 조회는 서로 완전히 독립적이므로 병렬로 먼저 가져온 뒤,
+        # 저장(중복 체크 포함)은 순서대로 처리한다 (중복 체크 캐시를 동시에
+        # 건드리지 않도록 저장 단계는 순차 실행 유지).
+        file_details_list = [None] * total
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REST_FETCHES) as executor:
+            future_to_idx = {
+                executor.submit(self._fetch_changed_files, commit): idx
+                for idx, commit in enumerate(commits)
+            }
+            done = 0
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                done += 1
+                print(f"    개발 커밋 상세 조회 중: {done}/{total}", end='\r', flush=True)
+                try:
+                    file_details_list[idx] = future.result()
+                except Exception:
+                    file_details_list[idx] = {
+                        "파일_목록": [], "추가_라인": 0, "삭제_라인": 0, "변경_내용": []
+                    }
+        if total > 0:
+            print()  # 줄바꿈
+
         for idx, commit in enumerate(commits, 1):
             print(f"    개발 커밋 처리 중: {idx}/{total}", end='\r', flush=True)
 
-            # REST API 1번 호출로 파일 상세 정보 가져오기
-            file_details = self._fetch_changed_files(commit)
+            file_details = file_details_list[idx - 1]
 
             # 개발 커밋 정보 추출
             dev_data = {
@@ -315,6 +403,124 @@ class GitHubCollector:
         if total > 0:
             print()  # 줄바꿈
         return saved_files
+
+    def _save_prs(self, prs: List[dict]) -> List[str]:
+        """PR을 JSON으로 저장 (병합/닫힌 PR만 넘어옴)"""
+        saved_files = []
+        total = len(prs)
+
+        # PR별 파일 diff 조회(REST)도 서로 독립적이므로 병렬로 먼저 가져옴
+        file_details_list = [None] * total
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REST_FETCHES) as executor:
+            future_to_idx = {
+                executor.submit(self._fetch_pr_changed_files, pr): idx
+                for idx, pr in enumerate(prs)
+            }
+            done = 0
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                done += 1
+                print(f"    PR 상세 조회 중: {done}/{total}", end='\r', flush=True)
+                try:
+                    file_details_list[idx] = future.result()
+                except Exception:
+                    file_details_list[idx] = {"파일_목록": [], "변경_내용": []}
+        if total > 0:
+            print()  # 줄바꿈
+
+        for idx, pr in enumerate(prs, 1):
+            print(f"    PR 처리 중: {idx}/{total}", end='\r', flush=True)
+
+            file_details = file_details_list[idx - 1]
+            commit_nodes = pr.get("commits", {}).get("nodes", [])
+
+            pr_data = {
+                "PR_번호": pr.get("number"),
+                "제목": pr.get("title"),
+                "설명": pr.get("body") or "",
+                "상태": "merged" if pr.get("mergedAt") else "closed",
+                "레포지토리": pr.get("repository"),
+                "브랜치": pr.get("headRefName"),
+                "베이스_브랜치": pr.get("baseRefName"),
+                "작성자": (pr.get("author") or {}).get("login", "unknown"),
+                "생성일": pr.get("createdAt"),
+                "병합일": pr.get("mergedAt"),
+                "PR_URL": pr.get("url"),
+                "추가_라인": pr.get("additions", 0),
+                "삭제_라인": pr.get("deletions", 0),
+                "변경된_파일_목록": file_details["파일_목록"],
+                "변경_내용": file_details["변경_내용"],
+                "커밋_메시지_목록": [c["commit"]["message"] for c in commit_nodes if c.get("commit")],
+                "PR_ID": pr.get("id"),
+            }
+
+            filename = self.json_saver.save_pr(pr_data)
+            if filename:
+                saved_files.append(filename)
+
+        if total > 0:
+            print()  # 줄바꿈
+        return saved_files
+
+    def _fetch_pr_changed_files(self, pr: dict) -> dict:
+        """
+        REST API로 PR의 변경 파일 상세 정보 가져오기 (패치/diff 포함).
+        GraphQL의 PR files 커넥션은 patch를 안 주기 때문에 REST를 사용.
+
+        Returns:
+            dict: {"파일_목록": List[str], "변경_내용": List[dict]}
+        """
+        import requests
+
+        owner = pr.get("repo_owner")
+        repo = pr.get("repository")
+        number = pr.get("number")
+
+        result = {"파일_목록": [], "변경_내용": []}
+
+        if not all([owner, repo, number]):
+            return result
+
+        try:
+            token = os.getenv("GITHUB_TOKEN")
+            headers = {"Authorization": f"token {token}"}
+
+            url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{number}/files"
+            t = slog.start_timer()
+            response = requests.get(url, headers=headers, timeout=10, params={"per_page": 100})
+            slog.api_call("github_rest", "GET",
+                          f"/repos/{owner}/{repo}/pulls/{number}/files",
+                          response.status_code, slog.elapsed_ms(t),
+                          response.status_code == 200)
+
+            if response.status_code != 200:
+                return result
+
+            files = response.json()
+            result["파일_목록"] = [f.get("filename") for f in files]
+
+            # 변경량 기준 정렬 후 상위 5개 파일만 patch 포함
+            files_sorted = sorted(
+                files, key=lambda f: f.get("additions", 0) + f.get("deletions", 0), reverse=True
+            )
+            for f in files_sorted[:5]:
+                patch = f.get("patch")
+                if patch:
+                    result["변경_내용"].append({
+                        "파일명": f.get("filename"),
+                        "추가": f.get("additions", 0),
+                        "삭제": f.get("deletions", 0),
+                        "패치": patch
+                    })
+
+            return result
+
+        except Exception as e:
+            slog.api_error("github_rest", "GET",
+                           f"/repos/{owner}/{repo}/pulls/{number}/files",
+                           0, str(e))
+            print(f"  PR 파일 목록 조회 실패 (PR #{number}): {str(e)}")
+            return result
 
     def _fetch_baekjoon_rest_info(self, commit: dict) -> dict:
         """
@@ -454,7 +660,9 @@ class GitHubCollector:
         """
         import requests
 
-        owner = os.getenv("GITHUB_USERNAME")
+        # 조직 레포는 소유자가 GITHUB_USERNAME(개인 계정)이 아니므로, 커밋에
+        # 붙여둔 실제 소유자(repo_owner)를 우선 사용 (없으면 개인 계정으로 폴백)
+        owner = commit.get("repo_owner") or os.getenv("GITHUB_USERNAME")
         repo = commit.get("repository")
         sha = commit.get("oid")
 

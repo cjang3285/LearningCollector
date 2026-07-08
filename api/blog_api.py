@@ -129,7 +129,7 @@ class BlogAPIClient:
 
     def extract_tags_from_draft_type(self, draft_type: str) -> List[str]:
         """
-        Draft 타입에서 태그 추출
+        Draft 타입에서 태그 추출 (본문에 AI가 붙인 태그 라인이 없을 때만 쓰는 폴백)
 
         Args:
             draft_type: draft 종류 (algorithm, dev, study)
@@ -140,10 +140,34 @@ class BlogAPIClient:
         tag_mapping = {
             "algorithm": ["알고리즘", "백준", "코딩테스트"],
             "dev": ["개발", "프로젝트", "코드리뷰"],
-            "study": ["학습", "AI", "공부"]
+            "study": ["학습", "AI", "공부"],
+            "pr": ["개발", "PR", "코드리뷰"]
         }
 
         return tag_mapping.get(draft_type, [])
+
+    def extract_tags_from_line(self, content: str):
+        """
+        본문에서 AI가 붙인 "**태그:** 태그1, 태그2" 형식의 줄을 찾아 태그 리스트로 파싱
+
+        Args:
+            content: MD 파일 내용 (또는 그 일부)
+
+        Returns:
+            tuple: (태그 리스트 또는 None, 그 줄의 라인 인덱스 또는 None)
+                   찾지 못하면 (None, None)
+        """
+        lines = content.split('\n')
+        tag_pattern = re.compile(r'^\*\*태그[:：]\*\*\s*(.+)$')
+
+        for i, line in enumerate(lines):
+            match = tag_pattern.match(line.strip())
+            if match:
+                tags = [tag.strip() for tag in match.group(1).split(',') if tag.strip()]
+                if tags:
+                    return tags, i
+
+        return None, None
 
     def parse_frontmatter(self, content: str) -> tuple[Dict, str]:
         """
@@ -198,7 +222,8 @@ class BlogAPIClient:
             draft_type: draft 종류 (algorithm, dev, study)
 
         Returns:
-            dict: 추출된 메타데이터
+            dict: 추출된 메타데이터 (title, excerpt, tags, featured, content)
+                  content는 title(H1)과 excerpt로 이미 뽑아낸 첫 문단을 제거한 본문
         """
         metadata = {
             "title": "",
@@ -208,27 +233,40 @@ class BlogAPIClient:
         }
 
         lines = content.split('\n')
+        title_idx = None
+        excerpt_idx = None
 
         # 1. Title 추출: 첫 번째 H1 (# )
-        for line in lines:
+        for i, line in enumerate(lines):
             if line.strip().startswith('# '):
                 metadata["title"] = line.strip()[2:].strip()
+                title_idx = i
                 break
 
         # 2. Excerpt 추출: H1 다음 첫 번째 비어있지 않은 문단
-        found_h1 = False
-        for line in lines:
-            if line.strip().startswith('# '):
-                found_h1 = True
-                continue
+        if title_idx is not None:
+            for i in range(title_idx + 1, len(lines)):
+                line = lines[i]
+                if line.strip() and not line.strip().startswith('#'):
+                    excerpt = line.strip()
+                    excerpt_idx = i
+                    if len(excerpt) > 200:
+                        excerpt = excerpt[:197] + "..."
+                    metadata["excerpt"] = excerpt
+                    break
 
-            if found_h1 and line.strip() and not line.strip().startswith('#'):
-                # 200자 제한
-                excerpt = line.strip()
-                if len(excerpt) > 200:
-                    excerpt = excerpt[:197] + "..."
-                metadata["excerpt"] = excerpt
-                break
+        # 3. 태그 추출: 본문에 AI가 붙인 "**태그:** ..." 줄이 있으면 그걸 사용,
+        #    없으면 draft_type 기반 고정 태그로 폴백
+        content_tags, tag_idx = self.extract_tags_from_line(content)
+        if content_tags:
+            metadata["tags"] = content_tags
+
+        # 4. 본문 조립: title/excerpt/태그 줄처럼 별도 필드로 이미 노출되는 부분은
+        #    블로그 포스트 본문에서 중복 표시되지 않도록 제외
+        remaining_lines = list(lines)
+        for idx in sorted([i for i in (title_idx, excerpt_idx, tag_idx) if i is not None], reverse=True):
+            del remaining_lines[idx]
+        metadata["content"] = "\n".join(remaining_lines).lstrip('\n').rstrip('\n')
 
         return metadata
 
@@ -249,7 +287,7 @@ class BlogAPIClient:
 
         # 파일명에서 draft_type 추출 (algorithm_xxx.md → algorithm)
         filename = path.name
-        draft_type_match = re.match(r'^(algorithm|dev|study)_', filename)
+        draft_type_match = re.match(r'^(algorithm|dev|study|pr)_', filename)
         draft_type = draft_type_match.group(1) if draft_type_match else "dev"
 
         # 파일 읽기
@@ -269,11 +307,11 @@ class BlogAPIClient:
                 "featured": frontmatter.get("featured", False)
             }
         else:
-            # Frontmatter 없음: 본문에서 추출
+            # Frontmatter 없음: 본문에서 추출 (title/excerpt로 뽑아낸 H1과 첫 문단은 본문에서 제외)
             metadata = self.extract_metadata_from_content(content, draft_type)
             post_data = {
                 "title": metadata["title"],
-                "content": content,  # 전체 내용 사용
+                "content": metadata["content"],
                 "excerpt": metadata["excerpt"],
                 "tags": metadata["tags"],
                 "featured": metadata["featured"]
