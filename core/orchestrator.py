@@ -60,10 +60,14 @@ class Orchestrator:
             print("=" * 50)
             print("  처리할 데이터가 없습니다.")
         else:
-            if self.auto:
-                self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons)
-            else:
-                self._interactive_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons)
+            try:
+                if self.auto:
+                    self._auto_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons)
+                else:
+                    self._interactive_process(ai_chat_jsons, baekjoon_jsons, commit_jsons, pr_jsons)
+            finally:
+                # claude CLI 영속 프로세스 정리 (중간에 예외가 나도 좀비 프로세스 방지)
+                self.draft_generator.close()
 
         print("\n" + "=" * 50)
         print("LearningCollector 실행 완료")

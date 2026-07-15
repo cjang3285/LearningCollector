@@ -1,12 +1,15 @@
 """
 통합 AI 클라이언트
-Gemini 단독 사용.
+Gemini 우선 사용, 일일 한도 초과 시 claude CLI(Claude Pro 구독)로 폴백.
 
 Groq 폴백은 한국어 생성 시 한자/태국어 등 다른 언어가 섞이는 품질 문제로
 비활성화함. 아래 원래 로직(Groq 폴백 + 용량 초과 시 압축 재시도)은 주석
 처리만 해두고 남겨뒀으니, 필요해지면 주석을 풀어 복구하면 됨.
 """
+import threading
+
 from api.gemini_client import GeminiClient
+from api.claude_code_client import ClaudeCodeClient
 # from api.groq_client import GroqClient
 
 # COMPRESS_INSTRUCTION = (
@@ -15,17 +18,46 @@ from api.gemini_client import GeminiClient
 # )
 
 
-class AIClient:
-    """Gemini 단독 클라이언트 (Groq 폴백 비활성화)"""
+class SharedFlag:
+    """여러 워커 스레드가 공유하는 스레드-세이프 플래그 (병렬 처리 시 사용)"""
 
     def __init__(self):
+        self._value = False
+        self._lock = threading.Lock()
+
+    def get(self) -> bool:
+        with self._lock:
+            return self._value
+
+    def set(self):
+        with self._lock:
+            self._value = True
+
+
+class AIClient:
+    """Gemini 우선 + claude CLI 폴백 클라이언트 (Groq 폴백은 비활성화)
+
+    Args:
+        gemini_exhausted_flag: 병렬 워커들이 공유하는 SharedFlag. 여러 AIClient를
+            워커별로 만들 때 이 플래그를 공유시키면, 한 워커가 Gemini 일일 한도
+            초과를 확인하는 즉시 다른 워커들도 Gemini를 건너뛰게 된다.
+            넘기지 않으면 이 인스턴스 전용 플래그를 만든다(단일 워커용).
+    """
+
+    def __init__(self, gemini_exhausted_flag: SharedFlag = None):
         self.gemini = GeminiClient()
+        self.claude_code = ClaudeCodeClient()
         # self.groq = GroqClient()
         # True면 이번 실행 내내 재시도해도 소용없는 상태 (일일 한도 초과 등)
         self.last_error_permanent = False
+        # 이번 실행에서 Gemini 일일 한도 초과가 이미 확인되면, 남은 항목은
+        # Gemini 재시도(및 대기 시간) 없이 곧바로 Claude Pro로만 처리
+        self.gemini_exhausted_flag = gemini_exhausted_flag or SharedFlag()
         # self.compression_prompt = self._load_compression_prompt()
 
-        print("  [AI] Gemini 단독 모드 (Groq 폴백 비활성화)")
+    def close(self):
+        """파이프라인 종료 시 claude CLI 영속 프로세스 정리"""
+        self.claude_code.close()
 
     # def _load_compression_prompt(self) -> str:
     #     """압축 요약용 프롬프트 로드"""
@@ -35,7 +67,7 @@ class AIClient:
 
     def generate_draft(self, prompt: str, json_content: str) -> str:
         """
-        블로그 초안 생성 (Gemini 단독)
+        블로그 초안 생성 (Gemini 우선, 일일 한도 초과 시 claude CLI로 폴백)
 
         Args:
             prompt: 프롬프트 (prompts 폴더의 md 파일 내용)
@@ -46,11 +78,30 @@ class AIClient:
         """
         self.last_error_permanent = False
 
-        result = self.gemini.generate_draft(prompt, json_content)
+        if not self.gemini_exhausted_flag.get():
+            result = self.gemini.generate_draft(prompt, json_content)
+            if result is not None:
+                return result
+
+            # Gemini가 영구 실패(일일 한도 초과 등)가 아니면 이번 항목은 실패 처리
+            if not self.gemini.last_error_permanent:
+                self.last_error_permanent = False
+                return None
+
+            # 일일 한도 초과 확인 - 이번 실행의 나머지 항목은 Gemini를 건너뛰고 곧장 Claude Pro로
+            self.gemini_exhausted_flag.set()
+            print("      🔄 Gemini 한도 초과 → 이후 항목은 Claude Pro(claude CLI)로 처리")
+        else:
+            print("      🔄 (Gemini 한도 초과 상태) Claude Pro(claude CLI)로 처리")
+
+        result = self.claude_code.generate_draft(prompt, json_content)
         if result is not None:
             return result
 
-        self.last_error_permanent = self.gemini.last_error_permanent
+        # 폴백도 실패 - 둘 다 영구 실패일 때만 이번 실행을 포기할 가치가 있음
+        self.last_error_permanent = (
+            self.gemini.last_error_permanent and self.claude_code.last_error_permanent
+        )
         return None
 
         # --- Groq 폴백 + 압축 재시도 로직 (주석 처리, 필요 시 복구) ---
