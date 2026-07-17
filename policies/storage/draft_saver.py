@@ -2,7 +2,12 @@
 Draft 저장 모듈
 MD draft 작성 및 저장
 파일명: draft의 종류(dev, algorithm, study) + 초안 생성 시간 + 초안 작성에 쓰인 첨부파일 이름.md
+
+하나의 소스 JSON에서 여러 개의 포스팅이 생성되는 경우(예: 대화 하나에 서로 다른
+학습 주제가 여러 개 섞여 있어 주제별로 포스팅을 분리하는 경우), part 번호를 붙여
+"{draft_type}_{source_name}_part{N}.md" 형식으로 저장한다.
 """
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -19,7 +24,7 @@ class DraftSaver:
         (self.draft_dir / "study").mkdir(parents=True, exist_ok=True)
         (self.draft_dir / "pr").mkdir(parents=True, exist_ok=True)
 
-    def save_draft(self, draft_type: str, content: str, source_json: str) -> str:
+    def save_draft(self, draft_type: str, content: str, source_json: str, part: int = None) -> str:
         """
         Draft 저장 (Gemini 출력 그대로)
 
@@ -27,6 +32,8 @@ class DraftSaver:
             draft_type: draft 종류 (algorithm, dev, study)
             content: 초안 내용 (마크다운)
             source_json: 첨부파일 이름 (JSON 파일명)
+            part: 한 소스에서 여러 포스팅으로 분리된 경우의 파트 번호 (1부터 시작).
+                  None이면 기존과 동일하게 파트 표시 없이 저장
 
         Returns:
             str: 저장된 draft 파일 경로
@@ -34,8 +41,9 @@ class DraftSaver:
         # source_json에서 .json 제거
         source_name = source_json.replace(".json", "")
 
-        # 파일명: draft종류_JSON파일명.md (시간 제외)
-        filename = f"{draft_type}_{source_name}.md"
+        # 파일명: draft종류_JSON파일명[_partN].md (시간 제외)
+        part_suffix = f"_part{part}" if part else ""
+        filename = f"{draft_type}_{source_name}{part_suffix}.md"
 
         # 저장 경로
         file_path = self.draft_dir / draft_type / filename
@@ -52,30 +60,37 @@ class DraftSaver:
         첨부파일 이름으로 중복 판단
         오류 draft는 자동으로 삭제
 
-        save_draft()가 항상 "{draft_type}_{source_name}.md" 형식으로 저장하므로,
-        폴더 전체를 훑는 대신 예상 경로를 바로 계산해 존재 여부만 확인한다.
+        save_draft()가 "{draft_type}_{source_name}.md" 또는 여러 포스팅으로 분리된
+        경우 "{draft_type}_{source_name}_partN.md" 형식으로 저장하므로, 두 형식을
+        모두 매칭하는 패턴으로 폴더를 훑어 존재 여부를 확인한다.
 
         Args:
             source_json: 첨부파일 이름 (JSON 파일명)
             draft_type: draft 종류 (algorithm, dev, study)
 
         Returns:
-            bool: 중복이면 True (단, 오류 draft는 삭제 후 False 반환)
+            bool: 중복이면 True (단, 오류 draft는 삭제 후 False 반환. 여러 파트 중
+                  일부만 오류인 경우 해당 파트만 삭제하고, 나머지 정상 파트가
+                  남아있으면 여전히 중복으로 취급한다)
         """
         # source_json에서 .json 제거
         source_name = source_json.replace(".json", "")
-        draft_file = self.draft_dir / draft_type / f"{draft_type}_{source_name}.md"
+        draft_folder = self.draft_dir / draft_type
+        pattern = re.compile(rf'^{re.escape(draft_type)}_{re.escape(source_name)}(_part\d+)?\.md$')
+        matching_files = [f for f in draft_folder.glob("*.md") if pattern.match(f.name)]
 
-        if not draft_file.exists():
+        if not matching_files:
             return False
 
-        # 오류 draft인지 확인
-        if self._is_error_draft(draft_file):
-            print(f"    🗑️  오류 draft 삭제: {draft_file.name}")
-            draft_file.unlink()  # 삭제
-            return False  # 삭제했으므로 중복 아님
+        remaining = []
+        for draft_file in matching_files:
+            if self._is_error_draft(draft_file):
+                print(f"    🗑️  오류 draft 삭제: {draft_file.name}")
+                draft_file.unlink()  # 삭제
+            else:
+                remaining.append(draft_file)
 
-        return True
+        return len(remaining) > 0
 
     def _is_error_draft(self, draft_path: Path) -> bool:
         """
