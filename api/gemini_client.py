@@ -5,7 +5,21 @@ Gemini API 클라이언트
 import os
 import time
 from google import genai
+from google.genai import types
 from core import structured_logger as slog
+
+DEFAULT_MODEL = 'gemini-2.5-flash-lite'
+
+# 출력 토큰 한도를 입력 길이에 비례해서 잡는다. 입력이 큰데 출력 한도가 고정값(작게)이면
+# 모델이 뒷부분 내용을 반영하지 못하고 앞부분 위주로만 답을 짧게 끝내버리는 문제가 있었음.
+MIN_OUTPUT_TOKENS = 4096
+MAX_OUTPUT_TOKENS = 65536  # gemini-2.5 계열 모델의 출력 토큰 상한
+
+
+def _estimate_max_output_tokens(prompt_len_chars: int) -> int:
+    """입력 글자 수 기준으로 출력 토큰 한도를 추정 (대략 2자당 1토큰으로 어림잡고, 최소/최대로 clamp)"""
+    estimated = prompt_len_chars // 2
+    return max(MIN_OUTPUT_TOKENS, min(MAX_OUTPUT_TOKENS, estimated))
 
 
 class GeminiClient:
@@ -18,7 +32,14 @@ class GeminiClient:
         self.retry_delay = 2  # 초
         self.last_error_permanent = False  # True면 이번 실행 내내 재시도해도 소용없는 실패 (예: 일일 한도 초과)
 
-    def generate_draft(self, prompt: str, json_content: str, instruction: str = None) -> str:
+    def generate_draft(
+        self,
+        prompt: str,
+        json_content: str,
+        instruction: str = None,
+        model: str = None,
+        max_output_tokens: int = None,
+    ) -> str:
         """
         Gemini를 사용하여 블로그 초안 생성 (재시도 로직 포함)
 
@@ -26,13 +47,17 @@ class GeminiClient:
             prompt: 프롬프트 (prompts 폴더의 md 파일 내용)
             json_content: JSON 파일 내용
             instruction: 마지막에 덧붙일 지시문 (기본: 블로그 초안 작성 요청).
-                         압축 요약 등 다른 용도로 재사용할 때 오버라이드용
+                         압축 요약, 주제 분리 등 다른 용도로 재사용할 때 오버라이드용
+            model: 사용할 Gemini 모델 (기본: gemini-2.5-flash-lite)
+            max_output_tokens: 출력 토큰 한도 (기본: 입력 길이에 비례해서 자동 추정)
 
         Returns:
-            str: 생성된 초안(또는 압축 결과) 텍스트, 실패 시 None
+            str: 생성된 초안(또는 압축/분리 결과) 텍스트, 실패 시 None
         """
         if instruction is None:
             instruction = "위 데이터를 바탕으로 블로그 초안을 작성해주세요."
+
+        model = model or DEFAULT_MODEL
 
         # 전체 프롬프트 구성
         full_prompt = f"""{prompt}
@@ -46,22 +71,32 @@ class GeminiClient:
 {instruction}
 """
 
+        output_tokens = max_output_tokens or _estimate_max_output_tokens(len(full_prompt))
+        # thinking(내부 추론) 토큰도 출력 토큰 한도를 갉아먹으므로, 단순 요약/분류 작업에는
+        # 꺼서 한도를 전부 실제 출력에 쓰도록 한다
+        config = types.GenerateContentConfig(
+            max_output_tokens=output_tokens,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        )
+
         self.last_error_permanent = False
 
         # 재시도 로직
         for attempt in range(self.max_retries):
             t = slog.start_timer()
             try:
-                # Gemini API 호출 (정식 모델 사용)
+                # Gemini API 호출
                 response = self.client.models.generate_content(
-                    model='gemini-2.5-flash-lite',
-                    contents=full_prompt
+                    model=model,
+                    contents=full_prompt,
+                    config=config,
                 )
 
                 duration = slog.elapsed_ms(t)
                 slog.api_call("gemini", "POST", "generate_content",
                               200, duration, True,
-                              model="gemini-2.5-flash-lite",
+                              model=model,
+                              max_output_tokens=output_tokens,
                               prompt_len=len(full_prompt),
                               response_len=len(response.text) if response.text else 0,
                               attempt=attempt + 1)

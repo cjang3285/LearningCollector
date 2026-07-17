@@ -222,6 +222,9 @@ class JSONDraftValidator:
                 draft_path = Path(draft_result.file_path)
                 # draft 파일명에서 "draft_type_" prefix 제거
                 draft_name = draft_path.stem.replace(f"{draft_type}_", "")
+                # 하나의 JSON에서 여러 포스팅으로 분리된 경우 붙는 "_partN" suffix 제거
+                # (분리된 각 파트는 같은 JSON에 매핑되므로 매핑 검증에서는 동일하게 취급)
+                draft_name = re.sub(r"_part\d+$", "", draft_name)
                 existing_drafts.add(draft_name)
 
             # JSON 파일마다 대응하는 draft가 있는지 확인

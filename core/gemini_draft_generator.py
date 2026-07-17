@@ -8,8 +8,10 @@ AIClient(= 전용 claude CLI 영속 프로세스)를 가지고 있어서, 서로
 일일 한도 초과 여부는 SharedFlag로 모든 워커가 공유하므로, 한 워커가 한도
 초과를 확인하는 즉시 나머지 워커들도 바로 Claude Pro로만 처리하게 된다.
 """
+import json
 import os
 import queue
+import re
 import subprocess
 import threading
 from pathlib import Path
@@ -24,6 +26,10 @@ from policies.storage.draft_saver import DraftSaver
 from core import structured_logger as slog
 
 DEFAULT_PARALLEL_WORKERS = 3
+
+# AI 대화 학습 초안은 다른 카테고리보다 원본 분량이 크고 뒷부분 내용 반영이 중요해서
+# 더 성능이 좋은 모델을 쓴다 (다른 카테고리는 비용 때문에 flash-lite 유지)
+STUDY_MODEL = "gemini-2.5-flash"
 
 
 class GeminiDraftGenerator:
@@ -101,12 +107,10 @@ class GeminiDraftGenerator:
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(dev_drafts)}개 생성 완료")
 
-        # 3. AI 대화 공부 초안 작성
+        # 3. AI 대화 공부 초안 작성 (하나의 대화에 무관한 주제가 섞여 있으면 주제별로 분리해서 연재로 생성)
         if ai_chat_jsons:
             print(f"  AI 대화 공부 초안 생성 중... ({len(ai_chat_jsons)}개)")
-            study_drafts, succeeded = self._generate_drafts_parallel(
-                ai_chat_jsons, "study", "당일_공부_요약_프롬프트.md", "AI Chat"
-            )
+            study_drafts, succeeded = self._generate_study_drafts_parallel(ai_chat_jsons)
             all_drafts.extend(study_drafts)
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(study_drafts)}개 생성 완료")
@@ -183,14 +187,7 @@ class GeminiDraftGenerator:
                         draft_content = ai_client.generate_draft(prompt, json_content)
 
                         if draft_content is None:
-                            if ai_client.last_error_permanent:
-                                self.quota_exhausted_flag.set()
-                                slog.draft_failure(draft_type, json_file,
-                                                   "all_ai_providers_permanently_failed")
-                                self._print(f"    ⚠️  AI API 한도 초과. 나머지 {label} draft 생성 중단")
-                            else:
-                                slog.draft_failure(draft_type, json_file, "transient_ai_failure")
-                                self._print(f"    ⚠️  일시적 오류로 실패, 다음 항목 계속 진행: {json_file}")
+                            self._handle_ai_failure(ai_client, draft_type, json_file, label)
                             continue
 
                         draft_path = self.draft_saver.save_draft(
@@ -226,6 +223,216 @@ class GeminiDraftGenerator:
                            duplicates=len(duplicates))
 
         return drafts, succeeded_jsons
+
+    def _generate_study_drafts_parallel(
+        self, json_files: List[str]
+    ) -> Tuple[List[str], List[str]]:
+        """
+        AI 대화 학습 초안 생성 (study 전용, 워커 풀로 병렬 생성)
+
+        한 대화에 서로 무관한 학습 주제가 여러 개 섞여 있을 수 있으므로, 실제 초안을
+        쓰기 전에 먼저 저렴한 모델로 주제를 분리해본다. 주제가 하나면 기존과 동일하게
+        한 번의 요청으로 초안 하나를 생성하고, 여러 개면 주제별로 완전히 별도의 요청을
+        보내 각각을 "(연재 N/M)" 표시가 붙은 별도 포스팅으로 생성한다.
+
+        Returns:
+            Tuple[List[str], List[str]]: (draft 파일 경로 리스트, 성공한 JSON 파일명 리스트)
+        """
+        draft_type = "study"
+        label = "AI Chat"
+        drafts = []
+        succeeded_jsons = []
+        duplicates = []
+
+        self._print(f"    총 {len(json_files)}개의 {label} JSON 발견")
+
+        pending = []
+        for json_file in json_files:
+            if self.draft_saver.is_duplicate_draft(json_file, draft_type):
+                duplicates.append(json_file)
+                succeeded_jsons.append(json_file)
+            else:
+                pending.append(json_file)
+
+        if pending:
+            prompt = self._load_prompt("당일_공부_요약_프롬프트.md")
+            segmentation_prompt = self._load_prompt("대화_주제_분리_프롬프트.md")
+            task_queue: "queue.Queue[str]" = queue.Queue()
+            for json_file in pending:
+                task_queue.put(json_file)
+
+            results_lock = threading.Lock()
+
+            def worker(ai_client: AIClient):
+                while True:
+                    try:
+                        json_file = task_queue.get_nowait()
+                    except queue.Empty:
+                        return
+
+                    try:
+                        if self.quota_exhausted_flag.get():
+                            self._print(f"    한도 초과로 스킵: {json_file}")
+                            continue
+
+                        self._print(f"    처리 중: {json_file}")
+                        slog.draft_start(draft_type, json_file)
+
+                        raw_json = self._load_json(json_file)
+                        data = json.loads(raw_json)
+                        conversation = data.get("모든_대화_내용", "")
+
+                        segments = self._split_into_segments(
+                            ai_client, segmentation_prompt, conversation
+                        )
+
+                        if len(segments) <= 1:
+                            draft_content = ai_client.generate_draft(
+                                prompt, raw_json, model=STUDY_MODEL
+                            )
+                            if draft_content is None:
+                                self._handle_ai_failure(ai_client, draft_type, json_file, label)
+                                continue
+
+                            draft_path = self.draft_saver.save_draft(
+                                draft_type=draft_type,
+                                content=draft_content,
+                                source_json=json_file,
+                            )
+                            with results_lock:
+                                drafts.append(draft_path)
+                                succeeded_jsons.append(json_file)
+                            slog.draft_success(draft_type, json_file, draft_path)
+                            self._print(f"    ✅ 성공: {draft_path}")
+                            continue
+
+                        # 서로 무관한 주제 여러 개로 분리됨 - 주제별로 완전히 별도 요청
+                        total = len(segments)
+                        saved_paths = []
+                        failed = False
+
+                        for idx, segment_text in enumerate(segments, start=1):
+                            segment_data = dict(data)
+                            segment_data["모든_대화_내용"] = segment_text
+                            segment_json = json.dumps(segment_data, ensure_ascii=False)
+
+                            part_content = ai_client.generate_draft(
+                                prompt, segment_json, model=STUDY_MODEL
+                            )
+                            if part_content is None:
+                                failed = True
+                                break
+
+                            part_content = self._mark_as_series_part(part_content, idx, total)
+                            saved_paths.append(
+                                self.draft_saver.save_draft(
+                                    draft_type=draft_type,
+                                    content=part_content,
+                                    source_json=json_file,
+                                    part=idx,
+                                )
+                            )
+
+                        if failed:
+                            # 일부 파트만 저장된 채로 남으면 다음 실행에서 "이미 draft 있음"으로
+                            # 오인되므로, 실패 시 이번에 저장한 파트는 지우고 다음 실행에서 처음부터 재시도
+                            for saved_path in saved_paths:
+                                Path(saved_path).unlink(missing_ok=True)
+                            self._handle_ai_failure(ai_client, draft_type, json_file, label)
+                            continue
+
+                        with results_lock:
+                            drafts.extend(saved_paths)
+                            succeeded_jsons.append(json_file)
+                        for saved_path in saved_paths:
+                            slog.draft_success(draft_type, json_file, saved_path)
+                        self._print(f"    ✅ 성공 ({total}개 주제로 분리, 연재로 생성): {json_file}")
+                    finally:
+                        task_queue.task_done()
+
+            threads = [
+                threading.Thread(target=worker, args=(self.ai_clients[i],), daemon=True)
+                for i in range(self.max_workers)
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        if duplicates:
+            print(f"    ⚠️  중복 제외: {len(duplicates)}개 (이미 draft 생성됨)")
+            for dup in duplicates:
+                print(f"      - {dup}")
+
+        slog.draft_summary(draft_type, total=len(json_files),
+                           success=len(succeeded_jsons) - len(duplicates),
+                           failed=len(pending) - (len(succeeded_jsons) - len(duplicates)),
+                           duplicates=len(duplicates))
+
+        return drafts, succeeded_jsons
+
+    def _split_into_segments(
+        self, ai_client: AIClient, segmentation_prompt: str, conversation: str
+    ) -> List[str]:
+        """
+        대화 내용을 학습 주제 단위로 분리. 분리할 필요가 없거나 판단에 실패하면
+        원본 전체를 담은 리스트(길이 1)를 반환해서 호출 측이 기존과 동일하게 동작하도록 한다.
+        """
+        if not conversation.strip():
+            return [conversation]
+
+        lines = conversation.split("\n")
+        numbered = "\n".join(f"{i}: {line}" for i, line in enumerate(lines))
+
+        topics = ai_client.split_topics(segmentation_prompt, numbered)
+        if len(topics) < 2:
+            return [conversation]
+
+        start_lines = sorted({
+            t["start_line"] for t in topics if 0 <= t["start_line"] < len(lines)
+        })
+        if len(start_lines) < 2 or start_lines[0] != 0:
+            # 분리 지점이 신뢰할 수 없는 형태면 분리를 취소하고 원본 그대로 사용
+            return [conversation]
+
+        segments = []
+        for i, start in enumerate(start_lines):
+            end = start_lines[i + 1] if i + 1 < len(start_lines) else len(lines)
+            segment = "\n".join(lines[start:end]).strip()
+            if segment:
+                segments.append(segment)
+
+        return segments if len(segments) >= 2 else [conversation]
+
+    def _mark_as_series_part(self, content: str, idx: int, total: int) -> str:
+        """여러 포스팅으로 분리된 초안에 연재 표시(제목)와 공통 태그를 붙인다"""
+        lines = content.split("\n")
+
+        for i, line in enumerate(lines):
+            if line.strip().startswith("# "):
+                lines[i] = f"{line.rstrip()} (연재 {idx}/{total})"
+                break
+
+        tag_pattern = re.compile(r"^(\*\*태그:\*\*\s*)(.+)$")
+        for i, line in enumerate(lines):
+            match = tag_pattern.match(line.strip())
+            if match:
+                lines[i] = f"{match.group(1)}{match.group(2)}, 연재"
+                break
+
+        return "\n".join(lines)
+
+    def _handle_ai_failure(
+        self, ai_client: AIClient, draft_type: str, json_file: str, label: str
+    ):
+        """AI 초안 생성 실패 시 공통 처리 (영구 실패면 이번 실행 나머지를 포기)"""
+        if ai_client.last_error_permanent:
+            self.quota_exhausted_flag.set()
+            slog.draft_failure(draft_type, json_file, "all_ai_providers_permanently_failed")
+            self._print(f"    ⚠️  AI API 한도 초과. 나머지 {label} draft 생성 중단")
+        else:
+            slog.draft_failure(draft_type, json_file, "transient_ai_failure")
+            self._print(f"    ⚠️  일시적 오류로 실패, 다음 항목 계속 진행: {json_file}")
 
     def _load_prompt(self, prompt_filename: str) -> str:
         """프롬프트 파일 로드"""

@@ -6,6 +6,8 @@ Groq 폴백은 한국어 생성 시 한자/태국어 등 다른 언어가 섞이
 비활성화함. 아래 원래 로직(Groq 폴백 + 용량 초과 시 압축 재시도)은 주석
 처리만 해두고 남겨뒀으니, 필요해지면 주석을 풀어 복구하면 됨.
 """
+import json
+import re
 import threading
 
 from api.gemini_client import GeminiClient
@@ -16,6 +18,15 @@ from api.claude_code_client import ClaudeCodeClient
 #     "위 JSON 데이터를 지시사항에 따라 압축해서, 같은 JSON 구조(키는 그대로 유지)로 "
 #     "다시 출력해주세요. 코드 블록 표시나 다른 설명 없이 JSON 본문만 출력하세요."
 # )
+
+# 대화 하나에 서로 무관한 학습 주제가 섞여 있는지 판단하는 용도. 분류 작업이라
+# 저렴한 모델로 충분하고, 실패해도 "분리 없음"으로 안전하게 폴백하므로 Claude
+# 폴백은 두지 않는다 (Gemini 한도 초과 시엔 그냥 분리를 건너뜀).
+SEGMENTATION_MODEL = "gemini-2.5-flash-lite"
+SEGMENTATION_INSTRUCTION = (
+    "위 대화를 분석해서 지시된 JSON 형식으로만 응답하세요. "
+    "코드 블록 표시나 다른 설명 없이 JSON 본문만 출력하세요."
+)
 
 
 class SharedFlag:
@@ -65,13 +76,15 @@ class AIClient:
     #     with open(prompt_path, "r", encoding="utf-8") as f:
     #         return f.read()
 
-    def generate_draft(self, prompt: str, json_content: str) -> str:
+    def generate_draft(self, prompt: str, json_content: str, model: str = None) -> str:
         """
         블로그 초안 생성 (Gemini 우선, 일일 한도 초과 시 claude CLI로 폴백)
 
         Args:
             prompt: 프롬프트 (prompts 폴더의 md 파일 내용)
             json_content: JSON 파일 내용
+            model: Gemini 쪽에서 사용할 모델 (기본: gemini_client의 기본값).
+                   Claude Pro 폴백은 claude CLI 자체 모델을 쓰므로 영향 없음.
 
         Returns:
             str: 생성된 초안 (마크다운), 실패 시 None
@@ -79,7 +92,7 @@ class AIClient:
         self.last_error_permanent = False
 
         if not self.gemini_exhausted_flag.get():
-            result = self.gemini.generate_draft(prompt, json_content)
+            result = self.gemini.generate_draft(prompt, json_content, model=model)
             if result is not None:
                 return result
 
@@ -143,3 +156,63 @@ class AIClient:
     #     return self.gemini.generate_draft(
     #         self.compression_prompt, json_content, instruction=COMPRESS_INSTRUCTION
     #     )
+
+    def split_topics(self, segmentation_prompt: str, numbered_conversation: str) -> list:
+        """
+        대화 내용에 서로 무관한 학습 주제가 여러 개 섞여 있는지 판단해서 분리 지점을 반환.
+
+        numbered_conversation은 각 줄 앞에 "N: " 형식으로 줄 번호가 붙어 있어야 하며,
+        모델은 원문을 다시 생성하지 않고 주제별 제목과 시작 줄 번호만 JSON으로 답한다
+        (원문을 그대로 재생성하게 하면 출력 토큰을 많이 쓰고 누락/변형 위험도 있음).
+
+        Gemini 우선, 한도 초과 등으로 실패하면 Claude Pro(claude CLI)로 폴백한다 -
+        Gemini 일일 한도는 자주 소진되는데, 그때마다 주제 분리 기능 자체가 통째로
+        무력화되면 안 되기 때문. 이 보조 판단 실패는 병렬 워커 공유 상태
+        (gemini_exhausted_flag)에 영향을 주지 않는다 - 그건 본 초안 생성 폴백
+        전용이고, 여기서는 각 호출이 독립적으로 실패/폴백을 처리한다.
+        최종적으로도 실패하면(둘 다 실패, 파싱 실패 등) 빈 리스트를 반환하며,
+        호출 측은 이를 "분리 없음(단일 주제)"으로 안전하게 폴백 처리해야 한다.
+
+        Args:
+            segmentation_prompt: 프롬프트 (prompts/대화_주제_분리_프롬프트.md 내용)
+            numbered_conversation: 줄 번호가 붙은 대화 원문
+
+        Returns:
+            list: [{"title": str, "start_line": int}, ...] (시작 줄 번호 오름차순),
+                  분리할 필요가 없거나 실패하면 빈 리스트
+        """
+        result = self.gemini.generate_draft(
+            segmentation_prompt,
+            numbered_conversation,
+            instruction=SEGMENTATION_INSTRUCTION,
+            model=SEGMENTATION_MODEL,
+        )
+        if not result:
+            result = self.claude_code.generate_draft(
+                segmentation_prompt,
+                numbered_conversation,
+                instruction=SEGMENTATION_INSTRUCTION,
+            )
+        if not result:
+            return []
+
+        try:
+            text = result.strip()
+            if text.startswith("```"):
+                text = re.sub(r"^```(json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
+
+            data = json.loads(text)
+            topics = data.get("topics", [])
+
+            if not isinstance(topics, list) or len(topics) < 2:
+                return []
+
+            topics = [
+                t for t in topics
+                if isinstance(t, dict) and isinstance(t.get("start_line"), int)
+            ]
+            topics.sort(key=lambda t: t["start_line"])
+            return topics
+
+        except Exception:
+            return []
