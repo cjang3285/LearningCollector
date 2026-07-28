@@ -1,12 +1,12 @@
 """
-Gemini Draft 생성 모듈 (메인 흐름)
+Draft 생성 모듈 (메인 흐름, Claude Pro 전용)
 지난 실행 시간 이후로 수집된 JSON을 참조하여 4가지 초안을 생성하고 VS Code로 연다
 
 카테고리별 항목들은 여러 워커 스레드로 병렬 처리한다. 각 워커는 자기 전용의
 AIClient(= 전용 claude CLI 영속 프로세스)를 가지고 있어서, 서로 다른 항목의
-요청이 같은 claude 프로세스의 stdin/stdout에서 뒤섞이는 일이 없다. Gemini
-일일 한도 초과 여부는 SharedFlag로 모든 워커가 공유하므로, 한 워커가 한도
-초과를 확인하는 즉시 나머지 워커들도 바로 Claude Pro로만 처리하게 된다.
+요청이 같은 claude 프로세스의 stdin/stdout에서 뒤섞이는 일이 없다. Claude Pro
+사용량 한도 초과 여부는 SharedFlag로 모든 워커가 공유하므로, 한 워커가 한도
+초과를 확인하는 즉시 나머지 워커들도 바로 나머지 항목 처리를 중단하게 된다.
 """
 import json
 import os
@@ -14,8 +14,9 @@ import queue
 import re
 import subprocess
 import threading
+from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 # API 모듈 임포트
 from api.ai_client import AIClient, SharedFlag
@@ -27,27 +28,69 @@ from core import structured_logger as slog
 
 DEFAULT_PARALLEL_WORKERS = 3
 
-# AI 대화 학습 초안은 다른 카테고리보다 원본 분량이 크고 뒷부분 내용 반영이 중요해서
-# 더 성능이 좋은 모델을 쓴다 (다른 카테고리는 비용 때문에 flash-lite 유지)
-STUDY_MODEL = "gemini-2.5-flash"
+# 모든 글에 다 붙을 법한 의미 없는 메타 태그. 프롬프트에서도 피하라고 안내하지만
+# AI가 100% 지키지는 않아서 저장 직전에 한 번 더 걸러낸다.
+BANNED_GENERIC_TAGS = {"본인", "학습", "커밋"}
+
+# 블로그 포스팅을 작업 시간순으로 내보내기 위해 draft 종류별로 참조할 소스 JSON의
+# 시간 필드. dev는 커밋 시각, pr은 병합 시각(진행 중인 PR은 애초에 수집 대상이
+# 아니라 항상 존재). study(AI 채팅)엔 "작업 시간" 개념이 없어 export 시각으로 대체.
+# algorithm(백준)은 매핑이 없어 시간 미상 취급 — 현재 백준 수집 자체가 비활성화라
+# 실질적으로 영향 없음.
+WORK_TIMESTAMP_FIELDS = {
+    "dev": "커밋_날짜",
+    "pr": "병합일",
+    "study": "Exported_시간",
+}
+
+
+def _extract_work_timestamp(json_content: str, draft_type: str) -> str:
+    """포스팅 정렬용 작업 시각 문자열을 소스 JSON에서 추출. 없으면 빈 문자열."""
+    field = WORK_TIMESTAMP_FIELDS.get(draft_type)
+    if not field:
+        return ""
+    try:
+        data = json.loads(json_content)
+    except (json.JSONDecodeError, TypeError):
+        return ""
+    return data.get(field) or ""
+
+
+def _parse_timestamp(value: str) -> Optional[datetime]:
+    """ISO 8601 문자열을 정렬 가능한 datetime으로 변환. 실패/빈 값이면 None."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.rstrip("Z"))
+    except ValueError:
+        return None
+
+
+def _strip_banned_tags(content: str) -> str:
+    """생성된 draft의 "**태그:**" 줄에서 BANNED_GENERIC_TAGS에 해당하는 태그를 제거."""
+    lines = content.split("\n")
+    tag_pattern = re.compile(r"^(\*\*태그:\*\*\s*)(.+)$")
+    for i, line in enumerate(lines):
+        match = tag_pattern.match(line.strip())
+        if match:
+            existing = [t.strip() for t in match.group(2).split(",") if t.strip()]
+            filtered = [t for t in existing if t not in BANNED_GENERIC_TAGS]
+            lines[i] = f"{match.group(1)}{', '.join(filtered)}"
+            break
+    return "\n".join(lines)
 
 
 class GeminiDraftGenerator:
-    """Gemini를 사용한 초안 생성 클래스 (병렬 워커 풀)"""
+    """Claude Pro(claude CLI)를 사용한 초안 생성 클래스 (병렬 워커 풀)"""
 
     def __init__(self):
         self.max_workers = int(os.getenv("CLAUDE_PARALLEL_WORKERS", str(DEFAULT_PARALLEL_WORKERS)))
 
-        # Gemini 일일 한도 초과 여부는 모든 워커가 공유 (한 워커가 확인하면 전부 즉시 반영)
-        self.gemini_exhausted_flag = SharedFlag()
-        # Gemini + Claude Pro 둘 다 영구 실패 시 나머지 항목 전체를 포기하는 플래그
+        # Claude Pro 사용량 한도 초과 시 나머지 항목 전체를 포기하는 플래그
         self.quota_exhausted_flag = SharedFlag()
 
-        self.ai_clients = [
-            AIClient(gemini_exhausted_flag=self.gemini_exhausted_flag)
-            for _ in range(self.max_workers)
-        ]
-        print(f"  [AI] Gemini 우선 + Claude Pro(claude CLI) 폴백 모드 (워커 {self.max_workers}개 병렬)")
+        self.ai_clients = [AIClient() for _ in range(self.max_workers)]
+        print(f"  [AI] Claude Pro(claude CLI) 전용 모드 (워커 {self.max_workers}개 병렬)")
 
         self.blog_client = BlogAPIClient()
         self.draft_saver = DraftSaver()
@@ -80,11 +123,11 @@ class GeminiDraftGenerator:
 
         Returns:
             Tuple[List[str], List[str]]:
-                - 생성된 draft 파일 경로 리스트
+                - 생성된 draft 파일 경로 리스트 (작업 시간순 정렬됨)
                 - 초안 생성에 성공한 JSON 파일명 리스트
         """
         pr_jsons = pr_jsons or []
-        all_drafts = []
+        all_timed_drafts: List[Tuple[str, str]] = []  # [(작업 시각, draft_path), ...]
         all_succeeded_jsons = []
 
         # 1. 백준 풀이 초안 작성
@@ -93,7 +136,7 @@ class GeminiDraftGenerator:
             baekjoon_drafts, succeeded = self._generate_drafts_parallel(
                 baekjoon_jsons, "algorithm", "알고리즘_풀이_포스팅_프롬프트.md", "백준"
             )
-            all_drafts.extend(baekjoon_drafts)
+            all_timed_drafts.extend(baekjoon_drafts)
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(baekjoon_drafts)}개 생성 완료")
 
@@ -103,7 +146,7 @@ class GeminiDraftGenerator:
             dev_drafts, succeeded = self._generate_drafts_parallel(
                 commit_jsons, "dev", "프로젝트_진척_및_의사결정_요약_프롬프트.md", "개발 커밋"
             )
-            all_drafts.extend(dev_drafts)
+            all_timed_drafts.extend(dev_drafts)
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(dev_drafts)}개 생성 완료")
 
@@ -111,7 +154,7 @@ class GeminiDraftGenerator:
         if ai_chat_jsons:
             print(f"  AI 대화 공부 초안 생성 중... ({len(ai_chat_jsons)}개)")
             study_drafts, succeeded = self._generate_study_drafts_parallel(ai_chat_jsons)
-            all_drafts.extend(study_drafts)
+            all_timed_drafts.extend(study_drafts)
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(study_drafts)}개 생성 완료")
 
@@ -121,16 +164,22 @@ class GeminiDraftGenerator:
             pr_drafts, succeeded = self._generate_drafts_parallel(
                 pr_jsons, "pr", "PR_리뷰_및_병합_요약_프롬프트.md", "PR"
             )
-            all_drafts.extend(pr_drafts)
+            all_timed_drafts.extend(pr_drafts)
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(pr_drafts)}개 생성 완료")
 
-        # 5. 블로그 포스팅 (초안 생성 직후)
+        # 5. 작업 시간순 정렬 (병렬 생성이라 완료 순서가 뒤섞이므로, 포스팅 직전에
+        # 커밋 시각/PR 병합 시각 기준으로 재정렬한다. 시각을 알 수 없는 항목은 뒤로 밀되
+        # 그들끼리는 원래 순서(카테고리 순서)를 유지 — Python sort는 안정 정렬)
+        all_timed_drafts.sort(key=lambda item: _parse_timestamp(item[0]) or datetime.max)
+        all_drafts = [draft_path for _, draft_path in all_timed_drafts]
+
+        # 6. 블로그 포스팅 (초안 생성 직후)
         if all_drafts:
-            print(f"\n  블로그 포스팅 중... ({len(all_drafts)}개)")
+            print(f"\n  블로그 포스팅 중... ({len(all_drafts)}개, 작업 시간순)")
             self._post_to_blog(all_drafts)
 
-        # 6. 에디터로 열기 (맨 마지막)
+        # 7. 에디터로 열기 (맨 마지막)
         if all_drafts:
             self._open_in_editor(all_drafts)
 
@@ -138,14 +187,16 @@ class GeminiDraftGenerator:
 
     def _generate_drafts_parallel(
         self, json_files: List[str], draft_type: str, prompt_filename: str, label: str
-    ) -> Tuple[List[str], List[str]]:
+    ) -> Tuple[List[Tuple[str, str]], List[str]]:
         """
         카테고리 하나(백준/개발/AI대화/PR)의 항목들을 워커 풀로 병렬 생성
 
         Returns:
-            Tuple[List[str], List[str]]: (draft 파일 경로 리스트, 성공한 JSON 파일명 리스트)
+            Tuple[List[Tuple[str, str]], List[str]]:
+                - (작업 시각, draft 파일 경로) 튜플 리스트 — 포스팅 순서 정렬용
+                - 성공한 JSON 파일명 리스트
         """
-        drafts = []
+        timed_drafts: List[Tuple[str, str]] = []
         succeeded_jsons = []
         duplicates = []
 
@@ -190,13 +241,17 @@ class GeminiDraftGenerator:
                             self._handle_ai_failure(ai_client, draft_type, json_file, label)
                             continue
 
+                        draft_content = self._inject_identity_tags(draft_content, json_content, draft_type)
+                        draft_content = _strip_banned_tags(draft_content)
+
                         draft_path = self.draft_saver.save_draft(
                             draft_type=draft_type,
                             content=draft_content,
                             source_json=json_file,
                         )
+                        work_ts = _extract_work_timestamp(json_content, draft_type)
                         with results_lock:
-                            drafts.append(draft_path)
+                            timed_drafts.append((work_ts, draft_path))
                             succeeded_jsons.append(json_file)
                         slog.draft_success(draft_type, json_file, draft_path)
                         self._print(f"    ✅ 성공: {draft_path}")
@@ -219,14 +274,14 @@ class GeminiDraftGenerator:
                 print(f"      - {dup}")
 
         slog.draft_summary(draft_type, total=len(json_files),
-                           success=len(drafts), failed=len(pending) - len(drafts),
+                           success=len(timed_drafts), failed=len(pending) - len(timed_drafts),
                            duplicates=len(duplicates))
 
-        return drafts, succeeded_jsons
+        return timed_drafts, succeeded_jsons
 
     def _generate_study_drafts_parallel(
         self, json_files: List[str]
-    ) -> Tuple[List[str], List[str]]:
+    ) -> Tuple[List[Tuple[str, str]], List[str]]:
         """
         AI 대화 학습 초안 생성 (study 전용, 워커 풀로 병렬 생성)
 
@@ -236,11 +291,14 @@ class GeminiDraftGenerator:
         보내 각각을 "(연재 N/M)" 표시가 붙은 별도 포스팅으로 생성한다.
 
         Returns:
-            Tuple[List[str], List[str]]: (draft 파일 경로 리스트, 성공한 JSON 파일명 리스트)
+            Tuple[List[Tuple[str, str]], List[str]]:
+                - (작업 시각, draft 파일 경로) 튜플 리스트 — 포스팅 순서 정렬용
+                  (연재로 분리된 파트들은 같은 대화의 export 시각을 공유)
+                - 성공한 JSON 파일명 리스트
         """
         draft_type = "study"
         label = "AI Chat"
-        drafts = []
+        timed_drafts: List[Tuple[str, str]] = []
         succeeded_jsons = []
         duplicates = []
 
@@ -281,26 +339,26 @@ class GeminiDraftGenerator:
                         raw_json = self._load_json(json_file)
                         data = json.loads(raw_json)
                         conversation = data.get("모든_대화_내용", "")
+                        work_ts = _extract_work_timestamp(raw_json, draft_type)
 
                         segments = self._split_into_segments(
                             ai_client, segmentation_prompt, conversation
                         )
 
                         if len(segments) <= 1:
-                            draft_content = ai_client.generate_draft(
-                                prompt, raw_json, model=STUDY_MODEL
-                            )
+                            draft_content = ai_client.generate_draft(prompt, raw_json)
                             if draft_content is None:
                                 self._handle_ai_failure(ai_client, draft_type, json_file, label)
                                 continue
 
+                            draft_content = _strip_banned_tags(draft_content)
                             draft_path = self.draft_saver.save_draft(
                                 draft_type=draft_type,
                                 content=draft_content,
                                 source_json=json_file,
                             )
                             with results_lock:
-                                drafts.append(draft_path)
+                                timed_drafts.append((work_ts, draft_path))
                                 succeeded_jsons.append(json_file)
                             slog.draft_success(draft_type, json_file, draft_path)
                             self._print(f"    ✅ 성공: {draft_path}")
@@ -316,14 +374,13 @@ class GeminiDraftGenerator:
                             segment_data["모든_대화_내용"] = segment_text
                             segment_json = json.dumps(segment_data, ensure_ascii=False)
 
-                            part_content = ai_client.generate_draft(
-                                prompt, segment_json, model=STUDY_MODEL
-                            )
+                            part_content = ai_client.generate_draft(prompt, segment_json)
                             if part_content is None:
                                 failed = True
                                 break
 
                             part_content = self._mark_as_series_part(part_content, idx, total)
+                            part_content = _strip_banned_tags(part_content)
                             saved_paths.append(
                                 self.draft_saver.save_draft(
                                     draft_type=draft_type,
@@ -342,7 +399,7 @@ class GeminiDraftGenerator:
                             continue
 
                         with results_lock:
-                            drafts.extend(saved_paths)
+                            timed_drafts.extend((work_ts, saved_path) for saved_path in saved_paths)
                             succeeded_jsons.append(json_file)
                         for saved_path in saved_paths:
                             slog.draft_success(draft_type, json_file, saved_path)
@@ -369,7 +426,7 @@ class GeminiDraftGenerator:
                            failed=len(pending) - (len(succeeded_jsons) - len(duplicates)),
                            duplicates=len(duplicates))
 
-        return drafts, succeeded_jsons
+        return timed_drafts, succeeded_jsons
 
     def _split_into_segments(
         self, ai_client: AIClient, segmentation_prompt: str, conversation: str
@@ -420,6 +477,52 @@ class GeminiDraftGenerator:
                 lines[i] = f"{match.group(1)}{match.group(2)}, 연재"
                 break
 
+        return "\n".join(lines)
+
+    def _inject_identity_tags(self, content: str, json_content: str, draft_type: str) -> str:
+        """
+        협업자가 작성한 커밋/PR에는 작성자 이름을 태그로 결정적으로 주입.
+
+        AI가 "**태그:**" 줄을 만들 때 작성자를 신뢰성 있게 반영해준다는 보장이
+        없어서(작성자 구분을 프롬프트로 강제하기 어려움), 소스 JSON의 "작성자"
+        필드를 코드에서 직접 읽어 협업자 커밋일 때만 태그로 강제 추가한다.
+        서버 사이드 author 필터로 이미 본인 커밋/PR만 수집되므로, 본인 작성
+        건에는 "본인"/"커밋" 같은 정보값 없는 태그를 붙이지 않는다.
+        algorithm/study는 항상 본인 활동이라 구분이 필요 없으므로 건드리지 않는다.
+        """
+        if draft_type not in ("dev", "pr"):
+            return content
+
+        try:
+            data = json.loads(json_content)
+        except (json.JSONDecodeError, TypeError):
+            return content
+
+        author = data.get("작성자") or ""
+        my_username = os.getenv("GITHUB_USERNAME", "")
+        is_mine = bool(author) and bool(my_username) and author.lower() == my_username.lower()
+
+        if is_mine:
+            return content
+
+        identity_tag = author or "협업"
+        new_tags = ["PR", identity_tag] if draft_type == "pr" else [identity_tag]
+
+        lines = content.split("\n")
+        tag_pattern = re.compile(r"^(\*\*태그:\*\*\s*)(.+)$")
+
+        for i, line in enumerate(lines):
+            match = tag_pattern.match(line.strip())
+            if match:
+                existing = [t.strip() for t in match.group(2).split(",") if t.strip()]
+                for new_tag in new_tags:
+                    if new_tag not in existing:
+                        existing.append(new_tag)
+                lines[i] = f"{match.group(1)}{', '.join(existing)}"
+                return "\n".join(lines)
+
+        # AI가 태그 줄을 안 만들었으면 새로 추가
+        lines.append(f"**태그:** {', '.join(new_tags)}")
         return "\n".join(lines)
 
     def _handle_ai_failure(

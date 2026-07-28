@@ -147,6 +147,7 @@ class GitHubCollector:
                 (백준 JSON 파일명 리스트, 개발 JSON 파일명 리스트, PR JSON 파일명 리스트)
         """
         username = os.getenv("GITHUB_USERNAME")
+        author_filter = self.github_client.get_own_author_filter()
 
         # 1. 레포 조회 및 백준/개발 분리
         print(f"\n📦 {username}의 레포지토리 조회 중...")
@@ -264,7 +265,7 @@ class GitHubCollector:
                 for branch in selected_branches:
                     print(f"\n  🔍 {repo_name}/{branch} 커밋 수집 중...")
                     commits = self.github_client.fetch_branch_commits(
-                        owner, repo_name, branch, start_date, end_date
+                        owner, repo_name, branch, start_date, end_date, author_filter
                     )
 
                     if commits:
@@ -349,8 +350,33 @@ class GitHubCollector:
             print()  # 줄바꿈
         return saved_files
 
+    def _is_own_author(self, author: str) -> bool:
+        """
+        본인 작성으로 취급할 작성자인지 판단.
+        본인 GitHub 계정 또는 "claude"(Claude Code로 커밋 시 찍히는 이름 - 실질적으로
+        본인 작업)면 True. 그 외(팀원 계정)는 False.
+        """
+        if not author:
+            return False
+        my_username = os.getenv("GITHUB_USERNAME", "")
+        return author.lower() in (my_username.lower(), "claude")
+
     def _save_dev_commits(self, commits: List[dict]) -> List[str]:
-        """개발 커밋을 JSON으로 저장"""
+        """개발 커밋을 JSON으로 저장 (팀원이 작성한 커밋은 블로그에 올리지 않으므로 스킵)"""
+        own_commits = []
+        skipped = 0
+        for commit in commits:
+            author_info = commit.get("author") or {}
+            author_login = (author_info.get("user") or {}).get("login")
+            author_display = author_login or author_info.get("name") or author_info.get("email") or "Unknown"
+            if self._is_own_author(author_display):
+                own_commits.append(commit)
+            else:
+                skipped += 1
+        if skipped:
+            print(f"    팀원 작성 커밋 {skipped}개 스킵 (본인 작성만 블로그에 포스팅)")
+        commits = own_commits
+
         saved_files = []
         total = len(commits)
 
@@ -382,10 +408,16 @@ class GitHubCollector:
 
             file_details = file_details_list[idx - 1]
 
+            # 커밋 작성자 (GitHub 로그인 우선, 연결 안 된 계정이면 이름/이메일로 폴백)
+            author_info = commit.get("author") or {}
+            author_login = (author_info.get("user") or {}).get("login")
+            author_display = author_login or author_info.get("name") or author_info.get("email") or "Unknown"
+
             # 개발 커밋 정보 추출
             dev_data = {
                 "커밋_메시지": commit.get("message"),
                 "SHA": commit.get("oid"),
+                "작성자": author_display,
                 "변경된_파일_목록": file_details["파일_목록"],
                 "추가_라인": file_details["추가_라인"],
                 "삭제_라인": file_details["삭제_라인"],
@@ -405,7 +437,19 @@ class GitHubCollector:
         return saved_files
 
     def _save_prs(self, prs: List[dict]) -> List[str]:
-        """PR을 JSON으로 저장 (병합/닫힌 PR만 넘어옴)"""
+        """PR을 JSON으로 저장 (병합/닫힌 PR만 넘어옴, 팀원이 작성한 PR은 블로그에 올리지 않으므로 스킵)"""
+        own_prs = []
+        skipped = 0
+        for pr in prs:
+            author = (pr.get("author") or {}).get("login", "")
+            if self._is_own_author(author):
+                own_prs.append(pr)
+            else:
+                skipped += 1
+        if skipped:
+            print(f"    팀원 작성 PR {skipped}개 스킵 (본인 작성만 블로그에 포스팅)")
+        prs = own_prs
+
         saved_files = []
         total = len(prs)
 

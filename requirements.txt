@@ -8,9 +8,6 @@ watchdog>=3.0.0
 # GitHub API
 PyGithub>=2.1.1
 
-# Gemini AI (최신 패키지)
-google-genai>=0.2.0
-
 # Groq AI (OpenAI SDK 호환, 폴백용)
 openai>=1.0.0
 
