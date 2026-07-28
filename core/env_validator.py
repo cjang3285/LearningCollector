@@ -19,7 +19,6 @@ class EnvValidator:
 
         # Module 1: 인증 정보 검증
         self._validate_github_token()
-        self._validate_gemini_api_key()
 
         # Module 2: 감시 경로 검증
         self._validate_ai_chat_download_dir()
@@ -50,17 +49,6 @@ class EnvValidator:
                 )
         except Exception as e:
             self.errors.append(f"GITHUB_TOKEN 검증 중 오류 발생: {str(e)}")
-
-    def _validate_gemini_api_key(self):
-        """Gemini API Key 검증"""
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            self.errors.append("GEMINI_API_KEY가 설정되지 않았습니다.")
-            return
-
-        # API 키 형식 간단 검증
-        if not api_key.startswith("AI"):
-            self.errors.append("GEMINI_API_KEY 형식이 올바르지 않습니다.")
 
     def _validate_ai_chat_download_dir(self):
         """AI Chat 다운로드 디렉터리 검증"""

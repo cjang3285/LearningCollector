@@ -9,7 +9,7 @@
 
 ## 개요
 
-GitHub 활동과 AI 채팅 기록을 자동으로 수집하고, Gemini API로 블로그 초안을 생성해 자동으로 게시하는 CLI 도구입니다.
+GitHub 활동과 AI 채팅 기록을 자동으로 수집하고, Claude Pro(claude CLI)로 블로그 초안을 생성해 자동으로 게시하는 CLI 도구입니다.
 
 ### 수집 대상
 
@@ -21,7 +21,7 @@ GitHub 활동과 AI 채팅 기록을 자동으로 수집하고, Gemini API로 �
 
 1. **자동 수집**: 마지막 실행 이후 증분 수집 (소스별 수집 시간 로그 기반), 비활성 레포는 사전 필터링·병렬 조회로 빠르게 처리
 2. **중복 제거**: SHA/PR ID/파일명 기반 중복 체크 (메모리 캐싱)
-3. **블로그 초안 생성**: Gemini API로 카테고리별 초안 자동 생성
+3. **블로그 초안 생성**: Claude Pro(claude CLI)로 카테고리별 초안 자동 생성
    - 개발 진척 (커밋 요약)
    - PR 요약 (병합/닫힌 PR)
    - 학습 노트 (AI 채팅 기록)
@@ -63,7 +63,7 @@ python main.py
 ```env
 # 인증 정보
 GITHUB_TOKEN=ghp_your_token_here
-GEMINI_API_KEY=your_gemini_api_key
+CLAUDE_CODE_OAUTH_TOKEN=your_claude_code_oauth_token
 
 # 감시 대상
 AI_CHAT_DOWNLOAD_DIR=/path/to/downloads
@@ -101,15 +101,15 @@ LearningCollector/
 │   ├── orchestrator.py              # 전체 흐름 조율
 │   ├── github_collector.py          # GitHub 커밋/PR 수집
 │   ├── ai_chat_collector.py         # AI Chat 마크다운 수집
-│   ├── gemini_draft_generator.py    # Gemini로 초안 생성
+│   ├── gemini_draft_generator.py    # Claude Pro로 초안 생성
 │   ├── env_validator.py             # 환경변수 검증
 │   └── startup_register.py          # 시작프로그램 등록
 │
 ├── api/                             # 외부 API 클라이언트
 │   ├── github_graphql.py            # GitHub GraphQL API
-│   ├── gemini_client.py             # Gemini API
+│   ├── claude_code_client.py        # Claude Pro(claude CLI) 클라이언트
 │   ├── groq_client.py               # Groq API (현재 미사용, 폴백용으로 남겨둠)
-│   ├── ai_client.py                 # Gemini 호출 통합 클라이언트
+│   ├── ai_client.py                 # Claude Pro 호출 통합 클라이언트
 │   └── blog_api.py                  # 블로그 포스팅 API
 │
 ├── policies/                        # 정책 및 저장 로직
@@ -120,7 +120,7 @@ LearningCollector/
 │       ├── draft_saver.py           # Draft 마크다운 저장
 │       └── duplicate_checker.py     # 중복 체크 (메모리 캐싱)
 │
-├── prompts/                         # Gemini 프롬프트 템플릿
+├── prompts/                         # 초안 생성 프롬프트 템플릿
 │   ├── 프로젝트_진척_및_의사결정_요약_프롬프트.md
 │   ├── PR_리뷰_및_병합_요약_프롬프트.md
 │   ├── 당일_공부_요약_프롬프트.md
@@ -159,7 +159,7 @@ LearningCollector/
 - 파일명 패턴: `Claude-*.md`, `ChatGPT-*.md`, `Gemini-*.md`
 - 중복: 원본 파일명 기반 체크
 
-### 3. Gemini 초안 생성
+### 3. 초안 생성 (Claude Pro)
 
 ```python
 for json_file in json_files:
@@ -175,8 +175,8 @@ for json_file in json_files:
 - 제목(H1)과 발췌(첫 문단)는 별도 필드로 추출되고 본문에서는 제거되어, 블로그에 제목/발췌가 중복 표시되지 않음
 
 **에러 처리**:
-- Gemini 서버 일시적 과부하(503): 지수 백오프로 재시도
-- 일일 한도 초과 등 영구적 실패: 해당 실행의 나머지 초안 생성은 중단하고 다음 실행에서 재시도 (일시적 실패는 해당 항목만 건너뛰고 계속 진행)
+- claude CLI 응답 타임아웃/프로세스 종료: 다음 호출에서 프로세스 재시작 후 재시도
+- Claude Pro 사용량 한도 초과 등 영구적 실패: 해당 실행의 나머지 초안 생성은 중단하고 다음 실행에서 재시도 (일시적 실패는 해당 항목만 건너뛰고 계속 진행)
 - 오류 draft 자동 삭제 후 재생성
 
 ### 4. 블로그 포스팅
@@ -216,7 +216,7 @@ crontab -e
 | 변수 | 설명 | 필수 |
 |------|------|------|
 | `GITHUB_TOKEN` | GitHub Personal Access Token (`repo` 권한, 조직 레포 조회용) | ✅ |
-| `GEMINI_API_KEY` | Gemini API Key | ✅ |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Pro CLI 인증 토큰 (`claude setup-token`으로 발급) | ✅ |
 | `GITHUB_USERNAME` | GitHub 사용자명 | ✅ |
 | `AI_CHAT_DOWNLOAD_DIR` | AI Chat 마크다운 다운로드 폴더 | ✅ |
 | `LOG_FILE_PATH` | 로그 파일 경로 (기본: ./log/err.log) | ❌ |
@@ -229,7 +229,7 @@ crontab -e
 
 - Python 3.8+
 - GitHub Personal Access Token
-- Gemini API Key
+- Claude Pro 구독 + `claude` CLI (`claude setup-token`으로 `CLAUDE_CODE_OAUTH_TOKEN` 발급)
 - AI Chat Exporter Chrome Extensions:
   - [Claude Exporter](https://chromewebstore.google.com/detail/claude-exporter/elhmfakncmnghlnabnolalcjkdpfjnin)
   - [ChatGPT Exporter](https://chromewebstore.google.com/detail/chatgpt-exporter/pldlpacbeonbjfhlongcdflcgfcnglkl)

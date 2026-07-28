@@ -13,6 +13,9 @@ from core import structured_logger as slog
 # GitHub API에 과도한 동시 요청을 보내지 않도록 적당히 제한)
 MAX_CONCURRENT_REPO_FETCHES = 5
 
+# Claude Code로 커밋할 때 찍히는 고정 작성자 이메일 (실질적으로 본인 작업으로 취급)
+CLAUDE_CODE_EMAIL = "noreply@anthropic.com"
+
 
 class GitHubGraphQLClient:
     """GitHub GraphQL API 클라이언트"""
@@ -24,6 +27,37 @@ class GitHubGraphQLClient:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json"
         }
+
+    def get_own_author_filter(self) -> dict:
+        """
+        GraphQL history(author: ...) 필터에 넘길 조건.
+
+        id로 본인 GitHub 계정을 지정하면, 그 계정에 연결된(인증된) 어떤 이메일로
+        커밋했든 전부 매칭된다 (예: 개인 이메일/학교 이메일을 섞어 썼어도 놓치지
+        않음). emails에는 계정에 연결되지 않은 이메일로 커밋한 경우를 위해 본인
+        이메일을 한 번 더 넣고, Claude Code로 커밋할 때 찍히는 고정 이메일도
+        추가한다 (id와 emails는 OR로 매칭됨). 이렇게 해두면 팀원 커밋은 GitHub
+        서버 단에서부터 응답에 실리지 않는다.
+        """
+        viewer = self._fetch_viewer_id_and_email()
+        emails = [e for e in (viewer.get("email"), CLAUDE_CODE_EMAIL) if e]
+        return {"id": viewer.get("id"), "emails": emails}
+
+    def _fetch_viewer_id_and_email(self) -> dict:
+        """토큰 소유자(본인) 계정의 node ID와 이메일 조회"""
+        query = """
+        query {
+          viewer {
+            id
+            email
+          }
+        }
+        """
+        try:
+            response = self._execute_query(query, {})
+            return response.get("data", {}).get("viewer", {}) or {}
+        except Exception:
+            return {}
 
     def fetch_commits(
         self,
@@ -37,7 +71,8 @@ class GitHubGraphQLClient:
         레포마다 "이번 기간에 푸시된 적 있는지(pushedAt)"로 먼저 걸러내고,
         살아있는 레포에 대해서만 브랜치+커밋을 조회한다 (그마저도 브랜치별로
         따로 요청하지 않고 레포당 요청 1번으로 묶음). 레포별 조회는 서로
-        독립적이므로 병렬로 실행한다.
+        독립적이므로 병렬로 실행한다. 커밋 작성자가 본인(또는 Claude Code)이
+        아니면 GraphQL author 필터로 서버 단에서부터 제외한다.
 
         Args:
             username: GitHub 사용자명
@@ -48,6 +83,7 @@ class GitHubGraphQLClient:
             List[dict]: 커밋 리스트
         """
         all_commits = []
+        author_filter = self.get_own_author_filter()
 
         # 디버그: 수집 기간 출력
         print(f"    📅 수집 기간: {start_date.strftime('%Y-%m-%d %H:%M:%S')} ~ {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -71,7 +107,7 @@ class GitHubGraphQLClient:
             future_to_repo = {
                 executor.submit(
                     self.fetch_repo_branch_commits,
-                    repo["owner"]["login"], repo["name"], start_date, end_date
+                    repo["owner"]["login"], repo["name"], start_date, end_date, author_filter
                 ): repo["name"]
                 for repo in active_repos
             }
@@ -175,18 +211,23 @@ class GitHubGraphQLClient:
         owner: str,
         repo_name: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        author_filter: dict = None
     ) -> dict:
         """
         레포의 모든 브랜치와 각 브랜치의 커밋을 요청 1번(페이지네이션 시 여러 번)으로 조회.
         기존에는 브랜치 목록 조회 1번 + 브랜치별 커밋 조회 N번이 필요했지만,
         GraphQL의 중첩 조회(refs → target → history)를 이용해 하나로 합침.
 
+        author_filter({"id", "emails"})가 주어지면 history의 author 필터로
+        넘겨서, 거기 해당 안 되는 작성자(팀원)의 커밋은 GitHub 서버 단에서부터
+        제외하고 받아온다 (응답 자체에 안 실려 옴 - 네트워크/쿼터 절약).
+
         Returns:
             dict: {브랜치명: [커밋, ...]}
         """
         query = """
-        query($owner: String!, $name: String!, $since: GitTimestamp!, $cursor: String) {
+        query($owner: String!, $name: String!, $since: GitTimestamp!, $cursor: String, $authorId: ID, $authorEmails: [String!]) {
           repository(owner: $owner, name: $name) {
             refs(refPrefix: "refs/heads/", first: 100, after: $cursor) {
               pageInfo {
@@ -197,7 +238,7 @@ class GitHubGraphQLClient:
                 name
                 target {
                   ... on Commit {
-                    history(first: 100, since: $since) {
+                    history(first: 100, since: $since, author: {id: $authorId, emails: $authorEmails}) {
                       nodes {
                         oid
                         message
@@ -225,12 +266,15 @@ class GitHubGraphQLClient:
         since_param = start_date.replace(microsecond=0).isoformat() + "Z"
         branch_commits = {}
         cursor = None
+        author_filter = author_filter or {}
 
         try:
             while True:
                 variables = {
                     "owner": owner, "name": repo_name,
-                    "since": since_param, "cursor": cursor
+                    "since": since_param, "cursor": cursor,
+                    "authorId": author_filter.get("id"),
+                    "authorEmails": author_filter.get("emails") or None
                 }
                 response = self._execute_query(query, variables)
 
@@ -433,16 +477,21 @@ class GitHubGraphQLClient:
         repo_name: str,
         branch: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        author_filter: dict = None
     ) -> List[dict]:
-        """특정 브랜치의 커밋 조회 (public)"""
+        """
+        특정 브랜치의 커밋 조회 (public).
+        author_filter({"id", "emails"})가 주어지면 거기 해당 안 되는 작성자의
+        커밋은 서버 단에서부터 제외하고 받아온다.
+        """
         query = """
-        query($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!) {
+        query($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $authorId: ID, $authorEmails: [String!]) {
           repository(owner: $owner, name: $name) {
             ref(qualifiedName: $branch) {
               target {
                 ... on Commit {
-                  history(first: 100, since: $since) {
+                  history(first: 100, since: $since, author: {id: $authorId, emails: $authorEmails}) {
                     nodes {
                       oid
                       message
@@ -468,12 +517,15 @@ class GitHubGraphQLClient:
 
         # ISO 포맷 (마이크로초 제거)
         since_param = start_date.replace(microsecond=0).isoformat() + "Z"
+        author_filter = author_filter or {}
 
         variables = {
             "owner": owner,
             "name": repo_name,
             "branch": f"refs/heads/{branch}",
-            "since": since_param
+            "since": since_param,
+            "authorId": author_filter.get("id"),
+            "authorEmails": author_filter.get("emails") or None
         }
 
         try:

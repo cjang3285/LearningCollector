@@ -176,3 +176,7 @@ htmlcov/
 # HTTP 서버 관련 (client-server-architecture로 아카이브됨)
 server/
 uploads/
+
+# 수집된 개인 데이터 (README상 git 미포함 대상인데 .gitignore에 누락돼 있던 것 보완)
+data/
+input

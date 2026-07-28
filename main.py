@@ -28,7 +28,7 @@ def setup_env_cli():
     # Module 1: 인증 정보
     print("\n[Module 1: 인증 정보]")
     env_vars["GITHUB_TOKEN"] = getpass.getpass("GITHUB_TOKEN: ")
-    env_vars["GEMINI_API_KEY"] = getpass.getpass("GEMINI_API_KEY: ")
+    env_vars["CLAUDE_CODE_OAUTH_TOKEN"] = getpass.getpass("CLAUDE_CODE_OAUTH_TOKEN (claude setup-token으로 발급): ")
 
     # Module 2: 감시
     print("\n[Module 2: 감시]")
