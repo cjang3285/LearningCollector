@@ -593,20 +593,58 @@ class GeminiDraftGenerator:
         except OSError:
             return 0
 
+    def _historical_dev_message_index(self):
+        """
+        이미 포스팅 완료(_status.posted=True) 처리된 커밋들의
+        "메시지 첫 줄 -> draft 파일 경로" 색인.
+
+        website 레포는 개별 feature 커밋이 오늘 바로 포스팅되고, 그걸 묶는
+        dev->main 승격 PR은 며칠 뒤 별도 실행에서야 draft가 되는 경우가 있다.
+        같은 배치 안의 draft끼리만 비교하는 것만으로는 이 지연된 롤업 중복을
+        못 잡으므로, 과거에 이미 포스팅된 커밋까지 훑어서 함께 비교 대상에
+        넣는다. draft .md 파일은 포스팅 후에도 지우지 않고 남겨두므로(다음
+        실행에서 "이미 draft 있음"으로 재생성을 막는 용도) 여기서 그 파일의
+        본문 길이를 그대로 재사용할 수 있다.
+        """
+        index = {}
+        commits_dir = Path(__file__).parent.parent / "data" / "commits"
+        draft_dir = Path(__file__).parent.parent / "data" / "draft" / "dev"
+        if not commits_dir.exists():
+            return index
+
+        for json_path in commits_dir.glob("*.json"):
+            try:
+                data = json.loads(json_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            if not data.get("_status", {}).get("posted"):
+                continue
+            fl = _first_line(data.get("커밋_메시지", ""))
+            if not fl or _MERGE_MARKER_RE.match(fl):
+                continue
+            draft_path = draft_dir / f"dev_{json_path.stem}.md"
+            if draft_path.exists():
+                index[fl] = str(draft_path)
+        return index
+
     def _dedupe_dev_pr_drafts(self, all_timed_drafts):
         """
-        이번 배치에서 새로 만들어진 dev/pr draft끼리 구조적 중복을 걸러낸다.
+        이번 배치에서 새로 만들어진 dev/pr draft끼리, 그리고 이미 과거에
+        포스팅된 dev draft와 새 pr draft 사이의 구조적 중복을 걸러낸다.
         판정 기준은 커밋 메시지 원문 일치(제목 유사도 추측 아님)와, 겹칠 때
         본문이 더 짧은/얕은 쪽을 제외하는 것 — 기존에 이미 올라간 381개 포스트를
         정리할 때 쓴 것과 같은 방법론이다.
 
         패턴 A: "Merge pull request #N" dev draft와 그 PR#N draft가 같이 있으면
                 같은 병합 이벤트를 두 번 설명하는 것이므로 더 짧은 쪽 제외.
-        패턴 B: PR draft가 담은 커밋_메시지_목록 중 이번 배치의 다른 dev draft와
-                겹치는 게 있으면(즉 이미 개별 포스트가 따로 생김) 롤업 중복으로
-                보고, PR이 겹치는 개별 글 중 가장 긴 것보다 짧거나 같으면 제외.
-                PR이 더 길면(더 넓은 맥락을 담고 있다는 뜻) 자동으로 지우지 않고
-                둘 다 남겨서 사람이 보게 한다.
+                (이건 같은 배치 안에서만 비교 — 머지 커밋과 그 PR은 보통
+                거의 동시에 나타나서 배치가 갈릴 일이 드물다)
+        패턴 B: PR draft가 담은 커밋_메시지_목록 중, 이번 배치의 다른 dev
+                draft이거나 "과거에 이미 포스팅된" dev draft와 겹치는 게
+                있으면(즉 이미 개별 포스트가 존재) 롤업 중복으로 보고, PR이
+                겹치는 개별 글 중 가장 긴 것보다 짧거나 같으면 제외.
+                PR이 더 길면(더 넓은 맥락을 담고 있다는 뜻) 자동으로 지우지
+                않고 둘 다 남겨서 사람이 보게 한다.
         """
         dev_entries = []
         pr_entries = []
@@ -639,8 +677,9 @@ class GeminiDraftGenerator:
                         self._print(f"    중복 제외(같은 머지 이벤트 {repo}#{pr_num}): {Path(loser).name}")
                     break
 
-        # 패턴 B
-        dev_msg_to_path = {}
+        # 패턴 B — 과거에 이미 포스팅된 커밋을 먼저 깔고, 이번 배치의 것으로
+        # 덮어쓴다(배치 안의 draft가 더 최신 경로이므로 우선).
+        dev_msg_to_path = self._historical_dev_message_index()
         for ts, path, data in dev_entries:
             fl = _first_line(data.get("커밋_메시지", ""))
             if fl and not _MERGE_MARKER_RE.match(fl):
