@@ -66,6 +66,19 @@ def _parse_timestamp(value: str) -> Optional[datetime]:
         return None
 
 
+# 구조적 중복 판정용 정규식. "Merge branch"는 dev/main 사이의 순수 병합이라
+# PR과 짝지을 번호가 없어 커밋_메시지_목록 비교(패턴 B)에서만 잡음 제거 용도로 쓰고,
+# "Merge pull request #N"만 특정 PR과 1:1로 묶을 수 있다(패턴 A).
+_MERGE_MARKER_RE = re.compile(r"^Merge (pull request|branch)", re.IGNORECASE)
+_MERGE_PR_NUM_RE = re.compile(r"^Merge pull request #(\d+) from", re.IGNORECASE)
+
+_DRAFT_SOURCE_SUBDIR = {"dev": "commits", "pr": "prs", "study": "ai_chat", "algorithm": "baekjoon"}
+
+
+def _first_line(text: str) -> str:
+    return (text or "").strip().split("\n")[0].strip()
+
+
 def _strip_banned_tags(content: str) -> str:
     """생성된 draft의 "**태그:**" 줄에서 BANNED_GENERIC_TAGS에 해당하는 태그를 제거."""
     lines = content.split("\n")
@@ -168,18 +181,33 @@ class GeminiDraftGenerator:
             all_succeeded_jsons.extend(succeeded)
             print(f"    → {len(pr_drafts)}개 생성 완료")
 
-        # 5. 작업 시간순 정렬 (병렬 생성이라 완료 순서가 뒤섞이므로, 포스팅 직전에
+        # 5. 구조적 중복 제거. website 레포처럼 feature 브랜치 -> dev -> main으로
+        # 승격하는 워크플로에서는 같은 작업이 이 배치 안에서 여러 번 draft가 될 수
+        # 있다: (a) "Merge pull request #N" 커밋의 dev draft가 그 PR#N draft와
+        # 같은 병합을 두 번 설명, (b) dev→main 승격처럼 여러 커밋을 묶는 PR draft가
+        # 그 커밋들 각각의 개별 dev draft와 내용이 겹침. 둘 다 커밋 메시지 원문
+        # 일치로 구조적으로 확인하고(제목 유사도 추측 아님), 겹치면 더 짧은/얕은
+        # 쪽만 걸러낸다(본문은 남기고 포스팅만 스킵 — 다음 실행에서 재시도 안 하게
+        # 소스 JSON은 이미 succeeded_jsons에 들어가 있어 posted 처리됨).
+        if all_timed_drafts:
+            before = len(all_timed_drafts)
+            all_timed_drafts = self._dedupe_dev_pr_drafts(all_timed_drafts)
+            dropped = before - len(all_timed_drafts)
+            if dropped:
+                print(f"\n  구조적 중복 제거: {dropped}개 draft 포스팅 제외")
+
+        # 6. 작업 시간순 정렬 (병렬 생성이라 완료 순서가 뒤섞이므로, 포스팅 직전에
         # 커밋 시각/PR 병합 시각 기준으로 재정렬한다. 시각을 알 수 없는 항목은 뒤로 밀되
         # 그들끼리는 원래 순서(카테고리 순서)를 유지 — Python sort는 안정 정렬)
         all_timed_drafts.sort(key=lambda item: _parse_timestamp(item[0]) or datetime.max)
         all_drafts = [draft_path for _, draft_path in all_timed_drafts]
 
-        # 6. 블로그 포스팅 (초안 생성 직후)
+        # 7. 블로그 포스팅 (초안 생성 직후)
         if all_drafts:
             print(f"\n  블로그 포스팅 중... ({len(all_drafts)}개, 작업 시간순)")
             self._post_to_blog(all_drafts)
 
-        # 7. 에디터로 열기 (맨 마지막)
+        # 8. 에디터로 열기 (맨 마지막)
         if all_drafts:
             self._open_in_editor(all_drafts)
 
@@ -536,6 +564,113 @@ class GeminiDraftGenerator:
         else:
             slog.draft_failure(draft_type, json_file, "transient_ai_failure")
             self._print(f"    ⚠️  일시적 오류로 실패, 다음 항목 계속 진행: {json_file}")
+
+    def _source_json_for_draft(self, draft_path: str):
+        """draft 파일 경로에서 draft_saver가 저장할 때 쓴 이름 규칙을 거꾸로 풀어
+        원본 소스 JSON을 로드. 매칭 안 되면 (None, None)."""
+        path = Path(draft_path)
+        draft_type = path.parent.name
+        subdir = _DRAFT_SOURCE_SUBDIR.get(draft_type)
+        if not subdir:
+            return None, None
+
+        m = re.match(rf"^{re.escape(draft_type)}_(.+)\.md$", path.name)
+        if not m:
+            return None, None
+        source_name = re.sub(r"_part\d+$", "", m.group(1))
+
+        json_path = Path(__file__).parent.parent / "data" / subdir / f"{source_name}.json"
+        if not json_path.exists():
+            return None, None
+        try:
+            return json.loads(json_path.read_text(encoding="utf-8")), draft_type
+        except (json.JSONDecodeError, OSError):
+            return None, None
+
+    def _draft_body_len(self, draft_path: str) -> int:
+        try:
+            return len(Path(draft_path).read_text(encoding="utf-8"))
+        except OSError:
+            return 0
+
+    def _dedupe_dev_pr_drafts(self, all_timed_drafts):
+        """
+        이번 배치에서 새로 만들어진 dev/pr draft끼리 구조적 중복을 걸러낸다.
+        판정 기준은 커밋 메시지 원문 일치(제목 유사도 추측 아님)와, 겹칠 때
+        본문이 더 짧은/얕은 쪽을 제외하는 것 — 기존에 이미 올라간 381개 포스트를
+        정리할 때 쓴 것과 같은 방법론이다.
+
+        패턴 A: "Merge pull request #N" dev draft와 그 PR#N draft가 같이 있으면
+                같은 병합 이벤트를 두 번 설명하는 것이므로 더 짧은 쪽 제외.
+        패턴 B: PR draft가 담은 커밋_메시지_목록 중 이번 배치의 다른 dev draft와
+                겹치는 게 있으면(즉 이미 개별 포스트가 따로 생김) 롤업 중복으로
+                보고, PR이 겹치는 개별 글 중 가장 긴 것보다 짧거나 같으면 제외.
+                PR이 더 길면(더 넓은 맥락을 담고 있다는 뜻) 자동으로 지우지 않고
+                둘 다 남겨서 사람이 보게 한다.
+        """
+        dev_entries = []
+        pr_entries = []
+        passthrough = []
+        for ts, path in all_timed_drafts:
+            data, draft_type = self._source_json_for_draft(path)
+            if draft_type == "dev" and data:
+                dev_entries.append((ts, path, data))
+            elif draft_type == "pr" and data:
+                pr_entries.append((ts, path, data))
+            else:
+                passthrough.append((ts, path))
+
+        drop = set()
+
+        # 패턴 A
+        for ts, path, data in dev_entries:
+            fl = _first_line(data.get("커밋_메시지", ""))
+            m = _MERGE_PR_NUM_RE.match(fl)
+            if not m:
+                continue
+            pr_num, repo = m.group(1), data.get("레포지토리", "")
+            for pts, ppath, pdata in pr_entries:
+                if str(pdata.get("PR_번호")) == pr_num and pdata.get("레포지토리") == repo:
+                    dev_len = self._draft_body_len(path)
+                    pr_len = self._draft_body_len(ppath)
+                    loser = path if pr_len >= dev_len else ppath
+                    if loser not in drop:
+                        drop.add(loser)
+                        self._print(f"    중복 제외(같은 머지 이벤트 {repo}#{pr_num}): {Path(loser).name}")
+                    break
+
+        # 패턴 B
+        dev_msg_to_path = {}
+        for ts, path, data in dev_entries:
+            fl = _first_line(data.get("커밋_메시지", ""))
+            if fl and not _MERGE_MARKER_RE.match(fl):
+                dev_msg_to_path[fl] = path
+
+        for ts, path, data in pr_entries:
+            if path in drop:
+                continue
+            overlap_paths = []
+            for msg in data.get("커밋_메시지_목록", []):
+                fl = _first_line(msg)
+                if fl and not _MERGE_MARKER_RE.match(fl):
+                    dpath = dev_msg_to_path.get(fl)
+                    if dpath and dpath not in overlap_paths:
+                        overlap_paths.append(dpath)
+            if not overlap_paths:
+                continue
+            pr_len = self._draft_body_len(path)
+            max_individual_len = max(self._draft_body_len(p) for p in overlap_paths)
+            if pr_len <= max_individual_len:
+                drop.add(path)
+                repo = data.get("레포지토리", "")
+                pr_num = data.get("PR_번호", "?")
+                self._print(
+                    f"    중복 제외(롤업 {repo}#{pr_num}, 겹치는 개별 글 {len(overlap_paths)}개): "
+                    f"{Path(path).name}"
+                )
+
+        kept = [(ts, path) for ts, path in all_timed_drafts if path not in drop]
+        return kept
 
     def _load_prompt(self, prompt_filename: str) -> str:
         """프롬프트 파일 로드"""
