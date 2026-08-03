@@ -4,6 +4,7 @@ GraphQL로 수집 정책에서 도출된 수집 기간 동안 나와 claude가 �
 """
 import os
 import time
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import List, Tuple
@@ -19,6 +20,21 @@ from core import structured_logger as slog
 
 # 커밋별 REST 상세 조회 병렬 실행 수 (서로 독립적인 요청)
 MAX_CONCURRENT_REST_FETCHES = 5
+
+# 같은 레포에서 같은 파일 집합을 이 시간 안에 연속으로 고친 커밋은 사실상 하나의
+# 즉흥 수정(오타/들여쓰기 재작업 등)으로 보고 마지막 것만 남긴다. Promtail YAML
+# 들여쓰기를 8분 사이 3번 고친 커밋이 거의 동일한 블로그 글 3개로 이어졌던 사례가
+# 있어서 도입함 — 각 커밋이 독립적으로 draft화되는 한 이런 군집은 계속 중복 포스팅된다.
+RAPID_FOLLOWUP_WINDOW_SECONDS = 30 * 60
+
+
+def _parse_committed_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.rstrip("Z"))
+    except ValueError:
+        return None
 
 
 class GitHubCollector:
@@ -361,6 +377,52 @@ class GitHubCollector:
         my_username = os.getenv("GITHUB_USERNAME", "")
         return author.lower() in (my_username.lower(), "claude")
 
+    def _collapse_rapid_followups(self, commits: List[dict], file_details_list: List[dict]) -> set:
+        """
+        같은 레포·같은 파일 집합을 RAPID_FOLLOWUP_WINDOW_SECONDS 안에 연속으로
+        건드린 커밋들을 하나의 군집으로 묶어, 군집당 마지막 커밋(최종 상태)의
+        인덱스만 남긴다. 파일 목록을 못 가져온 커밋(빈 리스트)은 묶을 근거가
+        없으므로 항상 그대로 유지한다.
+
+        Returns:
+            set: 유지할 commits 인덱스 집합
+        """
+        groups = defaultdict(list)
+        keep = set()
+
+        for idx, commit in enumerate(commits):
+            files = tuple(sorted(file_details_list[idx].get("파일_목록", [])))
+            if not files:
+                keep.add(idx)
+                continue
+            key = (commit.get("repository"), files)
+            groups[key].append(idx)
+
+        dropped = 0
+        for key, idxs in groups.items():
+            if len(idxs) == 1:
+                keep.add(idxs[0])
+                continue
+
+            idxs_sorted = sorted(idxs, key=lambda i: commits[i].get("committedDate") or "")
+            cluster_last = idxs_sorted[0]
+            for i in idxs_sorted[1:]:
+                prev_dt = _parse_committed_date(commits[cluster_last].get("committedDate"))
+                cur_dt = _parse_committed_date(commits[i].get("committedDate"))
+                if prev_dt and cur_dt and (cur_dt - prev_dt).total_seconds() <= RAPID_FOLLOWUP_WINDOW_SECONDS:
+                    dropped += 1
+                    cluster_last = i
+                else:
+                    keep.add(cluster_last)
+                    cluster_last = i
+            keep.add(cluster_last)
+
+        if dropped:
+            window_min = RAPID_FOLLOWUP_WINDOW_SECONDS // 60
+            print(f"    ⚠️  같은 파일 연속 수정 묶음 제외: {dropped}개 (같은 파일을 {window_min}분 이내 연속 수정 — 마지막 커밋만 유지)")
+
+        return keep
+
     def _save_dev_commits(self, commits: List[dict]) -> List[str]:
         """개발 커밋을 JSON으로 저장 (팀원이 작성한 커밋은 블로그에 올리지 않으므로 스킵)"""
         own_commits = []
@@ -402,6 +464,12 @@ class GitHubCollector:
                     }
         if total > 0:
             print()  # 줄바꿈
+
+        keep_indices = self._collapse_rapid_followups(commits, file_details_list)
+        if len(keep_indices) < total:
+            commits = [c for i, c in enumerate(commits) if i in keep_indices]
+            file_details_list = [d for i, d in enumerate(file_details_list) if i in keep_indices]
+            total = len(commits)
 
         for idx, commit in enumerate(commits, 1):
             print(f"    개발 커밋 처리 중: {idx}/{total}", end='\r', flush=True)
