@@ -104,8 +104,13 @@ class GitHubCollector:
                   duplicates=duplicate_count)
 
         # 4. JSON 저장
+        # 개발 커밋은 더 이상 개별 포스팅하지 않는다. 임시 파일 정리/검증용 커밋처럼
+        # 자잘한 단위까지 그대로 블로그 글이 되어 너무 잘게 쪼개진 포스팅이 쌓였고,
+        # website 레포처럼 PR로 병합되는 워크플로에서는 PR 요약 draft가 이미 그
+        # 작업 전체를 한 번에 설명하므로 개별 커밋 포스팅이 불필요한 중복이었다.
+        # 이제 auto 모드에서는 PR 요약만 포스팅 대상으로 삼는다.
         baekjoon_files = self._save_baekjoon_commits(baekjoon_commits)
-        dev_files = self._save_dev_commits(dev_commits)
+        dev_files = []
 
         slog.json_save_summary("baekjoon", saved=len(baekjoon_files),
                                duplicates=0)
